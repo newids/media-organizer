@@ -7,7 +7,6 @@ mod ui;
 
 use models::AppConfig;
 use ui::SimpleApp;
-// use ui::InteractiveApp;  // TODO: Fix Dioxus 0.4 compatibility issues
 
 fn main() {
     // Initialize logging
