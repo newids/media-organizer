@@ -57,7 +57,7 @@ winapi = { version = "0.3", features = ["winuser", "shellapi"] }
 cocoa = "0.24"
 
 [features]
-default = ["video", "audio", "pdf"]
+default = ["audio", "pdf"]  # Temporarily disable video due to FFmpeg compatibility
 video = ["dep:ffmpeg-next"]
 audio = ["dep:rodio"]
 pdf = ["dep:pdf"]

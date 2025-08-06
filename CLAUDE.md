@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MediaOrganizer is a cross-platform media/file management application built with Dioxus (Rust framework), featuring a VS Code-style interface with comprehensive file preview and management capabilities.
 
-**Current Status**: Planning/Design Phase - Implementation not yet started
+**Current Status**: Early Implementation Phase - Basic structure implemented, building successfully
 
 ## Technical Stack
 
@@ -165,9 +165,13 @@ cargo build --target x86_64-unknown-linux-gnu  # Linux
 ## Critical Implementation Considerations
 
 ### FFmpeg Integration Strategy
-- **Challenge**: Cross-platform FFmpeg distribution
-- **Solution**: Consider `ffmpeg-next` with static linking or provide fallback for basic metadata
-- **Alternative**: Start with image-only support, add video capabilities incrementally
+- **Current Status**: ⚠️ **Video features temporarily disabled** due to FFmpeg compatibility issues
+- **Issue**: `ffmpeg-next` crate v6.1.1 has breaking changes incompatible with current FFmpeg versions
+- **Workaround**: Video features disabled in default build configuration
+- **Future Resolution**: 
+  - Monitor `ffmpeg-next` updates for compatibility fixes
+  - Consider alternative video processing crates
+  - Implement fallback metadata extraction without FFmpeg
 
 ### Microsoft Office File Support
 - **Challenge**: Limited Rust ecosystem support for proprietary formats
