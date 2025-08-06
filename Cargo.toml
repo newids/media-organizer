@@ -1,0 +1,83 @@
+[package]
+name = "media-organizer"
+version = "0.1.0"
+edition = "2021"
+description = "Cross-platform media/file management application with VS Code-style interface"
+license = "MIT"
+repository = "https://github.com/organization/media-organizer"
+authors = ["MediaOrganizer Team"]
+keywords = ["file-manager", "media", "cross-platform", "dioxus", "rust"]
+categories = ["gui", "filesystem"]
+
+[dependencies]
+# UI Framework
+dioxus = "0.4"
+dioxus-desktop = "0.4"
+dioxus-hooks = "0.4"
+
+# Async Runtime
+tokio = { version = "1.0", features = ["full"] }
+futures = "0.3"
+
+# File System Operations
+walkdir = "2.4"
+notify = "6.1"
+dirs = "5.0"
+
+# Media Processing
+image = { version = "0.24", features = ["jpeg", "png", "gif", "webp", "tiff", "bmp"] }
+ffmpeg-next = { version = "6.0", optional = true }
+rodio = { version = "0.17", optional = true }
+
+# PDF Processing (optional)
+pdf = { version = "0.9", optional = true }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+
+# Database
+sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls", "chrono", "uuid"] }
+
+# Utilities
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1.0", features = ["v4", "serde"] }
+thiserror = "1.0"
+anyhow = "1.0"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+async-trait = "0.1"
+
+# Cross-platform
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser", "shellapi"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.24"
+
+[features]
+default = ["video", "audio", "pdf"]
+video = ["dep:ffmpeg-next"]
+audio = ["dep:rodio"]
+pdf = ["dep:pdf"]
+
+[dev-dependencies]
+tempfile = "3.8"
+tokio-test = "0.4"
+
+[[bin]]
+name = "media-organizer"
+path = "src/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+panic = "unwind"
