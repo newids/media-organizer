@@ -165,13 +165,13 @@ cargo build --target x86_64-unknown-linux-gnu  # Linux
 ## Critical Implementation Considerations
 
 ### FFmpeg Integration Strategy
-- **Current Status**: ⚠️ **Video features temporarily disabled** due to FFmpeg compatibility issues
-- **Issue**: `ffmpeg-next` crate v6.1.1 has breaking changes incompatible with current FFmpeg versions
-- **Workaround**: Video features disabled in default build configuration
-- **Future Resolution**: 
-  - Monitor `ffmpeg-next` updates for compatibility fixes
-  - Consider alternative video processing crates
-  - Implement fallback metadata extraction without FFmpeg
+- **Current Status**: ✅ **Video features enabled** with `ffmpeg-next` v7.1.0
+- **Resolution**: Updated to compatible `ffmpeg-next` crate version that works with FFmpeg 7.1.1
+- **Configuration**: Video features included in default build
+- **Compatibility**: 
+  - FFmpeg 7.1.1 (installed via Homebrew)
+  - `ffmpeg-next` crate v7.1.0
+  - macOS with Apple clang 17.0.0
 
 ### Microsoft Office File Support
 - **Challenge**: Limited Rust ecosystem support for proprietary formats
