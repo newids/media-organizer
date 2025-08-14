@@ -6,7 +6,7 @@ mod state;
 mod ui;
 
 use models::AppConfig;
-use ui::SimpleApp;
+use ui::Phase2App;
 
 fn main() {
     // Initialize logging
@@ -19,7 +19,7 @@ fn main() {
 
     // Launch Dioxus desktop application
     dioxus_desktop::launch_cfg(
-        SimpleApp,
+        Phase2App,
         dioxus_desktop::Config::new().with_window(
             dioxus_desktop::WindowBuilder::new()
                 .with_title("MediaOrganizer")

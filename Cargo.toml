@@ -17,6 +17,7 @@ dioxus-hooks = "0.4"
 
 # Async Runtime
 tokio = { version = "1.0", features = ["full"] }
+tokio-util = "0.7"
 futures = "0.3"
 
 # File System Operations
@@ -29,6 +30,12 @@ image = { version = "0.24", features = ["jpeg", "png", "gif", "webp", "tiff", "b
 ffmpeg-next = { version = "7.1", optional = true }
 rodio = { version = "0.17", optional = true }
 
+# Metadata Extraction
+# exif = "0.6" # Not available, using simpler approach
+id3 = "1.13"
+symphonia = { version = "0.5", features = ["all"], optional = true }
+chardet = "0.2"
+
 # PDF Processing (optional)
 pdf = { version = "0.9", optional = true }
 
@@ -36,6 +43,10 @@ pdf = { version = "0.9", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "0.8"
+num_cpus = "1.0"
+
+# File system access for configuration persistence
+# (Using standard library fs module)
 
 # Database
 sqlx = { version = "0.7", features = ["sqlite", "runtime-tokio-rustls", "chrono", "uuid"] }
@@ -48,6 +59,7 @@ anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 async-trait = "0.1"
+rand = "0.8"
 
 # Cross-platform
 [target.'cfg(windows)'.dependencies]
@@ -57,10 +69,11 @@ winapi = { version = "0.3", features = ["winuser", "shellapi"] }
 cocoa = "0.24"
 
 [features]
-default = ["video", "audio", "pdf"]  # Test with updated ffmpeg-next version
+default = ["video", "audio", "pdf", "metadata"]  # Test with updated ffmpeg-next version
 video = ["dep:ffmpeg-next"]
-audio = ["dep:rodio"]
+audio = ["dep:rodio", "dep:symphonia"]
 pdf = ["dep:pdf"]
+metadata = ["dep:symphonia"]
 
 [dev-dependencies]
 tempfile = "3.8"

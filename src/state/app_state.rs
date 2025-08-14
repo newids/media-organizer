@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 use crate::services::{FileSystemService, NativeFileSystemService, FileEntry};
-use crate::state::{NavigationState, SelectionState};
+use crate::state::navigation::{NavigationState, SelectionState};
 use dioxus::prelude::*;
 
 #[derive(Clone)]
