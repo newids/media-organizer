@@ -113,6 +113,19 @@ pub struct FileEntry {
     pub permissions: FilePermissions,
 }
 
+impl PartialEq for FileEntry {
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+            && self.name == other.name
+            && self.file_type == other.file_type
+            && self.size == other.size
+            && self.is_directory == other.is_directory
+            && self.is_hidden == other.is_hidden
+            && self.permissions == other.permissions
+        // Note: We ignore modified and created times for comparison
+    }
+}
+
 impl FileEntry {
     /// Get the file extension, if any
     pub fn extension(&self) -> Option<String> {
@@ -228,7 +241,7 @@ pub enum TextFormat {
     Plain, Markdown, Json, Xml, Html, Css, JavaScript, Rust, Python
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FilePermissions {
     pub readable: bool,
     pub writable: bool,

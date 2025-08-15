@@ -46,8 +46,19 @@ pub struct ToastNotification {
     pub auto_dismiss: bool,
 }
 
+impl PartialEq for ToastNotification {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+            && self.toast_type == other.toast_type
+            && self.title == other.title
+            && self.message == other.message
+            && self.auto_dismiss == other.auto_dismiss
+        // Note: We ignore duration and created_at for comparison
+    }
+}
+
 /// Progress dialog state
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct ProgressDialogState {
     pub visible: bool,
     pub title: String,
@@ -59,7 +70,7 @@ pub struct ProgressDialogState {
 }
 
 /// Operation summary for completed operations
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OperationSummary {
     pub operation_type: String,
     pub total_items: usize,
@@ -72,30 +83,30 @@ pub struct OperationSummary {
 }
 
 /// Props for confirmation dialog
-#[derive(Props)]
-pub struct ConfirmationDialogProps<'a> {
+#[derive(Props, Clone, PartialEq)]
+pub struct ConfirmationDialogProps {
     pub visible: bool,
     pub action: ConfirmationAction,
-    pub on_result: EventHandler<'a, ConfirmationResult>,
+    pub on_result: EventHandler<ConfirmationResult>,
     pub danger_level: ErrorSeverity,
     #[props(default = false)]
     pub show_details: bool,
 }
 
 /// Confirmation dialog component for destructive operations
-pub fn ConfirmationDialog<'a>(cx: Scope<'a, ConfirmationDialogProps<'a>>) -> Element {
-    if !cx.props.visible {
-        return render! { div {} };
+pub fn ConfirmationDialog(props: ConfirmationDialogProps) -> Element {
+    if !props.visible {
+        return rsx! { div {} };
     }
 
-    let title = match &cx.props.action {
+    let title = match &props.action {
         ConfirmationAction::Delete { .. } => "Confirm Delete",
         ConfirmationAction::Overwrite { .. } => "Confirm Overwrite", 
         ConfirmationAction::MoveToTrash { .. } => "Move to Trash",
         ConfirmationAction::BatchOperation { operation_type, .. } => operation_type,
     };
     
-    let message = match &cx.props.action {
+    let message = match &props.action {
         ConfirmationAction::Delete { items, total_size } => {
             let item_text = if items.len() == 1 {
                 format!("\"{}\"", items[0])
@@ -121,39 +132,39 @@ pub fn ConfirmationDialog<'a>(cx: Scope<'a, ConfirmationDialogProps<'a>>) -> Ele
         }
     };
     
-    let button_text = match &cx.props.action {
+    let button_text = match &props.action {
         ConfirmationAction::Delete { .. } => "Delete",
         ConfirmationAction::Overwrite { .. } => "Replace",
         ConfirmationAction::MoveToTrash { .. } => "Move to Trash",
         ConfirmationAction::BatchOperation { .. } => "Continue",
     };
     
-    let icon = match &cx.props.action {
+    let icon = match &props.action {
         ConfirmationAction::Delete { .. } | ConfirmationAction::MoveToTrash { .. } => "🗑️",
         ConfirmationAction::Overwrite { .. } => "⚠️", 
         ConfirmationAction::BatchOperation { .. } => "📦",
     };
 
-    let danger_class = match cx.props.danger_level {
+    let danger_class = match props.danger_level {
         ErrorSeverity::Critical => "confirmation-dialog critical",
         ErrorSeverity::High => "confirmation-dialog high",
         ErrorSeverity::Medium => "confirmation-dialog medium",
         ErrorSeverity::Low => "confirmation-dialog low",
     };
 
-    render! {
+    rsx! {
         div {
             class: "dialog-overlay",
-            onclick: move |_| cx.props.on_result.call(ConfirmationResult::Cancelled),
+            onclick: move |_| props.on_result.call(ConfirmationResult::Cancelled),
             
             div {
-                class: danger_class,
+                class: "{danger_class}",
                 onclick: |evt| evt.stop_propagation(),
                 
                 div {
                     class: "dialog-header",
-                    span { class: "dialog-icon", icon }
-                    h3 { title }
+                    span { class: "dialog-icon", {icon} }
+                    h3 { {title} }
                 }
                 
                 div {
@@ -161,33 +172,27 @@ pub fn ConfirmationDialog<'a>(cx: Scope<'a, ConfirmationDialogProps<'a>>) -> Ele
                     p { 
                         class: "dialog-message",
                         style: "white-space: pre-line;",
-                        message 
+                        {message}
                     }
                     
-                    if cx.props.show_details {
-                        render! {
-                            div {
-                                class: "dialog-details",
-                                match &cx.props.action {
-                                    ConfirmationAction::Delete { items, .. } => {
-                                        let remaining_count = if items.len() > 10 { items.len() - 10 } else { 0 };
-                                        render! {
-                                            div {
-                                                h4 { "Items to delete:" }
-                                                ul {
-                                                    class: "item-list",
-                                                    for item in items.iter().take(10) {
-                                                        li { item.clone() }
-                                                    }
-                                                    li { 
-                                                        class: "more-items",
-                                                        if items.len() > 10 { "... and more items" }
-                                                    }
-                                                }
+                    if props.show_details {
+                        div {
+                            class: "dialog-details",
+                            if let ConfirmationAction::Delete { items, .. } = &props.action {
+                                div {
+                                    h4 { "Items to delete:" }
+                                    ul {
+                                        class: "item-list",
+                                        for item in items.iter().take(10) {
+                                            li { {item.clone()} }
+                                        }
+                                        if items.len() > 10 {
+                                            li { 
+                                                class: "more-items",
+                                                "... and more items"
                                             }
                                         }
-                                    },
-                                    _ => render! { div {} }
+                                    }
                                 }
                             }
                         }
@@ -198,16 +203,16 @@ pub fn ConfirmationDialog<'a>(cx: Scope<'a, ConfirmationDialogProps<'a>>) -> Ele
                     class: "dialog-actions",
                     button {
                         class: "button secondary",
-                        onclick: move |_| cx.props.on_result.call(ConfirmationResult::Cancelled),
+                        onclick: move |_| props.on_result.call(ConfirmationResult::Cancelled),
                         "Cancel"
                     }
                     button {
-                        class: match cx.props.danger_level {
+                        class: match props.danger_level {
                             ErrorSeverity::Critical | ErrorSeverity::High => "button danger",
                             _ => "button primary"
                         },
-                        onclick: move |_| cx.props.on_result.call(ConfirmationResult::Confirmed),
-                        button_text
+                        onclick: move |_| props.on_result.call(ConfirmationResult::Confirmed),
+                        {button_text}
                     }
                 }
             }
@@ -216,19 +221,20 @@ pub fn ConfirmationDialog<'a>(cx: Scope<'a, ConfirmationDialogProps<'a>>) -> Ele
 }
 
 /// Props for progress dialog
-#[derive(Props)]
-pub struct ProgressDialogProps<'a> {
+#[derive(Props, Clone, PartialEq)]
+pub struct ProgressDialogProps {
     pub state: ProgressDialogState,
-    pub on_cancel: Option<EventHandler<'a, ()>>,
+    #[props(optional)]
+    pub on_cancel: Option<EventHandler<()>>,
 }
 
 /// Progress dialog component for long-running operations
-pub fn ProgressDialog<'a>(cx: Scope<'a, ProgressDialogProps<'a>>) -> Element {
-    if !cx.props.state.visible {
-        return render! { div {} };
+pub fn ProgressDialog(props: ProgressDialogProps) -> Element {
+    if !props.state.visible {
+        return rsx! { div {} };
     }
 
-    let progress = &cx.props.state.progress;
+    let progress = &props.state.progress;
     let percentage = if progress.total > 0 {
         (progress.current as f64 / progress.total as f64 * 100.0).min(100.0)
     } else {
@@ -247,7 +253,7 @@ pub fn ProgressDialog<'a>(cx: Scope<'a, ProgressDialogProps<'a>>) -> Element {
         String::new()
     };
 
-    render! {
+    rsx! {
         div {
             class: "dialog-overlay progress-overlay",
             
@@ -258,14 +264,14 @@ pub fn ProgressDialog<'a>(cx: Scope<'a, ProgressDialogProps<'a>>) -> Element {
                 div {
                     class: "dialog-header",
                     span { class: "dialog-icon", "⚙️" }
-                    h3 { cx.props.state.title.clone() }
+                    h3 { {props.state.title.clone()} }
                 }
                 
                 div {
                     class: "dialog-content",
                     p { 
                         class: "operation-description",
-                        cx.props.state.operation.clone() 
+                        {props.state.operation.clone()}
                     }
                     
                     div {
@@ -292,24 +298,20 @@ pub fn ProgressDialog<'a>(cx: Scope<'a, ProgressDialogProps<'a>>) -> Element {
                         }
                     }
                     
-                    if cx.props.state.error_count > 0 {
-                        render! {
-                            div {
-                                class: "progress-errors",
-                                { format!("⚠️ {} errors encountered", cx.props.state.error_count) }
-                            }
+                    if props.state.error_count > 0 {
+                        div {
+                            class: "progress-errors",
+                            {format!("⚠️ {} errors encountered", props.state.error_count)}
                         }
                     }
                     
-                    if !cx.props.state.details.is_empty() {
-                        render! {
-                            div {
-                                class: "progress-details",
-                                h4 { "Details:" }
-                                ul {
-                                    for detail in cx.props.state.details.iter().rev().take(5) {
-                                        li { detail.clone() }
-                                    }
+                    if !props.state.details.is_empty() {
+                        div {
+                            class: "progress-details",
+                            h4 { "Details:" }
+                            ul {
+                                for detail in props.state.details.iter().rev().take(5) {
+                                    li { {detail.clone()} }
                                 }
                             }
                         }
@@ -318,20 +320,16 @@ pub fn ProgressDialog<'a>(cx: Scope<'a, ProgressDialogProps<'a>>) -> Element {
                 
                 div {
                     class: "dialog-actions",
-                    if cx.props.state.cancellable {
-                        render! {
-                            button {
-                                class: "button secondary",
-                                onclick: move |_| {
-                                    if let Some(handler) = &cx.props.on_cancel {
-                                        handler.call(());
-                                    }
-                                },
-                                "Cancel"
-                            }
+                    if props.state.cancellable {
+                        button {
+                            class: "button secondary",
+                            onclick: move |_| {
+                                if let Some(handler) = &props.on_cancel {
+                                    handler.call(());
+                                }
+                            },
+                            "Cancel"
                         }
-                    } else {
-                        render! { div {} }
                     }
                 }
             }
@@ -340,21 +338,21 @@ pub fn ProgressDialog<'a>(cx: Scope<'a, ProgressDialogProps<'a>>) -> Element {
 }
 
 /// Props for toast container
-#[derive(Props)]
-pub struct ToastContainerProps<'a> {
+#[derive(Props, Clone, PartialEq)]
+pub struct ToastContainerProps {
     pub toasts: Vec<ToastNotification>,
-    pub on_dismiss: EventHandler<'a, String>,
+    pub on_dismiss: EventHandler<String>,
 }
 
 /// Toast notification container
-pub fn ToastContainer<'a>(cx: Scope<'a, ToastContainerProps<'a>>) -> Element {
-    render! {
+pub fn ToastContainer(props: ToastContainerProps) -> Element {
+    rsx! {
         div {
             class: "toast-container",
-            for toast in &cx.props.toasts {
+            for toast in &props.toasts {
                 ToastNotificationComponent {
                     toast: toast.clone(),
-                    on_dismiss: |id| cx.props.on_dismiss.call(id)
+                    on_dismiss: move |id| props.on_dismiss.call(id)
                 }
             }
         }
@@ -362,15 +360,15 @@ pub fn ToastContainer<'a>(cx: Scope<'a, ToastContainerProps<'a>>) -> Element {
 }
 
 /// Props for individual toast notification
-#[derive(Props)]
-pub struct ToastNotificationComponentProps<'a> {
+#[derive(Props, Clone, PartialEq)]
+pub struct ToastNotificationComponentProps {
     pub toast: ToastNotification,
-    pub on_dismiss: EventHandler<'a, String>,
+    pub on_dismiss: EventHandler<String>,
 }
 
 /// Individual toast notification component
-pub fn ToastNotificationComponent<'a>(cx: Scope<'a, ToastNotificationComponentProps<'a>>) -> Element {
-    let toast = &cx.props.toast;
+pub fn ToastNotificationComponent(props: ToastNotificationComponentProps) -> Element {
+    let toast = props.toast.clone();
     let toast_class = match toast.toast_type {
         ToastType::Success => "toast success",
         ToastType::Error => "toast error",
@@ -385,23 +383,23 @@ pub fn ToastNotificationComponent<'a>(cx: Scope<'a, ToastNotificationComponentPr
         ToastType::Info => "ℹ️",
     };
 
-    render! {
+    rsx! {
         div {
-            class: toast_class,
+            class: "{toast_class}",
             
             div {
                 class: "toast-content",
-                span { class: "toast-icon", icon }
+                span { class: "toast-icon", {icon} }
                 div {
                     class: "toast-text",
-                    div { class: "toast-title", toast.title.clone() }
-                    div { class: "toast-message", toast.message.clone() }
+                    div { class: "toast-title", {toast.title.clone()} }
+                    div { class: "toast-message", {toast.message.clone()} }
                 }
             }
             
             button {
                 class: "toast-dismiss",
-                onclick: move |_| cx.props.on_dismiss.call(toast.id.clone()),
+                onclick: move |_| props.on_dismiss.call(toast.id.clone()),
                 "×"
             }
         }
@@ -409,20 +407,20 @@ pub fn ToastNotificationComponent<'a>(cx: Scope<'a, ToastNotificationComponentPr
 }
 
 /// Props for operation summary dialog
-#[derive(Props)]
-pub struct OperationSummaryDialogProps<'a> {
+#[derive(Props, Clone, PartialEq)]
+pub struct OperationSummaryDialogProps {
     pub visible: bool,
     pub summary: Option<OperationSummary>,
-    pub on_close: EventHandler<'a, ()>,
+    pub on_close: EventHandler<()>,
 }
 
 /// Operation summary dialog for completed operations
-pub fn OperationSummaryDialog<'a>(cx: Scope<'a, OperationSummaryDialogProps<'a>>) -> Element {
-    if !cx.props.visible || cx.props.summary.is_none() {
-        return render! { div {} };
+pub fn OperationSummaryDialog(props: OperationSummaryDialogProps) -> Element {
+    if !props.visible || props.summary.is_none() {
+        return rsx! { div {} };
     }
 
-    let summary = cx.props.summary.as_ref().unwrap();
+    let summary = props.summary.as_ref().unwrap();
     let success_rate = if summary.total_items > 0 {
         (summary.successful_items as f64 / summary.total_items as f64 * 100.0)
     } else {
@@ -437,10 +435,10 @@ pub fn OperationSummaryDialog<'a>(cx: Scope<'a, OperationSummaryDialogProps<'a>>
         "⚠️"
     };
 
-    render! {
+    rsx! {
         div {
             class: "dialog-overlay",
-            onclick: move |_| cx.props.on_close.call(()),
+            onclick: move |_| props.on_close.call(()),
             
             div {
                 class: "operation-summary-dialog",
@@ -448,8 +446,8 @@ pub fn OperationSummaryDialog<'a>(cx: Scope<'a, OperationSummaryDialogProps<'a>>
                 
                 div {
                     class: "dialog-header",
-                    span { class: "dialog-icon", status_icon }
-                    h3 { format!("{} Complete", summary.operation_type) }
+                    span { class: "dialog-icon", {status_icon} }
+                    h3 { {format!("{} Complete", summary.operation_type)} }
                 }
                 
                 div {
@@ -458,47 +456,44 @@ pub fn OperationSummaryDialog<'a>(cx: Scope<'a, OperationSummaryDialogProps<'a>>
                         class: "summary-stats",
                         div { class: "stat", 
                             span { class: "stat-label", "Total Items:" }
-                            span { class: "stat-value", format!("{}", summary.total_items) }
+                            span { class: "stat-value", {format!("{}", summary.total_items)} }
                         }
                         div { class: "stat", 
                             span { class: "stat-label", "Successful:" }
-                            span { class: "stat-value success", format!("{}", summary.successful_items) }
+                            span { class: "stat-value success", {format!("{}", summary.successful_items)} }
                         }
                         if summary.failed_items > 0 {
-                            render! {
-                                div { class: "stat", 
-                                    span { class: "stat-label", "Failed:" }
-                                    span { class: "stat-value error", format!("{}", summary.failed_items) }
-                                }
+                            div { class: "stat", 
+                                span { class: "stat-label", "Failed:" }
+                                span { class: "stat-value error", {format!("{}", summary.failed_items)} }
                             }
                         }
                         div { class: "stat", 
                             span { class: "stat-label", "Success Rate:" }
-                            span { class: "stat-value", format!("{:.1}%", success_rate) }
+                            span { class: "stat-value", {format!("{:.1}%", success_rate)} }
                         }
                         div { class: "stat", 
                             span { class: "stat-label", "Duration:" }
-                            span { class: "stat-value", format_duration(summary.duration) }
+                            span { class: "stat-value", {format_duration(summary.duration)} }
                         }
                     }
                     
                     if !summary.errors.is_empty() {
-                        let remaining_errors = if summary.errors.len() > 10 { summary.errors.len() - 10 } else { 0 };
-                        render! {
-                            div {
-                                class: "summary-section",
-                                h4 { "Errors:" }
-                                ul {
-                                    class: "error-list",
-                                    for (item, error) in summary.errors.iter().take(10) {
-                                        li { 
-                                            span { class: "error-item", item.clone() }
-                                            span { class: "error-message", error.clone() }
-                                        }
+                        div {
+                            class: "summary-section",
+                            h4 { "Errors:" }
+                            ul {
+                                class: "error-list",
+                                for (item, error) in summary.errors.iter().take(10) {
+                                    li { 
+                                        span { class: "error-item", {item.clone()} }
+                                        span { class: "error-message", {error.clone()} }
                                     }
+                                }
+                                if summary.errors.len() > 10 {
                                     li { 
                                         class: "more-items",
-                                        if summary.errors.len() > 10 { "... and more errors" }
+                                        "... and more errors"
                                     }
                                 }
                             }
@@ -506,17 +501,15 @@ pub fn OperationSummaryDialog<'a>(cx: Scope<'a, OperationSummaryDialogProps<'a>>
                     }
                     
                     if !summary.warnings.is_empty() {
-                        render! {
-                            div {
-                                class: "summary-section",
-                                h4 { "Warnings:" }
-                                ul {
-                                    class: "warning-list",
-                                    for (item, warning) in summary.warnings.iter().take(5) {
-                                        li { 
-                                            span { class: "warning-item", item.clone() }
-                                            span { class: "warning-message", warning.clone() }
-                                        }
+                        div {
+                            class: "summary-section",
+                            h4 { "Warnings:" }
+                            ul {
+                                class: "warning-list",
+                                for (item, warning) in summary.warnings.iter().take(5) {
+                                    li { 
+                                        span { class: "warning-item", {item.clone()} }
+                                        span { class: "warning-message", {warning.clone()} }
                                     }
                                 }
                             }
@@ -524,17 +517,15 @@ pub fn OperationSummaryDialog<'a>(cx: Scope<'a, OperationSummaryDialogProps<'a>>
                     }
                     
                     if !summary.recovery_suggestions.is_empty() {
-                        render! {
-                            div {
-                                class: "summary-section",
-                                h4 { "Suggestions:" }
-                                ul {
-                                    class: "suggestion-list",
-                                    for suggestion in &summary.recovery_suggestions {
-                                        li { 
-                                            div { class: "suggestion-title", suggestion.description.clone() }
-                                            div { class: "suggestion-text", suggestion.suggestion.clone() }
-                                        }
+                        div {
+                            class: "summary-section",
+                            h4 { "Suggestions:" }
+                            ul {
+                                class: "suggestion-list",
+                                for suggestion in &summary.recovery_suggestions {
+                                    li { 
+                                        div { class: "suggestion-title", {suggestion.description.clone()} }
+                                        div { class: "suggestion-text", {suggestion.suggestion.clone()} }
                                     }
                                 }
                             }
@@ -546,7 +537,7 @@ pub fn OperationSummaryDialog<'a>(cx: Scope<'a, OperationSummaryDialogProps<'a>>
                     class: "dialog-actions",
                     button {
                         class: "button primary",
-                        onclick: move |_| cx.props.on_close.call(()),
+                        onclick: move |_| props.on_close.call(()),
                         "Close"
                     }
                 }

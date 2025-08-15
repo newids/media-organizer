@@ -7,18 +7,20 @@ use std::time::Instant;
 
 /// Virtual file tree component that efficiently renders large file lists
 /// Handles 10,000+ files with constant memory usage through virtual scrolling
-#[derive(Props)]
-pub struct VirtualFileTreeProps<'a> {
+#[derive(Props, Clone, PartialEq)]
+pub struct VirtualFileTreeProps {
     /// List of files/folders to display
-    pub items: &'a Vec<FileEntry>,
+    pub items: Vec<FileEntry>,
     /// Height of the container in pixels
     pub container_height: f64,
     /// Height of each item in pixels
     pub item_height: f64,
     /// Optional callback when item is clicked
-    pub on_item_click: Option<EventHandler<'a, FileEntry>>,
+    #[props(optional)]
+    pub on_item_click: Option<EventHandler<FileEntry>>,
     /// Optional callback when item is double-clicked
-    pub on_item_double_click: Option<EventHandler<'a, FileEntry>>,
+    #[props(optional)]
+    pub on_item_double_click: Option<EventHandler<FileEntry>>,
 }
 
 /// Tree item structure for hierarchical display
@@ -135,125 +137,126 @@ impl CalculationCache {
 }
 
 /// Virtual file tree component implementation - With hierarchical folder support
-pub fn VirtualFileTree<'a>(cx: Scope<'a, VirtualFileTreeProps<'a>>) -> Element {
+pub fn VirtualFileTree(props: VirtualFileTreeProps) -> Element {
     // Scroll position state
-    let scroll_top = use_state(cx, || 0.0f64);
+    let mut scroll_top = use_signal(|| 0.0f64);
     
     // Folder expansion state tracking
-    let expanded_folders = use_state(cx, || HashMap::<PathBuf, bool>::new());
+    let mut expanded_folders = use_signal(|| HashMap::<PathBuf, bool>::new());
     
     // Transform flat file list into hierarchical tree structure
-    let tree_items = use_state(cx, || Vec::<FileTreeItem>::new());
+    let mut tree_items = use_signal(|| Vec::<FileTreeItem>::new());
     
     // File selection state management
-    let selected_items = use_state(cx, || HashSet::<PathBuf>::new());
-    let last_selected_item = use_state(cx, || Option::<PathBuf>::None);
+    let mut selected_items = use_signal(|| HashSet::<PathBuf>::new());
+    let mut last_selected_item = use_signal(|| Option::<PathBuf>::None);
     
     // Keyboard focus and navigation state
-    let focused_item = use_state(cx, || Option::<PathBuf>::None);
-    let container_focused = use_state(cx, || false);
+    let mut focused_item = use_signal(|| Option::<PathBuf>::None);
+    let mut container_focused = use_signal(|| false);
     
     // Performance monitoring and metrics
-    let performance_metrics = use_state(cx, || VirtualTreeMetrics::new());
-    let calculation_cache = use_state(cx, || CalculationCache::new());
+    let mut performance_metrics = use_signal(|| VirtualTreeMetrics::new());
+    let mut calculation_cache = use_signal(|| CalculationCache::new());
     
     // Memoized tree building with performance optimization
-    use_effect(cx, &(cx.props.items.len(), expanded_folders.get().len()), {
+    use_effect(move || {
         let tree = tree_items.clone();
         let expanded = expanded_folders.clone();
-        let files = cx.props.items.clone();
+        let files = props.items.clone();
         let metrics = performance_metrics.clone();
-        |(_count, _)| async move {
-            let start_time = Instant::now();
+        
+        let start_time = Instant::now();
+        
+        // Check if we can use cached result
+        let should_rebuild = files.len() != tree.read().len() || 
+                            expanded.read().len() != tree.read().iter()
+                                .filter(|item| item.is_expanded)
+                                .count();
+        
+        if should_rebuild {
+            tracing::debug!("Rebuilding tree structure for {} files", files.len());
+            let items = build_hierarchical_tree_optimized(&files, &expanded.read());
+            tree.set(items);
             
-            // Check if we can use cached result
-            let should_rebuild = files.len() != tree.get().len() || 
-                                expanded.get().len() != tree.get().iter()
-                                    .filter(|item| item.is_expanded)
-                                    .count();
-            
-            if should_rebuild {
-                tracing::debug!("Rebuilding tree structure for {} files", files.len());
-                let items = build_hierarchical_tree_optimized(&files, expanded.get());
-                tree.set(items);
-                
-                let elapsed = start_time.elapsed().as_millis() as f64;
-                tracing::debug!("Tree rebuild completed in {:.2}ms", elapsed);
-            } else {
-                tracing::debug!("Using cached tree structure");
-            }
+            let elapsed = start_time.elapsed().as_millis() as f64;
+            tracing::debug!("Tree rebuild completed in {:.2}ms", elapsed);
+        } else {
+            tracing::debug!("Using cached tree structure");
         }
     });
     
     // Virtual scroll calculator with dynamic buffer sizing based on performance
-    let calculator = use_state(cx, || {
-        let buffer_size = calculate_optimal_buffer_size(tree_items.get().len(), cx.props.container_height, cx.props.item_height);
+    let mut calculator = use_signal(|| {
+        let buffer_size = calculate_optimal_buffer_size(tree_items.read().len(), props.container_height, props.item_height);
         VirtualScrollCalculator::new(
-            cx.props.item_height,
-            cx.props.container_height,
+            props.item_height,
+            props.container_height,
             buffer_size,
-            tree_items.get().len(),
+            tree_items.read().len(),
         )
     });
     
     // Update calculator when tree structure changes
-    use_effect(cx, &(tree_items.get().len(), cx.props.container_height, cx.props.item_height), {
+    use_effect(move || {
         let calc = calculator.clone();
-        |(item_count, height, item_height)| async move {
-            let mut new_calc = calc.get().clone();
-            new_calc.update_total_items(item_count);
-            new_calc.update_container_height(height);
-            new_calc.update_item_height(item_height);
-            calc.set(new_calc);
-        }
+        let item_count = tree_items.read().len();
+        let height = props.container_height;
+        let item_height = props.item_height;
+        
+        let mut new_calc = calc.read().clone();
+        new_calc.update_total_items(item_count);
+        new_calc.update_container_height(height);
+        new_calc.update_item_height(item_height);
+        calc.set(new_calc);
     });
     
     // Calculate visible range based on tree structure
-    let visible_range = calculator.get().calculate_visible_range(*scroll_top.get());
+    let visible_range = calculator.read().calculate_visible_range(*scroll_top.read());
     
     // Get visible tree items with caching, performance monitoring, and memory cleanup
     let visible_items = {
         let render_start = Instant::now();
-        let mut cache = calculation_cache.get().clone();
+        let mut cache = calculation_cache.read().clone();
         
         // Perform cache cleanup if needed to prevent memory leaks
         cache.cleanup_if_needed();
         
-        let items = get_visible_tree_items_cached(tree_items.get(), &visible_range, &mut cache);
+        let items = get_visible_tree_items_cached(&tree_items.read(), &visible_range, &mut cache);
         calculation_cache.set(cache);
         
         // Update performance metrics
         let render_time = render_start.elapsed().as_millis() as f64;
-        let mut metrics = performance_metrics.get().clone();
-        metrics.update(tree_items.get().len(), items.len(), render_time);
+        let mut metrics = performance_metrics.read().clone();
+        metrics.update(tree_items.read().len(), items.len(), render_time);
         performance_metrics.set(metrics);
         
         // Log performance metrics periodically
         if render_time > 16.0 { // More than one frame at 60fps
             tracing::warn!("Slow render detected: {:.2}ms for {} visible items (total: {})", 
-                          render_time, items.len(), tree_items.get().len());
+                          render_time, items.len(), tree_items.read().len());
         }
         
         items
     };
     
-    render! {
+    rsx! {
         div {
             class: "virtual-file-tree",
-            style: "height: {cx.props.container_height}px; overflow-y: auto; position: relative;",
+            style: format!("height: {}px; overflow-y: auto; position: relative;", props.container_height),
             tabindex: "0", // Make container focusable for keyboard events
             onfocus: move |_| {
                 container_focused.set(true);
                 // Set focus to first item if none focused
-                if focused_item.get().is_none() && !tree_items.get().is_empty() {
-                    focused_item.set(Some(tree_items.get()[0].entry.path.clone()));
+                if focused_item.read().is_none() && !tree_items.read().is_empty() {
+                    focused_item.set(Some(tree_items.read()[0].entry.path.clone()));
                 }
             },
             onblur: move |_| {
                 container_focused.set(false);
             },
             onkeydown: move |evt| {
-                if !container_focused.get() {
+                if !*container_focused.read() {
                     return;
                 }
                 
@@ -263,14 +266,14 @@ pub fn VirtualFileTree<'a>(cx: Scope<'a, VirtualFileTreeProps<'a>>) -> Element {
                     &key_str,
                     evt.data.modifiers().ctrl(),
                     evt.data.modifiers().shift(),
-                    &focused_item,
-                    &selected_items,
-                    &last_selected_item,
-                    &expanded_folders,
+                    &mut focused_item,
+                    &mut selected_items,
+                    &mut last_selected_item,
+                    &mut expanded_folders,
                     &tree_items,
                     &calculator,
-                    &scroll_top,
-                    cx.props.container_height,
+                    &mut scroll_top,
+                    props.container_height,
                 );
             },
             onscroll: move |_evt| {
@@ -282,62 +285,62 @@ pub fn VirtualFileTree<'a>(cx: Scope<'a, VirtualFileTreeProps<'a>>) -> Element {
             // Virtual container that maintains proper scrollbar height
             div {
                 class: "virtual-container",
-                style: "height: {calculator.get().calculate_total_height()}px; position: relative;",
+                style: format!("height: {}px; position: relative;", calculator.read().calculate_total_height()),
                 
                 // Render hierarchical tree items with expansion/collapse
                 for (index, tree_item) in visible_items.iter().enumerate() {
                     div {
                         key: "{tree_item.entry.path.to_string_lossy()}-{index}",
-                        class: if selected_items.get().contains(&tree_item.entry.path) && focused_item.get().as_ref() == Some(&tree_item.entry.path) {
+                        class: if selected_items.read().contains(&tree_item.entry.path) && focused_item.read().as_ref() == Some(&tree_item.entry.path) {
                             "file-tree-item selected focused"
-                        } else if selected_items.get().contains(&tree_item.entry.path) {
+                        } else if selected_items.read().contains(&tree_item.entry.path) {
                             "file-tree-item selected"
-                        } else if focused_item.get().as_ref() == Some(&tree_item.entry.path) {
+                        } else if focused_item.read().as_ref() == Some(&tree_item.entry.path) {
                             "file-tree-item focused"
                         } else {
                             "file-tree-item"
                         },
-                        style: "
+                        style: format!("
                             position: absolute;
-                            top: {(visible_range.start_index + index) as f64 * cx.props.item_height}px;
+                            top: {}px;
                             left: 0;
                             right: 0;
-                            height: {cx.props.item_height}px;
+                            height: {}px;
                             display: flex;
                             align-items: center;
                             padding: 0 8px;
                             cursor: pointer;
                             user-select: none;
-                            padding-left: {8 + tree_item.depth * 16}px;
-                        ",
+                            padding-left: {}px;
+                        ", (visible_range.start_index + index) as f64 * props.item_height, props.item_height, 8 + tree_item.depth * 16),
                         onclick: {
                             let entry = tree_item.entry.clone();
                             let expanded = expanded_folders.clone();
                             let selected = selected_items.clone();
                             let last_selected = last_selected_item.clone();
                             let path = tree_item.entry.path.clone();
-                            let visible_tree_items = tree_items.get().clone();
-                            move |evt| {
+                            let visible_tree_items = tree_items.read().clone();
+                            move |evt: MouseEvent| {
                                 // Handle file selection based on modifier keys
                                 handle_item_selection(
                                     &path,
                                     evt.data.modifiers().ctrl(),
                                     evt.data.modifiers().shift(),
-                                    &selected,
-                                    &last_selected,
+                                    &mut selected.clone(),
+                                    &mut last_selected.clone(),
                                     &visible_tree_items,
                                 );
                                 
                                 // Handle folder expansion/collapse for directories (only on single-click without modifiers)
                                 if entry.is_directory && !evt.data.modifiers().ctrl() && !evt.data.modifiers().shift() {
-                                    let mut current_state = expanded.get().clone();
+                                    let mut current_state = expanded.read().clone();
                                     let current_expanded = current_state.get(&path).copied().unwrap_or(false);
                                     current_state.insert(path.clone(), !current_expanded);
                                     expanded.set(current_state);
                                 }
                                 
                                 // Also call the provided handler
-                                if let Some(handler) = &cx.props.on_item_click {
+                                if let Some(handler) = &props.on_item_click {
                                     handler.call(entry.clone());
                                 }
                             }
@@ -345,7 +348,7 @@ pub fn VirtualFileTree<'a>(cx: Scope<'a, VirtualFileTreeProps<'a>>) -> Element {
                         ondoubleclick: {
                             let entry = tree_item.entry.clone();
                             move |_| {
-                                if let Some(handler) = &cx.props.on_item_double_click {
+                                if let Some(handler) = &props.on_item_double_click {
                                     handler.call(entry.clone());
                                 }
                             }
@@ -625,11 +628,11 @@ fn handle_item_selection(
     clicked_path: &PathBuf,
     ctrl_pressed: bool,
     shift_pressed: bool,
-    selected_items: &dioxus::hooks::UseState<HashSet<PathBuf>>,
-    last_selected_item: &dioxus::hooks::UseState<Option<PathBuf>>,
+    selected_items: &mut Signal<HashSet<PathBuf>>,
+    last_selected_item: &mut Signal<Option<PathBuf>>,
     visible_tree_items: &[FileTreeItem],
 ) {
-    let mut current_selection = selected_items.get().clone();
+    let mut current_selection = selected_items.read().clone();
     
     if ctrl_pressed {
         // Ctrl+click: Toggle selection of clicked item
@@ -641,7 +644,7 @@ fn handle_item_selection(
         last_selected_item.set(Some(clicked_path.clone()));
     } else if shift_pressed {
         // Shift+click: Range selection from last selected to current
-        if let Some(last_path) = last_selected_item.get().as_ref() {
+        if let Some(last_path) = last_selected_item.read().as_ref() {
             // Find indices of last selected and current item
             let last_idx = visible_tree_items.iter().position(|item| &item.entry.path == last_path);
             let current_idx = visible_tree_items.iter().position(|item| &item.entry.path == clicked_path);
@@ -680,22 +683,22 @@ fn handle_keyboard_navigation(
     key: &str,
     ctrl_pressed: bool,
     shift_pressed: bool,
-    focused_item: &dioxus::hooks::UseState<Option<PathBuf>>,
-    selected_items: &dioxus::hooks::UseState<HashSet<PathBuf>>,
-    last_selected_item: &dioxus::hooks::UseState<Option<PathBuf>>,
-    expanded_folders: &dioxus::hooks::UseState<HashMap<PathBuf, bool>>,
-    tree_items: &dioxus::hooks::UseState<Vec<FileTreeItem>>,
-    calculator: &dioxus::hooks::UseState<VirtualScrollCalculator>,
-    scroll_top: &dioxus::hooks::UseState<f64>,
+    focused_item: &mut Signal<Option<PathBuf>>,
+    selected_items: &mut Signal<HashSet<PathBuf>>,
+    last_selected_item: &mut Signal<Option<PathBuf>>,
+    expanded_folders: &mut Signal<HashMap<PathBuf, bool>>,
+    tree_items: &Signal<Vec<FileTreeItem>>,
+    calculator: &Signal<VirtualScrollCalculator>,
+    scroll_top: &mut Signal<f64>,
     container_height: f64,
 ) {
-    let current_items = tree_items.get();
+    let current_items = tree_items.read();
     if current_items.is_empty() {
         return;
     }
 
     // Get current focused index
-    let current_focused_index = match focused_item.get().as_ref() {
+    let current_focused_index = match focused_item.read().as_ref() {
         Some(path) => current_items.iter().position(|item| &item.entry.path == path).unwrap_or(0),
         None => 0,
     };
@@ -710,7 +713,7 @@ fn handle_keyboard_navigation(
             // Handle selection based on modifiers
             if shift_pressed {
                 // Range selection
-                handle_range_selection(current_focused_index, next_index, &current_items, selected_items);
+                handle_range_selection(current_focused_index, next_index, &current_items, &mut *selected_items);
             } else if !ctrl_pressed {
                 // Single selection (clear and select new item)
                 let mut new_selection = HashSet::new();
@@ -720,7 +723,7 @@ fn handle_keyboard_navigation(
             }
             
             // Auto-scroll to ensure focused item is visible
-            ensure_item_visible(next_index, calculator, scroll_top, container_height);
+            ensure_item_visible(next_index, calculator, &mut *scroll_top, container_height);
         },
         "ArrowUp" => {
             // Navigate to previous item
@@ -731,7 +734,7 @@ fn handle_keyboard_navigation(
             // Handle selection based on modifiers
             if shift_pressed {
                 // Range selection
-                handle_range_selection(current_focused_index, prev_index, &current_items, selected_items);
+                handle_range_selection(current_focused_index, prev_index, &current_items, &mut *selected_items);
             } else if !ctrl_pressed {
                 // Single selection (clear and select new item)
                 let mut new_selection = HashSet::new();
@@ -741,14 +744,14 @@ fn handle_keyboard_navigation(
             }
             
             // Auto-scroll to ensure focused item is visible
-            ensure_item_visible(prev_index, calculator, scroll_top, container_height);
+            ensure_item_visible(prev_index, calculator, &mut *scroll_top, container_height);
         },
         "ArrowRight" => {
             // Expand folder if it's collapsed, or navigate to first child
-            if let Some(focused_path) = focused_item.get().as_ref() {
+            if let Some(focused_path) = focused_item.read().as_ref() {
                 if let Some(item) = current_items.iter().find(|item| &item.entry.path == focused_path) {
                     if item.entry.is_directory {
-                        let mut current_state = expanded_folders.get().clone();
+                        let mut current_state = expanded_folders.read().clone();
                         current_state.insert(focused_path.clone(), true);
                         expanded_folders.set(current_state);
                     }
@@ -757,13 +760,13 @@ fn handle_keyboard_navigation(
         },
         "ArrowLeft" => {
             // Collapse folder if it's expanded, or navigate to parent
-            if let Some(focused_path) = focused_item.get().as_ref() {
+            if let Some(focused_path) = focused_item.read().as_ref() {
                 if let Some(item) = current_items.iter().find(|item| &item.entry.path == focused_path) {
                     if item.entry.is_directory {
-                        let current_expanded = expanded_folders.get().get(focused_path).copied().unwrap_or(false);
+                        let current_expanded = expanded_folders.read().get(focused_path).copied().unwrap_or(false);
                         if current_expanded {
                             // Collapse the folder
-                            let mut current_state = expanded_folders.get().clone();
+                            let mut current_state = expanded_folders.read().clone();
                             current_state.insert(focused_path.clone(), false);
                             expanded_folders.set(current_state);
                         }
@@ -773,11 +776,11 @@ fn handle_keyboard_navigation(
         },
         "Enter" => {
             // Expand/collapse folders or open files
-            if let Some(focused_path) = focused_item.get().as_ref() {
+            if let Some(focused_path) = focused_item.read().as_ref() {
                 if let Some(item) = current_items.iter().find(|item| &item.entry.path == focused_path) {
                     if item.entry.is_directory {
                         // Toggle folder expansion
-                        let mut current_state = expanded_folders.get().clone();
+                        let mut current_state = expanded_folders.read().clone();
                         let current_expanded = current_state.get(focused_path).copied().unwrap_or(false);
                         current_state.insert(focused_path.clone(), !current_expanded);
                         expanded_folders.set(current_state);
@@ -790,8 +793,8 @@ fn handle_keyboard_navigation(
         },
         " " => {
             // Space key: Toggle selection of focused item
-            if let Some(focused_path) = focused_item.get().as_ref() {
-                let mut current_selection = selected_items.get().clone();
+            if let Some(focused_path) = focused_item.read().as_ref() {
+                let mut current_selection = selected_items.read().clone();
                 if current_selection.contains(focused_path) {
                     current_selection.remove(focused_path);
                 } else {
@@ -816,7 +819,7 @@ fn handle_keyboard_navigation(
                 }
                 
                 // Scroll to top
-                ensure_item_visible(0, calculator, scroll_top, container_height);
+                ensure_item_visible(0, calculator, &mut *scroll_top, container_height);
             }
         },
         "End" => {
@@ -835,7 +838,7 @@ fn handle_keyboard_navigation(
                 }
                 
                 // Scroll to bottom
-                ensure_item_visible(last_index, calculator, scroll_top, container_height);
+                ensure_item_visible(last_index, calculator, &mut *scroll_top, container_height);
             }
         },
         key if key.contains("A") && ctrl_pressed => {
@@ -844,7 +847,7 @@ fn handle_keyboard_navigation(
                 .map(|item| item.entry.path.clone())
                 .collect();
             selected_items.set(all_paths);
-            if let Some(focused_path) = focused_item.get().as_ref() {
+            if let Some(focused_path) = focused_item.read().as_ref() {
                 last_selected_item.set(Some(focused_path.clone()));
             }
         },
@@ -864,9 +867,9 @@ fn handle_range_selection(
     from_index: usize,
     to_index: usize,
     tree_items: &[FileTreeItem],
-    selected_items: &dioxus::hooks::UseState<HashSet<PathBuf>>,
+    selected_items: &mut Signal<HashSet<PathBuf>>,
 ) {
-    let mut current_selection = selected_items.get().clone();
+    let mut current_selection = selected_items.read().clone();
     let start_idx = from_index.min(to_index);
     let end_idx = from_index.max(to_index);
     
@@ -882,13 +885,13 @@ fn handle_range_selection(
 /// Ensure the specified item index is visible in the viewport
 fn ensure_item_visible(
     item_index: usize,
-    calculator: &dioxus::hooks::UseState<VirtualScrollCalculator>,
-    scroll_top: &dioxus::hooks::UseState<f64>,
+    calculator: &Signal<VirtualScrollCalculator>,
+    scroll_top: &mut Signal<f64>,
     container_height: f64,
 ) {
-    let calc = calculator.get();
+    let calc = calculator.read();
     let item_offset = calc.get_item_offset(item_index);
-    let current_scroll = *scroll_top.get();
+    let current_scroll = *scroll_top.read();
     
     // Check if item is already visible
     if item_offset >= current_scroll && item_offset + calc.item_height <= current_scroll + container_height {

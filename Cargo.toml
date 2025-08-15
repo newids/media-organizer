@@ -11,9 +11,8 @@ categories = ["gui", "filesystem"]
 
 [dependencies]
 # UI Framework
-dioxus = "0.4"
-dioxus-desktop = "0.4"
-dioxus-hooks = "0.4"
+dioxus = { version = "0.6.3", features = ["desktop"] }
+dioxus-desktop = "0.6.3"
 
 # Async Runtime
 tokio = { version = "1.0", features = ["full"] }

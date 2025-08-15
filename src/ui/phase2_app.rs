@@ -1,32 +1,33 @@
 use dioxus::prelude::*;
 use crate::state::{save_panel_state_debounced, load_panel_state};
 use crate::services::file_system::{FileEntry, NativeFileSystemService, FileSystemService};
-use crate::ui::components::{VirtualFileTree};
+// use crate::ui::components::{VirtualFileTree};
 
-pub fn Phase2App(cx: Scope) -> Element {
+pub fn Phase2App() -> Element {
     // Initialize panel width from saved state or default
-    let panel_width = use_state(cx, || {
+    let mut panel_width = use_signal(|| {
         let saved_state = load_panel_state();
         saved_state.panel_width
     });
-    let is_dragging = use_state(cx, || false);
-    let drag_start_x = use_state(cx, || 0.0f64);
-    let drag_start_width = use_state(cx, || 300.0f64);
+    let mut is_dragging = use_signal(|| false);
+    let mut drag_start_x = use_signal(|| 0.0f64);
+    let mut drag_start_width = use_signal(|| 300.0f64);
     
     // File system state
-    let file_entries = use_state::<Vec<FileEntry>>(cx, Vec::new);
-    let current_directory = use_state(cx, || std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
-    let selected_item = use_state::<Option<FileEntry>>(cx, || None);
+    let mut file_entries = use_signal::<Vec<FileEntry>>(Vec::new);
+    let mut current_directory = use_signal(|| std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
+    let mut selected_item = use_signal::<Option<FileEntry>>(|| None);
     
     // Load initial directory
-    use_effect(cx, (), {
-        let entries = file_entries.clone();
+    use_effect(move || {
+        let mut entries = file_entries.clone();
         let current_dir = current_directory.clone();
-        |_| async move {
+        spawn(async move {
             let service = NativeFileSystemService::new();
-            match service.list_directory(&current_dir.get()).await {
+            match service.list_directory(&current_dir.read()).await {
                 Ok(files) => {
-                    entries.set(files);
+                    entries.write().clear();
+                    entries.write().extend(files);
                 }
                 Err(e) => {
                     tracing::error!("Failed to load directory: {}", e);
@@ -34,51 +35,48 @@ pub fn Phase2App(cx: Scope) -> Element {
                     entries.set(create_demo_entries());
                 }
             }
-        }
+        });
     });
 
     // Save state when panel width changes (debounced)
-    use_effect(cx, panel_width, |width| {
-        let current_width = *width.current();
-        save_panel_state_debounced(current_width, true);
-        async {}
+    use_effect(move || {
+        let current_width = panel_width.read();
+        save_panel_state_debounced(*current_width, true);
     });
 
     // Flush pending saves on component cleanup
-    use_effect(cx, (), |_| {
-        async move {
-            // This will run when component unmounts
-            // Note: In a real app, you'd want to handle this in window.onbeforeunload
-        }
+    use_effect(move || {
+        // This will run when component unmounts
+        // Note: In a real app, you'd want to handle this in window.onbeforeunload
     });
 
     // Dynamic width style for the panel (only property that changes)
-    let panel_dynamic_style = format!("width: {}px;", panel_width.get());
+    let panel_dynamic_style = format!("width: {}px;", panel_width.read());
     
     // Dynamic class for resize handle state
-    let resize_handle_class = if *is_dragging.get() { 
+    let resize_handle_class = if *is_dragging.read() { 
         "resize-handle dragging" 
     } else { 
         "resize-handle" 
     };
     
     // Dynamic class for panel state
-    let panel_class = if *is_dragging.get() {
+    let panel_class = if *is_dragging.read() {
         "file-tree-panel dragging"
     } else {
         "file-tree-panel"
     };
 
-    render! {
-        style { include_str!("../../assets/styles.css") }
+    rsx! {
+        style { {include_str!("../../assets/styles.css")} }
         
         div {
             class: "media-organizer-app",
             onmousemove: move |evt| {
-                if *is_dragging.get() {
+                if *is_dragging.read() {
                     let current_x = evt.data.client_coordinates().x as f64;
-                    let delta = current_x - *drag_start_x.get();
-                    let new_width = *drag_start_width.get() + delta;
+                    let delta = current_x - *drag_start_x.read();
+                    let new_width = *drag_start_width.read() + delta;
                     
                     // Apply constraints: min 200px, max 50% of window (assuming 1200px+ screens)
                     let constrained_width = new_width.max(200.0).min(600.0);
@@ -116,21 +114,55 @@ pub fn Phase2App(cx: Scope) -> Element {
                         class: "file-tree-content",
                         style: "height: calc(100vh - 120px); overflow: hidden;", // Reserve space for header and status bar
                         
-                        VirtualFileTree {
-                            items: file_entries.get(),
-                            container_height: 600.0, // Will be dynamic later
-                            item_height: 32.0,
-                            on_item_click: move |item: FileEntry| {
-                                tracing::info!("File clicked: {}", item.name);
-                                selected_item.set(Some(item));
-                            },
-                            on_item_double_click: move |item: FileEntry| {
-                                tracing::info!("File double-clicked: {}", item.name);
-                                if item.is_directory {
-                                    // Navigate into directory in future iteration
-                                    tracing::info!("Would navigate to directory: {}", item.name);
+                        div {
+                            style: "padding: 20px; color: #333;",
+                            h3 { "File Tree (Temporarily Disabled)" }
+                            p { {format!("Files loaded: {}", file_entries.read().len())} }
+                            div {
+                                style: "max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-top: 10px;",
+                                {
+                                    let entries = file_entries.read();
+                                    let items: Vec<_> = entries.iter().take(20).cloned().collect();
+                                    items.into_iter().map(|entry| {
+                                        let entry_clone = entry.clone();
+                                        rsx! {
+                                            div {
+                                                key: "{entry.name}",
+                                                style: "padding: 5px 0; border-bottom: 1px solid #eee; cursor: pointer;",
+                                                onclick: move |_| {
+                                                    tracing::info!("File clicked: {}", entry_clone.name);
+                                                    selected_item.set(Some(entry_clone.clone()));
+                                                },
+                                                
+                                                span {
+                                                    style: "margin-right: 8px;",
+                                                    if entry.is_directory { "📁" } else { "📄" }
+                                                }
+                                                span { {entry.name.clone()} }
+                                                if entry.size > 0 {
+                                                    span {
+                                                        style: "margin-left: 10px; color: #666; font-size: 0.9em;",
+                                                        "({entry.size} bytes)"
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    })
                                 }
-                            },
+                                {
+                                    let total_files = file_entries.read().len();
+                                    if total_files > 20 {
+                                        rsx! {
+                                            div {
+                                                style: "padding: 10px; color: #666; font-style: italic;",
+                                                {format!("... and {} more files", total_files - 20)}
+                                            }
+                                        }
+                                    } else {
+                                        rsx! { div {} }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -141,7 +173,7 @@ pub fn Phase2App(cx: Scope) -> Element {
                     onmousedown: move |evt| {
                         is_dragging.set(true);
                         drag_start_x.set(evt.data.client_coordinates().x as f64);
-                        drag_start_width.set(*panel_width.get());
+                        drag_start_width.set(*panel_width.read());
                     },
                 }
                 
@@ -225,7 +257,7 @@ pub fn Phase2App(cx: Scope) -> Element {
                 
                 span { 
                     class: "status-bar-left", 
-                    "🔄 Virtual File Tree Active - {file_entries.get().len()} items loaded"
+                    {format!("🔄 Virtual File Tree Active - {} items loaded", file_entries.read().len())}
                 }
                 
                 span {

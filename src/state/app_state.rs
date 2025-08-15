@@ -6,197 +6,167 @@ use dioxus::prelude::*;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub navigation: UseState<NavigationState>,
-    pub selection: UseState<SelectionState>,
+    pub navigation: Signal<NavigationState>,
+    pub selection: Signal<SelectionState>,
     pub file_service: Arc<dyn FileSystemService>,
 }
 
 impl AppState {
-    pub fn new(cx: &ScopeState) -> Self {
+    pub fn new() -> Self {
         let initial_path = dirs::home_dir();
         
         Self {
-            navigation: use_state(cx, || NavigationState::new(initial_path)).clone(),
-            selection: use_state(cx, || SelectionState::new()).clone(),
+            navigation: use_signal(|| NavigationState::new(initial_path)),
+            selection: use_signal(|| SelectionState::new()),
             file_service: Arc::new(NativeFileSystemService::new()),
         }
     }
     
-    pub async fn navigate_to(&self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn navigate_to(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         // Set loading state
-        self.navigation.with_mut(|nav| {
-            nav.set_loading(path.clone(), true);
-        });
+        self.navigation.write().set_loading(path.clone(), true);
         
         // Load directory contents
         match self.file_service.list_directory(&path).await {
             Ok(contents) => {
                 // Update navigation state
-                self.navigation.with_mut(|nav| {
+                {
+                    let mut nav = self.navigation.write();
                     if let Err(e) = nav.navigate_to(path.clone()) {
                         tracing::warn!("Navigation error: {}", e);
                     }
                     nav.set_directory_contents(path.clone(), contents);
-                });
+                }
                 
                 // Clear selection when navigating
-                self.selection.with_mut(|sel| {
-                    sel.clear_selection();
-                });
+                self.selection.write().clear_selection();
                 
                 Ok(())
             }
             Err(e) => {
-                self.navigation.with_mut(|nav| {
-                    nav.set_loading(path, false);
-                });
+                self.navigation.write().set_loading(path, false);
                 Err(Box::new(e))
             }
         }
     }
     
-    pub async fn refresh_current_directory(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let current_path = self.navigation.get().current_path.clone();
+    pub async fn refresh_current_directory(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let current_path = self.navigation.read().current_path.clone();
         self.load_directory_contents(current_path).await
     }
     
-    pub async fn load_directory_contents(&self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-        self.navigation.with_mut(|nav| {
-            nav.set_loading(path.clone(), true);
-        });
+    pub async fn load_directory_contents(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        self.navigation.write().set_loading(path.clone(), true);
         
         match self.file_service.list_directory(&path).await {
             Ok(contents) => {
-                self.navigation.with_mut(|nav| {
-                    nav.set_directory_contents(path, contents);
-                });
+                self.navigation.write().set_directory_contents(path, contents);
                 Ok(())
             }
             Err(e) => {
-                self.navigation.with_mut(|nav| {
-                    nav.set_loading(path, false);
-                });
+                self.navigation.write().set_loading(path, false);
                 Err(Box::new(e))
             }
         }
     }
     
-    pub async fn navigate_back(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut path_opt = None;
-        self.navigation.with_mut(|nav| {
-            path_opt = nav.navigate_back();
-        });
+    pub async fn navigate_back(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let path_opt = self.navigation.write().navigate_back();
         
         if let Some(path) = path_opt {
             // Check if we already have contents cached
-            if self.navigation.get().get_directory_contents(&path).is_none() {
+            if self.navigation.read().get_directory_contents(&path).is_none() {
                 self.load_directory_contents(path).await?;
             }
             
             // Clear selection when navigating
-            self.selection.with_mut(|sel| {
-                sel.clear_selection();
-            });
+            self.selection.write().clear_selection();
         }
         Ok(())
     }
     
-    pub async fn navigate_forward(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut path_opt = None;
-        self.navigation.with_mut(|nav| {
-            path_opt = nav.navigate_forward();
-        });
+    pub async fn navigate_forward(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let path_opt = self.navigation.write().navigate_forward();
         
         if let Some(path) = path_opt {
             // Check if we already have contents cached
-            if self.navigation.get().get_directory_contents(&path).is_none() {
+            if self.navigation.read().get_directory_contents(&path).is_none() {
                 self.load_directory_contents(path).await?;
             }
             
             // Clear selection when navigating
-            self.selection.with_mut(|sel| {
-                sel.clear_selection();
-            });
+            self.selection.write().clear_selection();
         }
         Ok(())
     }
     
-    pub async fn navigate_up(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let mut path_opt = None;
-        self.navigation.with_mut(|nav| {
-            path_opt = nav.navigate_up();
-        });
+    pub async fn navigate_up(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let path_opt = self.navigation.write().navigate_up();
         
         if let Some(path) = path_opt {
             // Check if we already have contents cached
-            if self.navigation.get().get_directory_contents(&path).is_none() {
+            if self.navigation.read().get_directory_contents(&path).is_none() {
                 self.load_directory_contents(path).await?;
             }
             
             // Clear selection when navigating
-            self.selection.with_mut(|sel| {
-                sel.clear_selection();
-            });
+            self.selection.write().clear_selection();
         }
         Ok(())
     }
     
     pub fn get_current_directory_contents(&self) -> Option<Vec<FileEntry>> {
-        let nav = self.navigation.get();
+        let nav = self.navigation.read();
         nav.get_directory_contents(&nav.current_path).cloned()
     }
     
     pub fn is_current_directory_loading(&self) -> bool {
-        let nav = self.navigation.get();
+        let nav = self.navigation.read();
         nav.is_loading(&nav.current_path)
     }
     
     pub fn get_current_path(&self) -> PathBuf {
-        self.navigation.get().current_path.clone()
+        self.navigation.read().current_path.clone()
     }
     
     pub fn get_breadcrumbs(&self) -> Vec<crate::state::navigation::BreadcrumbItem> {
-        self.navigation.get().breadcrumbs.clone()
+        self.navigation.read().breadcrumbs.clone()
     }
     
     pub fn can_navigate_back(&self) -> bool {
-        self.navigation.get().can_navigate_back()
+        self.navigation.read().can_navigate_back()
     }
     
     pub fn can_navigate_forward(&self) -> bool {
-        self.navigation.get().can_navigate_forward()
+        self.navigation.read().can_navigate_forward()
     }
     
     pub fn can_navigate_up(&self) -> bool {
-        self.navigation.get().can_navigate_up()
+        self.navigation.read().can_navigate_up()
     }
     
-    pub fn select_files(&self, paths: Vec<PathBuf>, mode: crate::state::navigation::SelectionMode) {
-        self.selection.with_mut(|sel| {
-            sel.select_files(paths, mode);
-        });
+    pub fn select_files(&mut self, paths: Vec<PathBuf>, mode: crate::state::navigation::SelectionMode) {
+        self.selection.write().select_files(paths, mode);
     }
     
-    pub fn clear_selection(&self) {
-        self.selection.with_mut(|sel| {
-            sel.clear_selection();
-        });
+    pub fn clear_selection(&mut self) {
+        self.selection.write().clear_selection();
     }
     
     pub fn is_selected(&self, path: &PathBuf) -> bool {
-        self.selection.get().is_selected(path)
+        self.selection.read().is_selected(path)
     }
     
     pub fn get_selected_files(&self) -> Vec<PathBuf> {
-        self.selection.get().get_selected_paths()
+        self.selection.read().get_selected_paths()
     }
     
     pub fn get_selection_count(&self) -> usize {
-        self.selection.get().selection_count()
+        self.selection.read().selection_count()
     }
     
     pub fn get_selection_metadata(&self) -> crate::state::navigation::SelectionMetadata {
-        self.selection.get().selection_metadata.clone()
+        self.selection.read().selection_metadata.clone()
     }
 }
 

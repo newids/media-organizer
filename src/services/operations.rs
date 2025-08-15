@@ -66,7 +66,7 @@ pub enum RecoveryStrategy {
 }
 
 /// Recovery suggestion for user feedback
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct RecoverySuggestion {
     /// Human-readable description of the problem
     pub description: String,
@@ -617,7 +617,7 @@ impl Default for CommandMetadata {
 }
 
 /// Progress tracking information for file operations
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct ProgressInfo {
     /// Current progress (completed items)
     pub current: u64,

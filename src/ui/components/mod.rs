@@ -2,12 +2,12 @@
 // Contains reusable UI components for the MediaOrganizer application
 
 pub mod virtual_scroll;
-pub mod virtual_file_tree;
+// pub mod virtual_file_tree;
 pub mod dialogs;
 
 // Re-export commonly used types for easier imports
 pub use virtual_scroll::{VirtualScrollCalculator, VisibleRange, ScrollAlignment, PerformanceMetrics};
-pub use virtual_file_tree::{VirtualFileTree, VirtualFileTreeProps};
+// pub use virtual_file_tree::{VirtualFileTree, VirtualFileTreeProps};
 pub use dialogs::{
     ConfirmationDialog, ConfirmationDialogProps, ConfirmationAction, ConfirmationResult,
     ProgressDialog, ProgressDialogProps, ProgressDialogState,
