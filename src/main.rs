@@ -3,10 +3,12 @@ use tracing::info;
 mod models;
 mod services;
 mod state;
+mod theme;
 mod ui;
 
 use models::AppConfig;
-use ui::Phase2App;
+use state::AppStateProvider;
+use ui::phase2_app;
 
 fn main() {
     // Initialize logging
@@ -17,6 +19,17 @@ fn main() {
     // Load configuration
     let _config = AppConfig::default();
 
-    // Launch Dioxus desktop application
-    dioxus::launch(Phase2App);
+    // Launch Dioxus desktop application with state provider
+    dioxus::launch(app);
+}
+
+// Root app component with state provider
+fn app() -> dioxus::prelude::Element {
+    use dioxus::prelude::*;
+    
+    rsx! {
+        AppStateProvider {
+            phase2_app {}
+        }
+    }
 }

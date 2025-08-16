@@ -1,7 +1,10 @@
 /* MediaOrganizer - VS Code Style Theme */
 
-/* CSS Custom Properties for VS Code Dark Theme */
-:root {
+/* CSS Custom Properties for VS Code Themes */
+
+/* Default (Dark) Theme */
+:root,
+[data-theme="dark"] {
   /* Primary Colors */
   --vscode-background: #1e1e1e;
   --vscode-foreground: #cccccc;
@@ -61,6 +64,69 @@
   --vscode-shadow-small: 0 2px 4px rgba(0, 0, 0, 0.2);
   --vscode-shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.3);
   --vscode-shadow-large: 0 8px 16px rgba(0, 0, 0, 0.4);
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  /* Primary Colors */
+  --vscode-background: #ffffff;
+  --vscode-foreground: #333333;
+  --vscode-secondary-background: #f5f5f5;
+  --vscode-tertiary-background: #eeeeee;
+  
+  /* Border Colors */
+  --vscode-border: #dddddd;
+  --vscode-border-light: #cccccc;
+  --vscode-border-focus: #007acc;
+  
+  /* Accent Colors (same as dark) */
+  --vscode-accent: #007acc;
+  --vscode-accent-hover: #0e639c;
+  --vscode-accent-active: #094771;
+  
+  /* Text Colors */
+  --vscode-text-primary: #333333;
+  --vscode-text-secondary: #666666;
+  --vscode-text-muted: #999999;
+  --vscode-text-white: #ffffff;
+  
+  /* Status Colors (same as dark) */
+  --vscode-success: #4caf50;
+  --vscode-warning: #ff9800;
+  --vscode-error: #f44336;
+  --vscode-info: #2196f3;
+  
+  /* Typography (inherited) */
+  --vscode-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif;
+  --vscode-font-mono: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  --vscode-font-size-small: 11px;
+  --vscode-font-size-normal: 13px;
+  --vscode-font-size-medium: 14px;
+  --vscode-font-size-large: 16px;
+  
+  /* Spacing (inherited) */
+  --vscode-spacing-xs: 4px;
+  --vscode-spacing-sm: 8px;
+  --vscode-spacing-md: 12px;
+  --vscode-spacing-lg: 16px;
+  --vscode-spacing-xl: 24px;
+  
+  /* Layout Dimensions (inherited) */
+  --vscode-title-bar-height: 32px;
+  --vscode-status-bar-height: 22px;
+  --vscode-panel-min-width: 200px;
+  --vscode-panel-max-width: 600px;
+  --vscode-resize-handle-width: 4px;
+  
+  /* Transitions (inherited) */
+  --vscode-transition-fast: 0.1s ease;
+  --vscode-transition-normal: 0.2s ease;
+  --vscode-transition-slow: 0.3s ease;
+  
+  /* Light Theme Shadows */
+  --vscode-shadow-small: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --vscode-shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --vscode-shadow-large: 0 8px 16px rgba(0, 0, 0, 0.2);
 }
 
 /* Reset and Base Styles */
@@ -454,12 +520,51 @@ body {
   }
 }
 
+/* Loading Animations */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+.fade-in {
+  animation: fadeIn 0.2s ease-out;
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
 /* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  
+  .loading-spinner {
+    animation: none;
+    border-top-color: var(--vscode-accent);
   }
 }
 

@@ -3,8 +3,10 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use std::path::PathBuf;
 use std::fs;
 use tracing::{debug, warn, error};
+use crate::state::app_state::SettingsState;
 
 const STORAGE_KEY: &str = "media_organizer_panel_state";
+const SETTINGS_STORAGE_KEY: &str = "media_organizer_settings";
 const DEBOUNCE_DELAY: Duration = Duration::from_millis(300);
 
 /// Panel state configuration that can be persisted to localStorage
@@ -64,7 +66,10 @@ impl PanelState {
 pub struct PersistenceService {
     last_save: Option<Instant>,
     pending_state: Option<PanelState>,
+    pending_settings: Option<SettingsState>,
+    last_settings_save: Option<Instant>,
     config_file_path: PathBuf,
+    settings_file_path: PathBuf,
 }
 
 impl Default for PersistenceService {
@@ -77,10 +82,14 @@ impl PersistenceService {
     /// Create a new persistence service
     pub fn new() -> Self {
         let config_file_path = Self::get_config_file_path();
+        let settings_file_path = Self::get_settings_file_path();
         Self {
             last_save: None,
             pending_state: None,
+            pending_settings: None,
+            last_settings_save: None,
             config_file_path,
+            settings_file_path,
         }
     }
     
@@ -93,6 +102,18 @@ impl PersistenceService {
         } else {
             // Fallback to current directory
             PathBuf::from("panel_state.json")
+        }
+    }
+    
+    /// Get the path to the settings file
+    fn get_settings_file_path() -> PathBuf {
+        // Use application data directory for persistence
+        if let Some(data_dir) = dirs::data_dir() {
+            let app_dir = data_dir.join("MediaOrganizer");
+            app_dir.join("settings.json")
+        } else {
+            // Fallback to current directory
+            PathBuf::from("settings.json")
         }
     }
     
@@ -186,6 +207,81 @@ impl PersistenceService {
         // Check if we can write to the config directory
         self.ensure_config_dir().is_ok()
     }
+    
+    // Settings persistence methods
+    
+    /// Save settings state with debouncing
+    pub fn save_settings_debounced(&mut self, settings: SettingsState) {
+        self.pending_settings = Some(settings);
+        
+        let now = Instant::now();
+        let should_save = match self.last_settings_save {
+            Some(last) => now.duration_since(last) >= DEBOUNCE_DELAY,
+            None => true,
+        };
+
+        if should_save {
+            if let Some(settings) = self.pending_settings.take() {
+                self.save_settings_immediate(settings);
+                self.last_settings_save = Some(now);
+            }
+        }
+    }
+
+    /// Force save the pending settings immediately
+    pub fn flush_pending_settings_save(&mut self) {
+        if let Some(settings) = self.pending_settings.take() {
+            self.save_settings_immediate(settings);
+            self.last_settings_save = Some(Instant::now());
+        }
+    }
+
+    /// Save settings state immediately
+    fn save_settings_immediate(&self, settings: SettingsState) {
+        match self.serialize_settings(&settings) {
+            Ok(json) => {
+                if let Err(e) = self.write_settings_to_storage(&json) {
+                    error!("Failed to write settings to storage: {}", e);
+                } else {
+                    debug!("Settings saved successfully: theme={:?}", settings.theme);
+                }
+            }
+            Err(e) => {
+                error!("Failed to serialize settings: {}", e);
+            }
+        }
+    }
+
+    /// Load settings state from storage
+    pub fn load_settings(&self) -> SettingsState {
+        match self.read_settings_from_storage() {
+            Ok(Some(json)) => {
+                match self.deserialize_settings(&json) {
+                    Ok(settings) => {
+                        debug!("Settings loaded successfully: theme={:?}", settings.theme);
+                        settings
+                    }
+                    Err(e) => {
+                        warn!("Failed to deserialize settings, using defaults: {}", e);
+                        SettingsState::default()
+                    }
+                }
+            }
+            Ok(None) => {
+                debug!("No saved settings found, using defaults");
+                SettingsState::default()
+            }
+            Err(e) => {
+                warn!("Failed to read settings from storage, using defaults: {}", e);
+                SettingsState::default()
+            }
+        }
+    }
+
+    /// Clear saved settings from storage
+    pub fn clear_settings(&self) -> Result<(), String> {
+        self.remove_settings_from_storage()
+    }
 
     // Private helper methods
 
@@ -216,6 +312,38 @@ impl PersistenceService {
             Ok(()) => Ok(()),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()), // Already deleted
             Err(e) => Err(format!("Failed to remove config file: {}", e)),
+        }
+    }
+    
+    // Settings-specific helper methods
+    
+    fn serialize_settings(&self, settings: &SettingsState) -> Result<String, String> {
+        serde_json::to_string_pretty(settings).map_err(|e| format!("Settings serialization error: {}", e))
+    }
+
+    fn deserialize_settings(&self, json: &str) -> Result<SettingsState, String> {
+        serde_json::from_str(json).map_err(|e| format!("Settings deserialization error: {}", e))
+    }
+
+    fn write_settings_to_storage(&self, json: &str) -> Result<(), String> {
+        self.ensure_config_dir()?;
+        fs::write(&self.settings_file_path, json)
+            .map_err(|e| format!("Failed to write settings file: {}", e))
+    }
+
+    fn read_settings_from_storage(&self) -> Result<Option<String>, String> {
+        match fs::read_to_string(&self.settings_file_path) {
+            Ok(content) => Ok(Some(content)),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(format!("Failed to read settings file: {}", e)),
+        }
+    }
+
+    fn remove_settings_from_storage(&self) -> Result<(), String> {
+        match fs::remove_file(&self.settings_file_path) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()), // Already deleted
+            Err(e) => Err(format!("Failed to remove settings file: {}", e)),
         }
     }
 }
@@ -253,6 +381,28 @@ pub fn flush_pending_saves() {
 /// Convenience function to check if storage is available
 pub fn is_storage_available() -> bool {
     get_persistence_service().is_storage_available()
+}
+
+// Settings convenience functions
+
+/// Convenience function to save settings with debouncing
+pub fn save_settings_debounced(settings: SettingsState) {
+    get_persistence_service().save_settings_debounced(settings);
+}
+
+/// Convenience function to load settings
+pub fn load_settings() -> SettingsState {
+    get_persistence_service().load_settings()
+}
+
+/// Convenience function to flush pending settings saves
+pub fn flush_pending_settings_saves() {
+    get_persistence_service().flush_pending_settings_save();
+}
+
+/// Convenience function to clear saved settings
+pub fn clear_settings() -> Result<(), String> {
+    get_persistence_service().clear_settings()
 }
 
 #[cfg(test)]

@@ -1416,6 +1416,7 @@ dependencies = [
  "serde",
  "server_fn",
  "tracing",
+ "web-sys",
 ]
 
 [[package]]
@@ -3481,8 +3482,10 @@ dependencies = [
  "dirs 5.0.1",
  "ffmpeg-next",
  "futures",
+ "hex",
  "id3",
  "image",
+ "js-sys",
  "notify",
  "num_cpus",
  "pdf",
@@ -3490,6 +3493,7 @@ dependencies = [
  "rodio",
  "serde",
  "serde_json",
+ "sha2",
  "sqlx",
  "symphonia",
  "tempfile",
@@ -3502,6 +3506,8 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "walkdir",
+ "wasm-bindgen",
+ "web-sys",
  "winapi",
 ]
 

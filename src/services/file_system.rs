@@ -827,10 +827,10 @@ impl FileSystemService for NativeFileSystemService {
                     #[cfg(unix)]
                     {
                         use std::os::unix::fs::MetadataExt;
-                        use std::time::{Duration, SystemTime, UNIX_EPOCH};
+                        use std::time::{Duration, UNIX_EPOCH};
                         
-                        let atime = UNIX_EPOCH + Duration::from_secs(src_metadata.atime() as u64);
-                        let mtime = UNIX_EPOCH + Duration::from_secs(src_metadata.mtime() as u64);
+                        let _atime = UNIX_EPOCH + Duration::from_secs(src_metadata.atime() as u64);
+                        let _mtime = UNIX_EPOCH + Duration::from_secs(src_metadata.mtime() as u64);
                         
                         // Note: Setting timestamps requires additional crates like `filetime`
                         // For now, we'll skip this to avoid additional dependencies
