@@ -13,11 +13,11 @@ pub use video::VideoPreviewHandler;
 pub use audio::AudioPreviewHandler;
 pub use pdf::PdfPreviewHandler;
 pub use text::TextPreviewHandler;
-pub use thumbnail_service::{
-    ThumbnailService, ThumbnailPriority, ThumbnailJobStatus, ThumbnailJobConfig, 
-    ThumbnailJob, ThumbnailServiceStats
-};
-pub use metadata_display::{
-    MetadataDisplay, BasicInfoSection, TechnicalInfoSection, ContentInfoSection,
-    ExifInfoSection, TimestampInfoSection
-};
+// pub use thumbnail_service::{
+//     ThumbnailService, ThumbnailPriority, ThumbnailJobStatus, ThumbnailJobConfig, 
+//     ThumbnailJob, ThumbnailServiceStats
+// };
+// pub use metadata_display::{
+//     MetadataDisplay, BasicInfoSection, TechnicalInfoSection, ContentInfoSection,
+//     ExifInfoSection, TimestampInfoSection
+// };

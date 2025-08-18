@@ -5,7 +5,7 @@ use std::time::{SystemTime, Duration};
 use tokio::sync::{RwLock, mpsc, oneshot, Semaphore};
 use tokio::time::{sleep, Instant};
 use uuid::Uuid;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, debug};
 
 use crate::services::preview::{
     PreviewHandler, PreviewError, PreviewConfig, SupportedFormat,

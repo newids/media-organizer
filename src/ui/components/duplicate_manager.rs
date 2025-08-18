@@ -1,18 +1,17 @@
 use dioxus::prelude::*;
-use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use crate::services::{
-    DuplicateDetector, DuplicateDetectionResults, DuplicateGroup, DuplicateFile,
-    ComparisonMethod, DuplicateDetectionConfig, DetectionProgress, DetectionPhase,
+    DuplicateDetector, DuplicateDetectionResults, DuplicateGroup,
+    ComparisonMethod, DuplicateDetectionConfig, DetectionProgress,
     PrimarySelectionStrategy, FileEntry
 };
 use crate::state::{use_app_state, use_selection_state};
 use crate::ui::components::{
-    ConfirmationDialog, ConfirmationDialogProps, ConfirmationAction, ConfirmationResult,
-    ProgressDialog, ProgressDialogProps, ProgressDialogState
+    ConfirmationDialog, ConfirmationResult,
+    ProgressDialog
 };
+use crate::ui::components::dialogs::{ConfirmationAction, ProgressDialogState};
 
 /// State for the duplicate manager
 #[derive(Debug, Clone, PartialEq)]

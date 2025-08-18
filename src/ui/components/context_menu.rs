@@ -2,7 +2,8 @@ use dioxus::prelude::*;
 use std::path::PathBuf;
 use crate::services::FileEntry;
 use crate::state::{use_app_state, use_selection_state};
-use crate::ui::{use_shortcut_handler, ShortcutAction};
+use crate::ui::{use_shortcut_handler};
+use crate::ui::shortcuts::ShortcutAction;
 
 /// Context menu item action types
 #[derive(Debug, Clone, PartialEq)]

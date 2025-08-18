@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
 use crate::services::FileEntry;
-use crate::state::{use_app_state, use_selection_state};
+use crate::state::{use_app_state};
 
 /// Drag and drop operation types
 #[derive(Debug, Clone, PartialEq)]

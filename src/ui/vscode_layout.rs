@@ -1,4 +1,6 @@
 use dioxus::prelude::*;
+use dioxus::events::KeyboardEvent;
+use dioxus_free_icons::{Icon, icons::fa_solid_icons};
 
 /// Main VS Code-like layout component
 /// Implements the grid-based layout system with Activity Bar, Sidebar, Editor Groups, Panel, and Status Bar
@@ -21,6 +23,8 @@ pub fn VSCodeLayout(
                 height: 100vh;
                 width: 100vw;
             ",
+            role: "application",
+            "aria-label": "MediaOrganizer - VS Code style interface",
             
             // Activity Bar (leftmost vertical bar)
             ActivityBar {
@@ -55,6 +59,8 @@ pub fn VSCodeLayout(
 pub fn ActivityBar(
     app_state: Signal<crate::state::AppState>,
 ) -> Element {
+    let mut focused_item = use_signal(|| 0usize); // Track which item is focused
+    
     rsx! {
         div {
             class: "activity-bar",
@@ -68,6 +74,30 @@ pub fn ActivityBar(
             ",
             role: "navigation",
             "aria-label": "Primary navigation",
+            tabindex: "0",
+            onkeydown: move |evt| {
+                match evt.data.key() {
+                    Key::ArrowDown => {
+                        evt.prevent_default();
+                        let current = *focused_item.read();
+                        focused_item.set((current + 1).min(5)); // 6 total items (0-5)
+                    },
+                    Key::ArrowUp => {
+                        evt.prevent_default();
+                        let current = *focused_item.read();
+                        focused_item.set(current.saturating_sub(1));
+                    },
+                    Key::Enter => {
+                        evt.prevent_default();
+                        // TODO: Activate focused item
+                    },
+                    Key::Character(s) if s == " " => {
+                        evt.prevent_default();
+                        // TODO: Activate focused item
+                    },
+                    _ => {}
+                }
+            },
             
             // Activity Bar Items
             div {
@@ -78,6 +108,8 @@ pub fn ActivityBar(
                     icon: "files",
                     label: "Explorer",
                     active: true,
+                    focused: *focused_item.read() == 0,
+                    item_index: 0,
                     on_click: move |_| {
                         // TODO: Switch to explorer view
                     }
@@ -87,6 +119,8 @@ pub fn ActivityBar(
                     icon: "search",
                     label: "Search",
                     active: false,
+                    focused: *focused_item.read() == 1,
+                    item_index: 1,
                     on_click: move |_| {
                         // TODO: Switch to search view
                     }
@@ -96,6 +130,8 @@ pub fn ActivityBar(
                     icon: "source-control",
                     label: "Source Control",
                     active: false,
+                    focused: *focused_item.read() == 2,
+                    item_index: 2,
                     on_click: move |_| {
                         // TODO: Switch to source control view
                     }
@@ -105,6 +141,8 @@ pub fn ActivityBar(
                     icon: "debug-alt",
                     label: "Run and Debug",
                     active: false,
+                    focused: *focused_item.read() == 3,
+                    item_index: 3,
                     on_click: move |_| {
                         // TODO: Switch to debug view
                     }
@@ -114,6 +152,8 @@ pub fn ActivityBar(
                     icon: "extensions",
                     label: "Extensions",
                     active: false,
+                    focused: *focused_item.read() == 4,
+                    item_index: 4,
                     on_click: move |_| {
                         // TODO: Switch to extensions view
                     }
@@ -129,6 +169,8 @@ pub fn ActivityBar(
                     icon: "settings-gear",
                     label: "Settings",
                     active: false,
+                    focused: *focused_item.read() == 5,
+                    item_index: 5,
                     on_click: move |_| {
                         // TODO: Open settings
                     }
@@ -144,35 +186,33 @@ pub fn ActivityBarItem(
     icon: String,
     label: String,
     active: bool,
+    focused: bool,
+    item_index: usize,
     on_click: EventHandler<MouseEvent>,
 ) -> Element {
-    let item_style = if active {
+    let item_style = format!(
         "
             width: 48px;
             height: 48px;
-            border: none;
-            background: var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.3));
+            border: {};
+            background: {};
             color: var(--vscode-foreground, #cccccc);
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
             position: relative;
-        "
-    } else {
-        "
-            width: 48px;
-            height: 48px;
-            border: none;
-            background: transparent;
-            color: var(--vscode-foreground, #cccccc);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            position: relative;
-        "
-    };
+            outline: none;
+        ",
+        if focused { "2px solid var(--vscode-focusBorder, #007acc)" } else { "none" },
+        if active { 
+            "var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.3))" 
+        } else if focused {
+            "var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.1))"
+        } else { 
+            "transparent" 
+        }
+    );
     
     rsx! {
         button {
@@ -180,20 +220,13 @@ pub fn ActivityBarItem(
             style: item_style,
             title: label.clone(),
             "aria-label": label.clone(),
+            "aria-pressed": if active { "true" } else { "false" },
+            "aria-describedby": format!("activity-item-{}", item_index),
+            tabindex: "-1", // Managed by parent container
             onclick: move |evt| on_click.call(evt),
             
-            // Icon placeholder (will be replaced with actual icons later)
-            div {
-                class: "codicon",
-                style: "
-                    width: 16px;
-                    height: 16px;
-                    background: currentColor;
-                    mask: url('/assets/icons/{icon}.svg') no-repeat center;
-                    mask-size: contain;
-                ",
-                "aria-hidden": "true"
-            }
+            // Icon using dioxus-free-icons
+            {get_activity_bar_icon(&icon)}
             
             // Active indicator
             if active {
@@ -220,7 +253,7 @@ pub fn Sidebar(
     app_state: Signal<crate::state::AppState>,
 ) -> Element {
     rsx! {
-        div {
+        aside {
             class: "sidebar",
             style: "
                 grid-area: sidebar;
@@ -231,10 +264,13 @@ pub fn Sidebar(
                 width: 240px;
             ",
             role: "complementary",
-            "aria-label": "File explorer",
+            "aria-label": "File explorer sidebar",
+            "aria-labelledby": "sidebar-header",
+            tabindex: "0",
             
             // Sidebar Header
-            div {
+            header {
+                id: "sidebar-header",
                 class: "sidebar-header",
                 style: "
                     height: 35px;
@@ -247,6 +283,7 @@ pub fn Sidebar(
                     color: var(--vscode-foreground, #cccccc);
                     text-transform: uppercase;
                 ",
+                role: "banner",
                 "EXPLORER"
             }
             
@@ -276,7 +313,7 @@ pub fn EditorGroups(
     app_state: Signal<crate::state::AppState>,
 ) -> Element {
     rsx! {
-        div {
+        main {
             class: "editor-groups",
             style: "
                 grid-area: editor;
@@ -285,10 +322,13 @@ pub fn EditorGroups(
                 flex-direction: column;
             ",
             role: "main",
-            "aria-label": "Editor area",
+            "aria-label": "Main editor area",
+            "aria-labelledby": "editor-tab-list",
+            tabindex: "0",
             
             // Tab Bar
             div {
+                id: "editor-tab-list",
                 class: "tab-bar",
                 style: "
                     height: 35px;
@@ -297,9 +337,10 @@ pub fn EditorGroups(
                     border-bottom: 1px solid var(--vscode-border, #464647);
                 ",
                 role: "tablist",
+                "aria-label": "Editor tabs",
                 
                 // Sample tab
-                div {
+                button {
                     class: "tab",
                     style: "
                         padding: 0 12px;
@@ -307,13 +348,17 @@ pub fn EditorGroups(
                         align-items: center;
                         background: var(--vscode-tab-active-background, #1e1e1e);
                         color: var(--vscode-foreground, #cccccc);
+                        border: none;
                         border-right: 1px solid var(--vscode-border, #464647);
                         cursor: pointer;
                         min-width: 120px;
                         max-width: 240px;
+                        outline: none;
                     ",
                     role: "tab",
                     "aria-selected": "true",
+                    "aria-controls": "welcome-panel",
+                    tabindex: "0",
                     
                     "Welcome"
                 }
@@ -321,6 +366,7 @@ pub fn EditorGroups(
             
             // Editor Content
             div {
+                id: "welcome-panel",
                 class: "editor-content",
                 style: "
                     flex: 1;
@@ -331,6 +377,8 @@ pub fn EditorGroups(
                     color: var(--vscode-foreground, #cccccc);
                 ",
                 role: "tabpanel",
+                "aria-labelledby": "welcome-tab",
+                tabindex: "0",
                 
                 div {
                     class: "welcome-content",
@@ -354,7 +402,7 @@ pub fn Panel(
     app_state: Signal<crate::state::AppState>,
 ) -> Element {
     rsx! {
-        div {
+        aside {
             class: "panel",
             style: "
                 grid-area: panel;
@@ -365,10 +413,13 @@ pub fn Panel(
                 height: 200px;
             ",
             role: "complementary",
-            "aria-label": "Panel",
+            "aria-label": "Bottom panel with terminal and output",
+            "aria-labelledby": "panel-header",
+            tabindex: "0",
             
             // Panel Header
-            div {
+            header {
+                id: "panel-header",
                 class: "panel-header",
                 style: "
                     height: 35px;
@@ -377,9 +428,11 @@ pub fn Panel(
                     background: var(--vscode-tab-inactive-background, #2d2d30);
                     border-bottom: 1px solid var(--vscode-border, #464647);
                 ",
+                role: "tablist",
+                "aria-label": "Panel tabs",
                 
                 // Panel tabs
-                div {
+                button {
                     class: "panel-tab active",
                     style: "
                         padding: 0 12px;
@@ -388,41 +441,62 @@ pub fn Panel(
                         align-items: center;
                         background: var(--vscode-tab-active-background, #1e1e1e);
                         color: var(--vscode-foreground, #cccccc);
+                        border: none;
                         border-right: 1px solid var(--vscode-border, #464647);
                         cursor: pointer;
+                        outline: none;
                     ",
+                    role: "tab",
+                    "aria-selected": "true",
+                    "aria-controls": "problems-panel",
+                    tabindex: "0",
                     "PROBLEMS"
                 }
                 
-                div {
+                button {
                     class: "panel-tab",
                     style: "
                         padding: 0 12px;
                         height: 100%;
                         display: flex;
                         align-items: center;
+                        background: transparent;
                         color: var(--vscode-text-secondary, #999999);
+                        border: none;
                         cursor: pointer;
+                        outline: none;
                     ",
+                    role: "tab",
+                    "aria-selected": "false",
+                    "aria-controls": "output-panel",
+                    tabindex: "-1",
                     "OUTPUT"
                 }
                 
-                div {
+                button {
                     class: "panel-tab",
                     style: "
                         padding: 0 12px;
                         height: 100%;
                         display: flex;
                         align-items: center;
+                        background: transparent;
                         color: var(--vscode-text-secondary, #999999);
+                        border: none;
                         cursor: pointer;
+                        outline: none;
                     ",
+                    role: "tab",
+                    "aria-selected": "false",
+                    "aria-controls": "terminal-panel",
+                    tabindex: "-1",
                     "TERMINAL"
                 }
             }
             
             // Panel Content
             div {
+                id: "problems-panel",
                 class: "panel-content",
                 style: "
                     flex: 1;
@@ -430,6 +504,9 @@ pub fn Panel(
                     color: var(--vscode-foreground, #cccccc);
                     overflow-y: auto;
                 ",
+                role: "tabpanel",
+                "aria-labelledby": "problems-tab",
+                tabindex: "0",
                 
                 "Panel content area - problems, output, and terminal will be displayed here"
             }
@@ -443,7 +520,7 @@ pub fn StatusBar(
     app_state: Signal<crate::state::AppState>,
 ) -> Element {
     rsx! {
-        div {
+        footer {
             class: "status-bar",
             style: "
                 grid-area: status;
@@ -456,7 +533,9 @@ pub fn StatusBar(
                 font-size: 12px;
             ",
             role: "status",
-            "aria-label": "Application status",
+            "aria-label": "Application status bar",
+            "aria-live": "polite",
+            tabindex: "0",
             
             // Left side status items
             div {
@@ -481,5 +560,67 @@ pub fn StatusBar(
                 span { "Task 11.1" }
             }
         }
+    }
+}
+
+/// Helper function to get the appropriate icon for Activity Bar items
+fn get_activity_bar_icon(icon_name: &str) -> Element {
+    match icon_name {
+        "files" => rsx! {
+            Icon {
+                width: 16,
+                height: 16,
+                fill: "currentColor",
+                icon: fa_solid_icons::FaFolder,
+            }
+        },
+        "search" => rsx! {
+            Icon {
+                width: 16,
+                height: 16,
+                fill: "currentColor",
+                icon: fa_solid_icons::FaMagnifyingGlass,
+            }
+        },
+        "source-control" => rsx! {
+            Icon {
+                width: 16,
+                height: 16,
+                fill: "currentColor",
+                icon: fa_solid_icons::FaCodeBranch,
+            }
+        },
+        "debug-alt" => rsx! {
+            Icon {
+                width: 16,
+                height: 16,
+                fill: "currentColor",
+                icon: fa_solid_icons::FaBug,
+            }
+        },
+        "extensions" => rsx! {
+            Icon {
+                width: 16,
+                height: 16,
+                fill: "currentColor",
+                icon: fa_solid_icons::FaPuzzlePiece,
+            }
+        },
+        "settings-gear" => rsx! {
+            Icon {
+                width: 16,
+                height: 16,
+                fill: "currentColor",
+                icon: fa_solid_icons::FaGear,
+            }
+        },
+        _ => rsx! {
+            Icon {
+                width: 16,
+                height: 16,
+                fill: "currentColor",
+                icon: fa_solid_icons::FaQuestion,
+            }
+        },
     }
 }

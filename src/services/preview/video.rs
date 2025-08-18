@@ -1,7 +1,6 @@
 use std::path::Path;
 use std::time::SystemTime;
 use async_trait::async_trait;
-use chrono::{DateTime, FixedOffset};
 use crate::services::preview::{
     PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
     SupportedFormat, FileMetadata, PreviewContent, VideoThumbnail

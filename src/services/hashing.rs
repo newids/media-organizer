@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::io;
 use tokio::fs::File;
 use tokio::io::{AsyncReadExt, BufReader};
-use tracing::{debug, warn, error};
+use tracing::{debug, error};
 use thiserror::Error;
 
 /// Buffer size for reading files in chunks (64KB)

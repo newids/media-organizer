@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use std::sync::Arc;
-use crate::services::{FileSystemService, NativeFileSystemService, FileEntry};
+use crate::services::{FileEntry};
+use crate::services::file_system::{FileSystemService, NativeFileSystemService};
 use crate::state::navigation::{NavigationState, SelectionState};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};

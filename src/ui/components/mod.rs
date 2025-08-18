@@ -9,29 +9,23 @@ pub mod drag_drop;
 pub mod settings_panel;
 pub mod duplicate_manager;
 
-// Re-export commonly used types for easier imports
-pub use virtual_scroll::{VirtualScrollCalculator, VisibleRange, ScrollAlignment, PerformanceMetrics};
-// pub use virtual_file_tree::{VirtualFileTree, VirtualFileTreeProps};
+// Re-export only actively used types to reduce warnings
 pub use dialogs::{
-    ConfirmationDialog, ConfirmationDialogProps, ConfirmationAction, ConfirmationResult,
-    ProgressDialog, ProgressDialogProps, ProgressDialogState,
-    ToastContainer, ToastContainerProps, ToastNotification, ToastType, ToastManager,
-    OperationSummaryDialog, OperationSummaryDialogProps, OperationSummary
+    ConfirmationDialog, ConfirmationResult,
+    ProgressDialog
 };
 pub use context_menu::{
-    ContextMenu, ContextMenuProps, ContextMenuAction, ContextMenuState, MenuPosition,
+    ContextMenu,
     use_context_menu
 };
 pub use drag_drop::{
-    DragPreview, DragPreviewProps, DropZone, DropZoneProps,
-    DragState, DragOperation, DropZoneState,
-    use_drag_drop, use_drop_zone, is_valid_drop_target
+    DragPreview, DropZone,
+    DragOperation,
+    use_drag_drop, use_drop_zone
 };
-pub use settings_panel::{SettingsPanel, SettingsTab};
-pub use duplicate_manager::{
-    DuplicateManager, DuplicateManagerProps, DuplicateManagerState,
-    DetectionSettings, DuplicateAction
-};
+pub use settings_panel::{SettingsPanel};
+// Note: duplicate_manager exports are only used internally by phase2_app
+// pub use duplicate_manager::{DuplicateManager};
 
 // Note: Individual component files (simple_split_panel, simple_file_tree, simple_content_viewer)
 // have been removed as Phase2App uses an integrated layout approach.

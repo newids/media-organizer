@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
-use crate::state::{SettingsState, Theme, ViewMode, save_settings_debounced, clear_settings};
+use crate::state::{SettingsState, Theme, ViewMode, save_settings_debounced};
 use crate::theme::{ThemeManager, ThemeSelector};
-use crate::ui::{ShortcutAction, ShortcutRegistry, KeyCombination};
+use crate::ui::shortcuts::ShortcutRegistry;
 use std::collections::HashMap;
 
 /// Settings panel component with tabbed interface for different settings categories

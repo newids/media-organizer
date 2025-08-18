@@ -2,10 +2,9 @@
 // Provides confirmation dialogs, progress dialogs, toast notifications, and operation summaries
 
 use dioxus::prelude::*;
-use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use crate::services::operations::{
-    ErrorSeverity, RecoverySuggestion, ProgressInfo, BatchProgress
+    ErrorSeverity, RecoverySuggestion, ProgressInfo
 };
 
 /// Types of confirmation dialogs
@@ -422,7 +421,7 @@ pub fn OperationSummaryDialog(props: OperationSummaryDialogProps) -> Element {
 
     let summary = props.summary.as_ref().unwrap();
     let success_rate = if summary.total_items > 0 {
-        (summary.successful_items as f64 / summary.total_items as f64 * 100.0)
+        summary.successful_items as f64 / summary.total_items as f64 * 100.0
     } else {
         0.0
     };

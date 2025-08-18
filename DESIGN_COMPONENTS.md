@@ -1,346 +1,432 @@
-# MediaOrganizer - Component Interface Design
+# MediaOrganizer Component Design
+*Based on PRD.md - VS Code UI Component System*
 
-## Overview
+## 1. Component Architecture Overview
 
-This document defines the detailed component interfaces and API specifications for the MediaOrganizer application, focusing on Dioxus component design patterns and inter-component communication.
+### 1.1 Design Principles
+- **Composition over Inheritance**: Build complex UI from simple, reusable components
+- **Single Responsibility**: Each component handles one specific UI concern
+- **Props-Based Communication**: Data flows down via props, events flow up via handlers
+- **State Locality**: State lives at the appropriate level in the component hierarchy
+- **Accessibility First**: ARIA labels, keyboard navigation, and screen reader support built-in
 
-## Component Design Principles
+### 1.2 Component Hierarchy
 
-1. **Single Responsibility**: Each component has one clear purpose
-2. **Composability**: Components can be easily combined and reused
-3. **Props-Driven**: State flows down through props, events flow up
-4. **Performance Optimized**: Minimal re-renders through strategic memoization
-5. **Accessibility First**: All components include proper ARIA support
+```
+VSCodeLayout
+├── ActivityBar
+│   └── ActivityBarItem[]
+├── Sidebar
+│   ├── SidebarHeader
+│   ├── FileTree
+│   │   ├── TreeNode[]
+│   │   └── ContextMenu
+│   └── SidebarFooter
+├── EditorGroups
+│   └── EditorGroup[]
+│       ├── TabBar
+│       │   └── Tab[]
+│       └── PreviewContainer
+│           ├── ImagePreview
+│           ├── TextPreview
+│           ├── VideoPreview
+│           ├── AudioPreview
+│           ├── DocumentPreview
+│           └── UnsupportedPreview
+├── Panel
+│   ├── PanelHeader
+│   ├── PanelContent
+│   │   ├── TerminalView
+│   │   ├── ProblemsView
+│   │   └── OutputView
+│   └── PanelResizer
+├── StatusBar
+│   ├── StatusBarLeft
+│   ├── StatusBarCenter
+│   └── StatusBarRight
+└── CommandPalette
+    ├── CommandInput
+    ├── CommandList
+    └── CommandItem[]
+```
 
-## Root Application Component
+## 2. Core Layout Components
+
+### 2.1 VSCodeLayout Component
 
 ```rust
-#[derive(Props)]
-pub struct AppProps {
-    // Initial configuration
-    initial_path: Option<PathBuf>,
-    config: AppConfig,
+use dioxus::prelude::*;
+use crate::state::{AppState, LayoutState, Theme};
+use crate::services::layout::LayoutManager;
+
+#[derive(Props, PartialEq)]
+pub struct VSCodeLayoutProps {
+    pub app_state: Signal<AppState>,
 }
 
-pub fn App(cx: Scope<AppProps>) -> Element {
-    // Global state management
-    let app_state = use_shared_state::<AppState>(cx).unwrap();
-    let services = use_shared_state::<Services>(cx).unwrap();
+pub fn VSCodeLayout(props: VSCodeLayoutProps) -> Element {
+    let layout_manager = use_context::<LayoutManager>();
+    let layout_state = props.app_state.read().layout.read().clone();
     
-    // Global event handlers
-    let on_file_system_event = use_callback(cx, (), move |event: FileSystemEvent, _| {
-        // Handle file system changes
-        to_owned![app_state];
-        async move {
-            app_state.write().handle_fs_event(event).await;
-        }
-    });
+    // Calculate layout dimensions based on current state
+    let dimensions = layout_manager.calculate_layout(
+        (layout_state.window_dimensions.0, layout_state.window_dimensions.1)
+    );
     
-    render! {
+    rsx! {
         div {
-            class: "app-container",
-            onkeydown: move |event| {
-                // Global keyboard shortcuts
-                handle_global_shortcuts(event, &app_state, &services)
-            },
+            id: "vscode-layout",
+            class: "vscode-layout",
+            style: format!(
+                "width: {}px; height: {}px; display: grid; grid-template-areas: {grid_areas}; grid-template-columns: {columns}; grid-template-rows: {rows};",
+                layout_state.window_dimensions.0,
+                layout_state.window_dimensions.1,
+                grid_areas = get_grid_areas(&layout_state),
+                columns = get_grid_columns(&layout_state),
+                rows = get_grid_rows(&layout_state)
+            ),
             
-            TopBar {
-                current_path: app_state.read().current_path.clone(),
-                breadcrumbs: app_state.read().get_breadcrumbs(),
-                on_navigate: move |path| {
-                    app_state.write().navigate_to(path);
+            // Activity Bar
+            if layout_state.activity_bar_visible {
+                ActivityBar {
+                    state: layout_state.activity_bar.clone(),
+                    on_action: move |action| handle_activity_action(props.app_state, action)
                 }
             }
             
-            div {
-                class: "main-content",
-                style: "display: flex; height: calc(100vh - 40px);",
-                
-                LeftPanel {
-                    width: app_state.read().layout.left_panel_width,
-                    is_visible: app_state.read().layout.is_left_panel_visible,
-                    current_path: app_state.read().current_path.clone(),
-                    selected_path: app_state.read().selected_files.iter().next().cloned(),
-                    on_resize: move |width| {
-                        app_state.write().layout.left_panel_width = width;
-                    },
-                    on_navigate: move |path| {
-                        app_state.write().navigate_to(path);
-                    },
-                    on_select: move |path| {
-                        app_state.write().select_file(path, false);
-                    }
-                }
-                
-                ResizeHandle {
-                    orientation: Orientation::Vertical,
-                    on_resize: move |delta| {
-                        let mut state = app_state.write();
-                        state.layout.left_panel_width += delta;
-                        state.layout.left_panel_width = state.layout.left_panel_width.clamp(200.0, 600.0);
-                    }
-                }
-                
-                RightPanel {
-                    width: app_state.read().layout.right_panel_width,
-                    current_path: app_state.read().current_path.clone(),
-                    view_mode: app_state.read().view_mode.clone(),
-                    sort_criteria: app_state.read().sort_criteria.clone(),
-                    selected_files: app_state.read().selected_files.clone(),
-                    on_view_mode_change: move |mode| {
-                        app_state.write().view_mode = mode;
-                    },
-                    on_sort_change: move |criteria| {
-                        app_state.write().sort_criteria = criteria;
-                    },
-                    on_file_select: move |path, multi_select| {
-                        app_state.write().select_file(path, multi_select);
-                    },
-                    on_file_action: move |action| {
-                        // Handle file operations
-                        spawn_local(async move {
-                            services.read().operations.execute_action(action).await;
-                        });
-                    }
+            // Primary Sidebar
+            if layout_state.sidebar_visible {
+                Sidebar {
+                    state: layout_state.sidebar.clone(),
+                    width: layout_state.sidebar_width,
+                    on_resize: move |width| handle_sidebar_resize(props.app_state, width),
+                    on_file_select: move |path| handle_file_select(props.app_state, path)
                 }
             }
             
-            BottomBar {
-                selected_count: app_state.read().selected_files.len(),
-                total_size: app_state.read().get_selected_total_size(),
-                current_operation: services.read().operations.get_current_operation(),
+            // Editor Groups
+            EditorGroups {
+                groups: layout_state.editor_groups.clone(),
+                on_tab_change: move |group_id, tab_id| handle_tab_change(props.app_state, group_id, tab_id),
+                on_tab_close: move |group_id, tab_id| handle_tab_close(props.app_state, group_id, tab_id),
+                on_file_drop: move |files| handle_file_drop(props.app_state, files)
+            }
+            
+            // Bottom Panel
+            if layout_state.panel_visible {
+                Panel {
+                    state: layout_state.panel.clone(),
+                    height: layout_state.panel_height,
+                    on_resize: move |height| handle_panel_resize(props.app_state, height),
+                    on_close: move |_| handle_panel_close(props.app_state)
+                }
+            }
+            
+            // Status Bar
+            if layout_state.status_bar_visible {
+                StatusBar {
+                    state: layout_state.status_bar.clone()
+                }
+            }
+            
+            // Command Palette (overlay)
+            if layout_state.command_palette_visible {
+                CommandPalette {
+                    visible: true,
+                    on_command: move |command| handle_command(props.app_state, command),
+                    on_close: move |_| handle_command_palette_close(props.app_state)
+                }
             }
         }
     }
+}
+
+fn get_grid_areas(layout: &LayoutState) -> String {
+    let activity = if layout.activity_bar_visible { "activity" } else { "." };
+    let sidebar = if layout.sidebar_visible { "sidebar" } else { "." };
+    let panel = if layout.panel_visible { "panel" } else { "editor" };
+    let status = if layout.status_bar_visible { "status" } else { "." };
+    
+    format!(
+        "'{activity} {sidebar} editor' '{activity} {sidebar} {panel}' '{status} {status} {status}'",
+        activity = activity,
+        sidebar = sidebar,
+        panel = panel,
+        status = status
+    )
+}
+
+fn get_grid_columns(layout: &LayoutState) -> String {
+    let activity_width = if layout.activity_bar_visible { "48px" } else { "0px" };
+    let sidebar_width = if layout.sidebar_visible { 
+        format!("{}px", layout.sidebar_width)
+    } else { 
+        "0px".to_string() 
+    };
+    
+    format!("{} {} 1fr", activity_width, sidebar_width)
+}
+
+fn get_grid_rows(layout: &LayoutState) -> String {
+    let panel_height = if layout.panel_visible { 
+        format!("1fr {}px", layout.panel_height)
+    } else { 
+        "1fr 0px".to_string() 
+    };
+    let status_height = if layout.status_bar_visible { "22px" } else { "0px" };
+    
+    format!("{} {}", panel_height, status_height)
 }
 ```
 
-## File Tree Component
+### 2.2 ActivityBar Component
 
 ```rust
-#[derive(Props)]
-pub struct FileTreeProps {
-    /// Current directory being displayed
-    current_path: PathBuf,
-    /// Currently selected path (if any)
-    selected_path: Option<PathBuf>,
-    /// Width of the file tree panel
-    width: f32,
-    /// Whether the panel is visible
-    is_visible: bool,
-    /// Callback when user navigates to a new path
-    on_navigate: EventHandler<PathBuf>,
-    /// Callback when user selects a file/folder
-    on_select: EventHandler<PathBuf>,
-    /// Callback when panel is resized
-    on_resize: EventHandler<f32>,
+#[derive(Props, PartialEq)]
+pub struct ActivityBarProps {
+    pub state: ActivityBarState,
+    pub on_action: EventHandler<ActivityAction>,
 }
 
-pub fn FileTree(cx: Scope<FileTreeProps>) -> Element {
-    // Local state for expanded folders
-    let expanded_folders = use_state(cx, HashSet::<PathBuf>::new);
-    let tree_data = use_state(cx, Vec::<FileTreeNode>::new);
-    let loading_state = use_state(cx, LoadingState::NotStarted);
-    
-    // Services
-    let services = use_shared_state::<Services>(cx).unwrap();
-    
-    // Load tree data when current_path changes
-    use_effect(cx, &cx.props.current_path, |current_path| {
-        to_owned![tree_data, loading_state, services];
-        async move {
-            loading_state.set(LoadingState::Loading);
-            
-            match services.read().file_system.build_tree(&current_path).await {
-                Ok(nodes) => {
-                    tree_data.set(nodes);
-                    loading_state.set(LoadingState::Loaded);
-                }
-                Err(e) => {
-                    loading_state.set(LoadingState::Error(e.to_string()));
-                }
-            }
-        }
-    });
-    
-    // Keyboard navigation handler
-    let handle_keydown = move |event: KeyboardEvent| {
-        match event.key().as_str() {
-            "ArrowUp" => {
-                // Navigate to previous item
-                event.prevent_default();
-            }
-            "ArrowDown" => {
-                // Navigate to next item
-                event.prevent_default();
-            }
-            "ArrowRight" | " " => {
-                // Expand folder or navigate into it
-                if let Some(selected) = &cx.props.selected_path {
-                    if selected.is_dir() {
-                        expanded_folders.modify(|folders| {
-                            folders.insert(selected.clone());
-                        });
-                    }
-                }
-                event.prevent_default();
-            }
-            "ArrowLeft" => {
-                // Collapse folder or navigate to parent
-                if let Some(selected) = &cx.props.selected_path {
-                    if expanded_folders.contains(selected) {
-                        expanded_folders.modify(|folders| {
-                            folders.remove(selected);
-                        });
-                    } else if let Some(parent) = selected.parent() {
-                        cx.props.on_navigate.call(parent.to_path_buf());
-                    }
-                }
-                event.prevent_default();
-            }
-            "Enter" => {
-                // Navigate into selected folder
-                if let Some(selected) = &cx.props.selected_path {
-                    if selected.is_dir() {
-                        cx.props.on_navigate.call(selected.clone());
-                    }
-                }
-                event.prevent_default();
-            }
-            _ => {}
-        }
-    };
-    
-    if !cx.props.is_visible {
-        return render! { div { class: "file-tree-hidden" } };
-    }
-    
-    render! {
+#[derive(Debug, Clone, PartialEq)]
+pub enum ActivityAction {
+    Select(ActivityType),
+    Settings,
+    Extensions,
+    Help,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ActivityType {
+    Explorer,
+    Search,
+    SourceControl,
+    RunDebug,
+    Extensions,
+}
+
+pub fn ActivityBar(props: ActivityBarProps) -> Element {
+    rsx! {
         div {
-            class: "file-tree-container",
-            style: "width: {cx.props.width}px;",
-            onkeydown: handle_keydown,
-            tabindex: 0,
-            role: "tree",
-            "aria-label": "File tree navigation",
-            
-            match loading_state.get() {
-                LoadingState::Loading => render! {
-                    div { class: "loading-indicator", "Loading..." }
-                },
-                LoadingState::Error(error) => render! {
-                    div { class: "error-message", "Error: {error}" }
-                },
-                LoadingState::Loaded => render! {
-                    div { class: "tree-content",
-                        tree_data.iter().map(|node| render! {
-                            FileTreeNode {
-                                key: "{node.path}",
-                                node: node.clone(),
-                                level: 0,
-                                is_expanded: expanded_folders.contains(&node.path),
-                                is_selected: cx.props.selected_path.as_ref() == Some(&node.path),
-                                on_toggle: move |path| {
-                                    expanded_folders.modify(|folders| {
-                                        if folders.contains(&path) {
-                                            folders.remove(&path);
-                                        } else {
-                                            folders.insert(path);
-                                        }
-                                    });
-                                },
-                                on_select: move |path| {
-                                    cx.props.on_select.call(path);
-                                },
-                                on_navigate: move |path| {
-                                    cx.props.on_navigate.call(path);
-                                }
-                            }
-                        })
-                    }
-                },
-                _ => render! { div {} }
-            }
-        }
-    }
-}
-
-#[derive(Props)]
-pub struct FileTreeNodeProps {
-    node: FileTreeNode,
-    level: usize,
-    is_expanded: bool,
-    is_selected: bool,
-    on_toggle: EventHandler<PathBuf>,
-    on_select: EventHandler<PathBuf>,
-    on_navigate: EventHandler<PathBuf>,
-}
-
-pub fn FileTreeNode(cx: Scope<FileTreeNodeProps>) -> Element {
-    let node = &cx.props.node;
-    let indent = cx.props.level * 16;
-    
-    render! {
-        div {
-            class: format!("tree-node {}", if cx.props.is_selected { "selected" } else { "" }),
-            role: "treeitem",
-            "aria-expanded": if node.is_directory { cx.props.is_expanded.to_string() } else { "false".to_string() },
-            "aria-selected": cx.props.is_selected.to_string(),
+            class: "activity-bar",
+            style: "grid-area: activity; background: var(--vscode-activity-bar-background); border-right: 1px solid var(--vscode-border);",
+            role: "navigation",
+            "aria-label": "Primary navigation",
             
             div {
-                class: "tree-node-content",
-                style: "padding-left: {indent}px;",
-                onclick: move |_| {
-                    if node.is_directory && !cx.props.is_expanded {
-                        cx.props.on_toggle.call(node.path.clone());
-                    }
-                    cx.props.on_select.call(node.path.clone());
-                },
-                ondoubleclick: move |_| {
-                    if node.is_directory {
-                        cx.props.on_navigate.call(node.path.clone());
-                    }
-                },
+                class: "activity-bar-items",
+                style: "display: flex; flex-direction: column; height: 100%;",
                 
-                if node.is_directory {
-                    render! {
-                        button {
-                            class: "expand-button",
-                            onclick: move |event| {
-                                event.stop_propagation();
-                                cx.props.on_toggle.call(node.path.clone());
-                            },
-                            "aria-label": if cx.props.is_expanded { "Collapse folder" } else { "Expand folder" },
-                            if cx.props.is_expanded { "▼" } else { "▶" }
-                        }
+                for activity in props.state.activities {
+                    ActivityBarItem {
+                        activity: activity.clone(),
+                        active: props.state.active_activity == activity.activity_type,
+                        on_click: move |_| props.on_action.call(ActivityAction::Select(activity.activity_type))
                     }
-                } else {
-                    render! { span { class: "file-spacer" } }
                 }
                 
-                FileIcon { file_type: node.file_type.clone() }
+                div {
+                    class: "activity-bar-spacer",
+                    style: "flex: 1;"
+                }
                 
-                span { class: "file-name", "{node.name}" }
+                // Bottom items
+                ActivityBarItem {
+                    activity: ActivityItem::settings(),
+                    active: false,
+                    on_click: move |_| props.on_action.call(ActivityAction::Settings)
+                }
+            }
+        }
+    }
+}
+
+#[derive(Props, PartialEq)]
+pub struct ActivityBarItemProps {
+    pub activity: ActivityItem,
+    pub active: bool,
+    pub on_click: EventHandler<MouseEvent>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ActivityItem {
+    pub activity_type: ActivityType,
+    pub icon: String,
+    pub label: String,
+    pub badge_count: Option<u32>,
+}
+
+impl ActivityItem {
+    pub fn explorer() -> Self {
+        Self {
+            activity_type: ActivityType::Explorer,
+            icon: "files".to_string(),
+            label: "Explorer".to_string(),
+            badge_count: None,
+        }
+    }
+    
+    pub fn search() -> Self {
+        Self {
+            activity_type: ActivityType::Search,
+            icon: "search".to_string(),
+            label: "Search".to_string(),
+            badge_count: None,
+        }
+    }
+    
+    pub fn settings() -> Self {
+        Self {
+            activity_type: ActivityType::Extensions, // Using Extensions as placeholder
+            icon: "settings-gear".to_string(),
+            label: "Settings".to_string(),
+            badge_count: None,
+        }
+    }
+}
+
+pub fn ActivityBarItem(props: ActivityBarItemProps) -> Element {
+    let item_class = if props.active {
+        "activity-bar-item active"
+    } else {
+        "activity-bar-item"
+    };
+    
+    rsx! {
+        button {
+            class: item_class,
+            style: format!(
+                "width: 48px; height: 48px; border: none; background: {}; color: var(--vscode-foreground); display: flex; align-items: center; justify-content: center; position: relative; cursor: pointer;",
+                if props.active { "var(--vscode-list-activeSelectionBackground)" } else { "transparent" }
+            ),
+            title: props.activity.label.clone(),
+            "aria-label": props.activity.label.clone(),
+            onclick: move |evt| props.on_click.call(evt),
+            
+            // Icon
+            Icon {
+                name: props.activity.icon.clone(),
+                size: 16
             }
             
-            if node.is_directory && cx.props.is_expanded {
-                render! {
-                    div { class: "tree-children",
-                        node.children.iter().map(|child| render! {
-                            FileTreeNode {
-                                key: "{child.path}",
-                                node: child.clone(),
-                                level: cx.props.level + 1,
-                                is_expanded: false, // Will be managed by parent
-                                is_selected: false, // Will be managed by parent
-                                on_toggle: move |path| cx.props.on_toggle.call(path),
-                                on_select: move |path| cx.props.on_select.call(path),
-                                on_navigate: move |path| cx.props.on_navigate.call(path),
-                            }
-                        })
+            // Badge
+            if let Some(count) = props.activity.badge_count {
+                div {
+                    class: "activity-bar-badge",
+                    style: "position: absolute; top: 4px; right: 4px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); border-radius: 10px; min-width: 16px; height: 16px; font-size: 9px; display: flex; align-items: center; justify-content: center;",
+                    "{count}"
+                }
+            }
+        }
+    }
+}
+
+### 2.3 Sidebar Component
+
+```rust
+#[derive(Props, PartialEq)]
+pub struct SidebarProps {
+    pub state: SidebarState,
+    pub width: f64,
+    pub on_resize: EventHandler<f64>,
+    pub on_file_select: EventHandler<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SidebarState {
+    pub title: String,
+    pub content: SidebarContent,
+    pub show_header: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum SidebarContent {
+    FileTree(FileTreeState),
+    Search(SearchState),
+    SourceControl(SourceControlState),
+}
+
+pub fn Sidebar(props: SidebarProps) -> Element {
+    let is_resizing = use_signal(|| false);
+    let resize_start_x = use_signal(|| 0.0);
+    let resize_start_width = use_signal(|| props.width);
+    
+    rsx! {
+        div {
+            class: "sidebar",
+            style: format!(
+                "grid-area: sidebar; width: {}px; background: var(--vscode-sidebar-background); border-right: 1px solid var(--vscode-border); display: flex; flex-direction: column;",
+                props.width
+            ),
+            
+            // Sidebar Header
+            if props.state.show_header {
+                SidebarHeader {
+                    title: props.state.title.clone()
+                }
+            }
+            
+            // Sidebar Content
+            div {
+                class: "sidebar-content",
+                style: "flex: 1; overflow: hidden;",
+                
+                match props.state.content {
+                    SidebarContent::FileTree(ref state) => rsx! {
+                        FileTree {
+                            state: state.clone(),
+                            on_file_select: move |path| props.on_file_select.call(path)
+                        }
+                    },
+                    SidebarContent::Search(ref state) => rsx! {
+                        SearchPanel {
+                            state: state.clone()
+                        }
+                    },
+                    SidebarContent::SourceControl(ref state) => rsx! {
+                        SourceControlPanel {
+                            state: state.clone()
+                        }
                     }
                 }
             }
+            
+            // Resize Handle
+            div {
+                class: "sidebar-resize-handle",
+                style: "position: absolute; right: -2px; top: 0; bottom: 0; width: 4px; cursor: col-resize; background: transparent;",
+                onmousedown: move |evt| {
+                    is_resizing.set(true);
+                    resize_start_x.set(evt.client_x() as f64);
+                    resize_start_width.set(props.width);
+                    evt.prevent_default();
+                },
+                onmousemove: move |evt| {
+                    if *is_resizing.read() {
+                        let delta = evt.client_x() as f64 - *resize_start_x.read();
+                        let new_width = (*resize_start_width.read() + delta).clamp(200.0, 400.0);
+                        props.on_resize.call(new_width);
+                    }
+                },
+                onmouseup: move |_| {
+                    is_resizing.set(false);
+                }
+            }
+        }
+    }
+}
+
+#[derive(Props, PartialEq)]
+pub struct SidebarHeaderProps {
+    pub title: String,
+}
+
+pub fn SidebarHeader(props: SidebarHeaderProps) -> Element {
+    rsx! {
+        div {
+            class: "sidebar-header",
+            style: "height: 35px; padding: 0 16px; display: flex; align-items: center; border-bottom: 1px solid var(--vscode-border); font-size: 11px; font-weight: bold; color: var(--vscode-foreground); text-transform: uppercase;",
+            "{props.title}"
         }
     }
 }

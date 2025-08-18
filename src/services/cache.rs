@@ -1,9 +1,8 @@
-use sqlx::{sqlite::{SqlitePool, SqliteConnectOptions, SqlitePoolOptions}, Row, Sqlite, Pool};
+use sqlx::{sqlite::{SqliteConnectOptions, SqlitePoolOptions}, Row, Sqlite, Pool};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, Duration};
 use chrono::{DateTime, Utc};
 use thiserror::Error;
-use uuid::Uuid;
 
 /// Cache service configuration
 #[derive(Debug, Clone)]

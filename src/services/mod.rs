@@ -6,38 +6,21 @@ pub mod hashing;
 pub mod background;
 pub mod duplicate_detection;
 
-pub use file_system::{FileSystemService, NativeFileSystemService, FileEntry};
-pub use cache::{
-    CacheService, CacheConfig, CacheError, CachedFileMetadata, CachedThumbnail, CacheStats,
-    CacheCleanupResult, MetadataCacheStats, ThumbnailCacheStats, DatabaseStats, CacheMetrics,
-    CacheMaintenanceConfig, CacheMaintenanceResult
-};
-pub use preview::{
-    PreviewService, PreviewHandler, PreviewData, PreviewConfig, PreviewError,
-    SupportedFormat, FileMetadata, ExifData, PreviewContent, VideoThumbnail,
-    ThumbnailTask, ImagePreviewHandler, VideoPreviewHandler, AudioPreviewHandler, PdfPreviewHandler, TextPreviewHandler,
-    ThumbnailService, ThumbnailPriority, ThumbnailJobStatus, ThumbnailJobConfig, ThumbnailJob, ThumbnailServiceStats,
-    MetadataDisplay, BasicInfoSection, TechnicalInfoSection, ContentInfoSection, ExifInfoSection, TimestampInfoSection
-};
+// Re-export only actively used types to reduce unused import warnings
+pub use file_system::{FileEntry};
 pub use operations::{
-    Command, OperationError, OperationResult, CommandStatus, CommandMetadata,
-    CopyCommand, MoveCommand, DeleteCommand, RenameCommand,
-    BatchOperation, BatchStatus, BatchProgress, BatchProcessor, BatchMessage,
-    OperationHistory, HistoryConfig, HistoryEntry, HistorySnapshot, HistoryStats,
-    ProgressInfo, ProgressTracker, CancellationToken, ProgressCallback,
-    ErrorSeverity, RecoveryStrategy, RecoverySuggestion, RetryConfig,
-    ErrorRecoveryManager, ErrorStatistics
+    ProgressInfo, ErrorSeverity
 };
 pub use hashing::{
-    HashingService, HashingConfig, HashingError, HashingResult, FileHash, HashAlgorithm
+    HashingService, FileHash
 };
 pub use background::{
-    BackgroundProcessor, BackgroundError, BackgroundResult, TaskStatus, 
+    BackgroundProcessor,
     ProgressInfo as BackgroundProgressInfo, ProgressCallback as BackgroundProgressCallback, 
-    HashingTask, HashingTaskResult
+    HashingTask
 };
 pub use duplicate_detection::{
-    DuplicateDetector, DuplicateDetectionError, DuplicateDetectionResult, DuplicateDetectionResults,
-    ComparisonMethod, DuplicateFile, DuplicateGroup, PrimarySelectionStrategy, FileSortCriteria,
-    DuplicateDetectionConfig, DetectionProgress, DetectionPhase, DetectionProgressCallback
+    DuplicateDetector, DuplicateDetectionResults,
+    ComparisonMethod, DuplicateGroup, PrimarySelectionStrategy,
+    DuplicateDetectionConfig, DetectionProgress
 };

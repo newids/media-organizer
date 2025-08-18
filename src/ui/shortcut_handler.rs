@@ -2,7 +2,6 @@ use dioxus::prelude::*;
 use std::path::PathBuf;
 use crate::state::{AppState, use_app_state, ViewMode};
 use crate::ui::shortcuts::{ShortcutAction, ShortcutRegistry};
-use crate::services::FileEntry;
 
 /// Keyboard shortcut action handler that executes actions using app state
 #[derive(Clone)]

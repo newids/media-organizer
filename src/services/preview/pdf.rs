@@ -1,7 +1,6 @@
 use std::path::Path;
 use std::time::SystemTime;
 use async_trait::async_trait;
-use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
 use crate::services::preview::{
     PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
     SupportedFormat, FileMetadata, PreviewContent
@@ -159,7 +158,7 @@ impl PdfPreviewHandler {
                 date_part[10..12].parse::<u32>(),
                 date_part[12..14].parse::<u32>(),
             ) {
-                use chrono::{NaiveDate, NaiveTime, NaiveDateTime, Utc};
+                use chrono::{NaiveDate, NaiveTime, NaiveDateTime};
                 
                 if let Some(naive_date) = NaiveDate::from_ymd_opt(year, month, day) {
                     if let Some(naive_time) = NaiveTime::from_hms_opt(hour, minute, second) {
