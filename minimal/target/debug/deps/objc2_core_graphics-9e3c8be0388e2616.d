@@ -1,0 +1,10 @@
+/Users/newid/Project/MediaOrganizer/minimal/target/debug/deps/libobjc2_core_graphics-9e3c8be0388e2616.rmeta: /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/lib.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/generated/mod.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/generated/CGDirectDisplay.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/thread_safety.rs
+
+/Users/newid/Project/MediaOrganizer/minimal/target/debug/deps/libobjc2_core_graphics-9e3c8be0388e2616.rlib: /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/lib.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/generated/mod.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/generated/CGDirectDisplay.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/thread_safety.rs
+
+/Users/newid/Project/MediaOrganizer/minimal/target/debug/deps/objc2_core_graphics-9e3c8be0388e2616.d: /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/lib.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/generated/mod.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/generated/CGDirectDisplay.rs /Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/thread_safety.rs
+
+/Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/lib.rs:
+/Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/generated/mod.rs:
+/Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/generated/CGDirectDisplay.rs:
+/Users/newid/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/objc2-core-graphics-0.3.1/src/thread_safety.rs:
