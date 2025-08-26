@@ -578,7 +578,7 @@ impl LayoutManager {
     }
     
     /// Auto-adjust panel height based on content and viewport
-    pub fn auto_adjust_panel_height(&self, content_lines: usize) {
+    pub fn auto_adjust_panel_height(&mut self, content_lines: usize) {
         let viewport_height = self.layout_state.read().viewport.height;
         let line_height = 20.0; // Approximate line height
         let desired_height = (content_lines as f64 * line_height).min(viewport_height * 0.4);

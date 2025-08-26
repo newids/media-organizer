@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use dioxus::events::MouseEvent;
+use dioxus::events::{MouseEvent, FormData};
 use dioxus_elements::geometry::WheelDelta;
 use dioxus_free_icons::icons::fa_solid_icons;
 use dioxus_free_icons::Icon;
@@ -649,10 +649,12 @@ pub fn LazyPreviewContentArea(
             }
             
             // Progressive rendering based on loading state
-            match lazy_loader.read().state {
+            {
+                let loader_state = lazy_loader.read();
+                match &loader_state.state {
                 LoadingState::Loading(progress) => rsx! {
                     ProgressivePlaceholder {
-                        progress: progress,
+                        progress: *progress,
                         loading_progress: loading_progress,
                         selected_file: selected_file,
                     }
@@ -730,7 +732,7 @@ pub fn LazyPreviewContentArea(
                 },
                 LoadingState::Failed(error) => rsx! {
                     LoadingErrorDisplay {
-                        error: error,
+                        error: error.clone(),
                         selected_file: selected_file,
                         lazy_loader: lazy_loader,
                     }
@@ -749,6 +751,7 @@ pub fn LazyPreviewContentArea(
                         ",
                         div { "Select a file to preview" }
                     }
+                }
                 }
             }
         }
@@ -867,6 +870,12 @@ pub fn QuickActions(
         .map(|pd| matches!(pd.format, SupportedFormat::Jpeg | SupportedFormat::Png))
         .unwrap_or(false);
     
+    // Clone paths for closures
+    let copy_path = file_path.clone();
+    let open_path = file_path.clone();
+    let rotate_path = file_path.clone();
+    let props_path = file_path.clone();
+    
     rsx! {
         div {
             class: "quick-actions",
@@ -883,7 +892,7 @@ pub fn QuickActions(
                 icon: "📋",
                 tooltip: "Copy file path",
                 onclick: move |_| {
-                    copy_to_clipboard(&file_path.to_string_lossy().to_string());
+                    copy_to_clipboard(&copy_path.to_string_lossy().to_string());
                 },
             }
             
@@ -892,7 +901,7 @@ pub fn QuickActions(
                 icon: "🔗",
                 tooltip: "Open with default app",
                 onclick: move |_| {
-                    open_external(&file_path);
+                    open_external(&open_path);
                 },
             }
             
@@ -902,7 +911,7 @@ pub fn QuickActions(
                     icon: "↻",
                     tooltip: "Rotate image 90° clockwise",
                     onclick: move |_| {
-                        rotate_image(&file_path);
+                        rotate_image(&rotate_path);
                     },
                 }
             }
@@ -912,7 +921,7 @@ pub fn QuickActions(
                 icon: "ⓘ",
                 tooltip: "Show file properties",
                 onclick: move |_| {
-                    show_file_properties(&file_path);
+                    show_file_properties(&props_path);
                 },
             }
         }
@@ -1171,7 +1180,7 @@ pub fn VideoPreview(
                             font-size: var(--font-size-medium, 14px);
                             text-align: center;
                         ",
-                        "{format:?} Video"
+                        {format!("{:?} Video", format)}
                         {
                             if let Some(d) = duration {
                                 format!(" • {:.1}s", d)
@@ -1410,9 +1419,12 @@ pub fn VideoPreview(
                                 font-size: 12px;
                             ",
                             value: "{*playback_speed.read()}",
-                            onchange: move |evt| {
-                                if let Ok(speed) = evt.data.value().parse::<f64>() {
-                                    playback_speed.set(speed);
+                            onchange: {
+                                let mut playback_speed = playback_speed;
+                                move |evt: Event<FormData>| {
+                                    if let Ok(speed) = evt.data.value().parse::<f64>() {
+                                        playback_speed.set(speed);
+                                    }
                                 }
                             },
                             
@@ -1445,8 +1457,12 @@ pub fn VideoPreview(
                                 font-size: 16px;
                                 padding: 4px;
                             ",
-                            onclick: move |_| {
-                                is_muted.set(!*is_muted.read());
+                            onclick: {
+                                let mut is_muted = is_muted;
+                                move |_| {
+                                    let current_muted = *is_muted.read();
+                                    is_muted.set(!current_muted);
+                                }
                             },
                             {
                                 if *is_muted.read() {
@@ -1465,7 +1481,7 @@ pub fn VideoPreview(
                             min: "0",
                             max: "1",
                             step: "0.1",
-                            value: if *is_muted.read() { "0" } else { &format!("{}", *volume.read()) },
+                            value: if *is_muted.read() { "0".to_string() } else { format!("{}", *volume.read()) },
                             style: "
                                 width: 80px;
                                 height: 4px;
@@ -1476,7 +1492,7 @@ pub fn VideoPreview(
                             oninput: {
                                 let mut volume = volume;
                                 let mut is_muted = is_muted;
-                                move |evt| {
+                                move |evt: Event<FormData>| {
                                     if let Ok(new_volume) = evt.data.value().parse::<f64>() {
                                         volume.set(new_volume.clamp(0.0, 1.0));
                                         if new_volume > 0.0 {
