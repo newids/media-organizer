@@ -18,18 +18,27 @@ impl ThemeManager {
                         match theme {
                             Theme::Dark => {
                                 let _ = html.set_attribute("data-theme", "dark");
+                                tracing::debug!("Applied explicit dark theme");
                             }
                             Theme::Light => {
                                 let _ = html.set_attribute("data-theme", "light");
+                                tracing::debug!("Applied explicit light theme");
+                            }
+                            Theme::HighContrast => {
+                                let _ = html.set_attribute("data-theme", "high-contrast");
+                                tracing::debug!("Applied high contrast theme");
                             }
                             Theme::Auto => {
-                                // Detect system preference and apply appropriate theme
+                                // Remove data-theme attribute to let CSS media queries handle it
+                                let _ = html.remove_attribute("data-theme");
+                                tracing::debug!("Applied auto theme (removed data-theme, using CSS media queries)");
+                                
+                                // Also log what the system preference actually is
                                 let system_theme = Self::detect_system_theme();
-                                let theme_value = if system_theme { "dark" } else { "light" };
-                                let _ = html.set_attribute("data-theme", theme_value);
+                                tracing::info!("Auto theme active, system preference: {}", 
+                                             if system_theme { "dark" } else { "light" });
                             }
                         }
-                        tracing::debug!("Applied theme: {:?}", theme);
                     }
                 }
             }
@@ -37,9 +46,28 @@ impl ThemeManager {
         
         #[cfg(not(feature = "web"))]
         {
-            // For desktop, we'll handle theme application through CSS custom properties
-            // The styling is already in the CSS with :root and [data-theme] selectors
-            tracing::debug!("Applied theme: {:?} (desktop mode)", theme);
+            // For desktop, we need to simulate the CSS media query behavior
+            // since we can't rely on browser media queries
+            match theme {
+                Theme::Dark => {
+                    tracing::debug!("Applied explicit dark theme (desktop)");
+                    // In a full desktop implementation, you'd set CSS variables here
+                }
+                Theme::Light => {
+                    tracing::debug!("Applied explicit light theme (desktop)");
+                    // In a full desktop implementation, you'd set CSS variables here
+                }
+                Theme::HighContrast => {
+                    tracing::debug!("Applied high contrast theme (desktop)");
+                    // In a full desktop implementation, you'd set high contrast CSS variables here
+                }
+                Theme::Auto => {
+                    let system_theme = Self::detect_system_theme();
+                    tracing::info!("Auto theme active (desktop), detected system preference: {}", 
+                                 if system_theme { "dark" } else { "light" });
+                    // In a full implementation, you'd apply the detected theme's CSS variables
+                }
+            }
         }
     }
 
@@ -48,34 +76,107 @@ impl ThemeManager {
         #[cfg(feature = "web")]
         {
             if let Some(window) = web_sys::window() {
-                // Check if the browser supports matchMedia
+                // Check if the browser supports matchMedia for prefers-color-scheme
                 if let Ok(Some(media_query)) = window.match_media("(prefers-color-scheme: dark)") {
+                    tracing::debug!("Browser system theme preference: {}", if media_query.matches() { "dark" } else { "light" });
                     return media_query.matches();
                 }
             }
+            tracing::warn!("Could not detect system theme preference in browser, defaulting to dark");
         }
         
         #[cfg(not(feature = "web"))]
         {
-            // For desktop, try to detect system theme preference
-            // This is a simplified approach - in a full implementation you'd
-            // use platform-specific APIs to detect the system theme
-            if cfg!(target_os = "macos") {
-                // On macOS, we could use NSUserDefaults or similar
-                // For now, default to dark
-                return true;
-            } else if cfg!(target_os = "windows") {
-                // On Windows, we could check the registry
-                // For now, default to dark
-                return true;
-            } else {
-                // On Linux, we could check various desktop environment settings
-                // For now, default to dark
-                return true;
-            }
+            // Enhanced desktop system theme detection
+            let detected_theme = Self::detect_desktop_system_theme();
+            tracing::info!("Desktop system theme detected: {}", if detected_theme { "dark" } else { "light" });
+            return detected_theme;
         }
         
-        // Default to dark theme if we can't detect
+        // Default to dark theme if detection fails
+        tracing::debug!("System theme detection failed, defaulting to dark");
+        true
+    }
+    
+    /// Enhanced desktop system theme detection
+    #[cfg(not(feature = "web"))]
+    fn detect_desktop_system_theme() -> bool {
+        // Try multiple detection methods for desktop platforms
+        
+        #[cfg(target_os = "macos")]
+        {
+            // On macOS, check system appearance using command line tool
+            if let Ok(output) = std::process::Command::new("defaults")
+                .args(&["read", "-g", "AppleInterfaceStyle"])
+                .output()
+            {
+                if output.status.success() {
+                    let style = String::from_utf8_lossy(&output.stdout);
+                    let is_dark = style.trim().eq_ignore_ascii_case("dark");
+                    tracing::debug!("macOS AppleInterfaceStyle: '{}' -> {}", style.trim(), if is_dark { "dark" } else { "light" });
+                    return is_dark;
+                }
+            }
+            tracing::debug!("macOS system theme detection failed, defaulting to dark");
+            return true; // Default to dark on macOS
+        }
+        
+        #[cfg(target_os = "windows")]
+        {
+            // On Windows, check the registry for app theme preference
+            // This is a simplified approach - production code might use Windows APIs
+            use std::process::Command;
+            
+            if let Ok(output) = Command::new("reg")
+                .args(&[
+                    "query", 
+                    "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                    "/v", "AppsUseLightTheme"
+                ])
+                .output()
+            {
+                if output.status.success() {
+                    let registry_output = String::from_utf8_lossy(&output.stdout);
+                    // Look for "0x0" (dark) or "0x1" (light)
+                    let is_light = registry_output.contains("0x1");
+                    tracing::debug!("Windows AppsUseLightTheme registry: {} -> {}", 
+                                  if is_light { "0x1" } else { "0x0" }, 
+                                  if is_light { "light" } else { "dark" });
+                    return !is_light; // Return true for dark theme
+                }
+            }
+            tracing::debug!("Windows system theme detection failed, defaulting to dark");
+            return true; // Default to dark on Windows
+        }
+        
+        #[cfg(target_os = "linux")]
+        {
+            // On Linux, try to detect through various desktop environment settings
+            // Check GTK theme first
+            if let Ok(gtk_theme) = std::env::var("GTK_THEME") {
+                let is_dark = gtk_theme.to_lowercase().contains("dark");
+                tracing::debug!("Linux GTK_THEME: '{}' -> {}", gtk_theme, if is_dark { "dark" } else { "light" });
+                return is_dark;
+            }
+            
+            // Check for dark themes in gsettings (GNOME)
+            if let Ok(output) = std::process::Command::new("gsettings")
+                .args(&["get", "org.gnome.desktop.interface", "gtk-theme"])
+                .output()
+            {
+                if output.status.success() {
+                    let theme_name = String::from_utf8_lossy(&output.stdout);
+                    let is_dark = theme_name.to_lowercase().contains("dark");
+                    tracing::debug!("Linux GNOME theme: '{}' -> {}", theme_name.trim(), if is_dark { "dark" } else { "light" });
+                    return is_dark;
+                }
+            }
+            
+            tracing::debug!("Linux system theme detection failed, defaulting to dark");
+            return true; // Default to dark on Linux
+        }
+        
+        // Fallback for other platforms
         true
     }
 
@@ -99,12 +200,13 @@ impl ThemeManager {
             Theme::Dark => "Dark",
             Theme::Light => "Light",
             Theme::Auto => "Auto",
+            Theme::HighContrast => "High Contrast",
         }
     }
 
     /// Get all available themes
     pub fn get_available_themes() -> Vec<Theme> {
-        vec![Theme::Dark, Theme::Light, Theme::Auto]
+        vec![Theme::Dark, Theme::Light, Theme::HighContrast, Theme::Auto]
     }
 
     /// Toggle between themes (Dark ↔ Light, preserving Auto preference)
@@ -120,6 +222,7 @@ impl ThemeManager {
                     Theme::Dark
                 }
             }
+            Theme::HighContrast => Theme::Light, // Go to light from high contrast
         }
     }
 
@@ -170,6 +273,8 @@ pub fn use_theme_manager() -> Signal<ThemeManagerState> {
     use_signal(|| ThemeManagerState {
         current_theme: Theme::default(),
         is_applying: false,
+        manual_override_active: false,
+        last_detected_system_theme: ThemeManager::detect_system_theme(),
         system_theme_listener: None,
     })
 }
@@ -179,6 +284,8 @@ pub fn use_theme_manager() -> Signal<ThemeManagerState> {
 pub struct ThemeManagerState {
     pub current_theme: Theme,
     pub is_applying: bool,
+    pub manual_override_active: bool, // Track if user manually overrode Auto theme
+    pub last_detected_system_theme: bool, // Cache last detected system theme (true = dark)
     #[cfg(feature = "web")]
     pub system_theme_listener: Option<js_sys::Function>,
     #[cfg(not(feature = "web"))]
@@ -188,8 +295,27 @@ pub struct ThemeManagerState {
 impl ThemeManagerState {
     /// Update theme and persist to settings
     pub fn set_theme(&mut self, new_theme: Theme, settings: &mut SettingsState) {
+        self.set_theme_with_override(new_theme, settings, false);
+    }
+    
+    /// Update theme with manual override tracking
+    pub fn set_theme_with_override(&mut self, new_theme: Theme, settings: &mut SettingsState, is_manual_override: bool) {
         self.is_applying = true;
+        let old_theme = self.current_theme.clone();
         self.current_theme = new_theme.clone();
+        
+        // Track manual override behavior
+        if is_manual_override {
+            if matches!(old_theme, Theme::Auto) && !matches!(new_theme, Theme::Auto) {
+                // User manually switched away from Auto mode
+                self.manual_override_active = true;
+                tracing::info!("Manual theme override activated: Auto -> {:?}", new_theme);
+            } else if matches!(new_theme, Theme::Auto) {
+                // User manually switched back to Auto mode
+                self.manual_override_active = false;
+                tracing::info!("Manual theme override deactivated: returning to Auto mode");
+            }
+        }
         
         // Update settings
         settings.theme = new_theme.clone();
@@ -202,13 +328,59 @@ impl ThemeManagerState {
         
         self.is_applying = false;
         
-        tracing::info!("Theme changed to: {:?}", new_theme);
+        let effective_theme = ThemeManager::get_effective_theme(&new_theme);
+        tracing::info!(
+            "Theme changed to: {:?} (effective: {:?}, manual_override: {})", 
+            new_theme, 
+            effective_theme,
+            self.manual_override_active
+        );
     }
 
-    /// Toggle theme
+    /// Toggle theme (with manual override tracking)
     pub fn toggle_theme(&mut self, settings: &mut SettingsState) {
         let new_theme = ThemeManager::toggle_theme(&self.current_theme);
-        self.set_theme(new_theme, settings);
+        self.set_theme_with_override(new_theme, settings, true);
+    }
+    
+    /// Cycle through all available themes (Dark → Light → High Contrast → Auto → Dark)
+    pub fn cycle_theme(&mut self, settings: &mut SettingsState) {
+        let new_theme = match self.current_theme {
+            Theme::Dark => Theme::Light,
+            Theme::Light => Theme::HighContrast,
+            Theme::HighContrast => Theme::Auto,
+            Theme::Auto => Theme::Dark,
+        };
+        self.set_theme_with_override(new_theme, settings, true);
+    }
+    
+    /// Force a specific theme (always considered a manual override)
+    pub fn force_theme(&mut self, theme: Theme, settings: &mut SettingsState) {
+        self.set_theme_with_override(theme, settings, true);
+    }
+    
+    /// Check if system theme has changed and update if in Auto mode
+    pub fn check_system_theme_change(&mut self, settings: &mut SettingsState) -> bool {
+        if !matches!(self.current_theme, Theme::Auto) {
+            return false; // Not in Auto mode, no need to check
+        }
+        
+        let current_system_theme = ThemeManager::detect_system_theme();
+        if current_system_theme != self.last_detected_system_theme {
+            self.last_detected_system_theme = current_system_theme;
+            
+            // Re-apply Auto theme to pick up the system change
+            ThemeManager::apply_theme(&Theme::Auto);
+            
+            tracing::info!(
+                "System theme changed to: {} (Auto mode active)", 
+                if current_system_theme { "dark" } else { "light" }
+            );
+            
+            return true; // Theme changed
+        }
+        
+        false // No change
     }
 
     /// Get effective theme (resolving Auto to actual theme)
@@ -221,6 +393,36 @@ impl ThemeManagerState {
         // This would be implemented for production to listen for system theme changes
         // For now, we'll just detect on initialization
         tracing::debug!("System theme listener setup (placeholder)");
+    }
+    
+    /// Get user-friendly description of current theme status
+    pub fn get_theme_status_description(&self) -> String {
+        let effective = self.get_effective_theme();
+        match (&self.current_theme, self.manual_override_active) {
+            (Theme::Auto, false) => {
+                format!("Auto (following system: {})", ThemeManager::get_theme_display_name(&effective))
+            }
+            (Theme::Auto, true) => {
+                // This shouldn't happen, but handle gracefully
+                format!("Auto (system: {})", ThemeManager::get_theme_display_name(&effective))
+            }
+            (theme, true) => {
+                format!("{} (manual override)", ThemeManager::get_theme_display_name(theme))
+            }
+            (theme, false) => {
+                ThemeManager::get_theme_display_name(theme).to_string()
+            }
+        }
+    }
+    
+    /// Check if current theme choice is overriding system preference
+    pub fn is_overriding_system(&self) -> bool {
+        if matches!(self.current_theme, Theme::Auto) {
+            return false;
+        }
+        
+        let system_preference = if self.last_detected_system_theme { Theme::Dark } else { Theme::Light };
+        self.current_theme != system_preference
     }
 }
 
@@ -263,6 +465,82 @@ pub fn ThemeSelector(
                         "{ThemeManager::get_theme_display_name(&theme)}"
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Enhanced theme selector with status information
+#[component]
+pub fn EnhancedThemeSelector(
+    current_theme: Theme,
+    theme_manager_state: Signal<ThemeManagerState>,
+    on_theme_change: EventHandler<Theme>,
+) -> Element {
+    let manager_state = theme_manager_state.read();
+    let effective_theme = manager_state.get_effective_theme();
+    let status_description = manager_state.get_theme_status_description();
+    let is_overriding = manager_state.is_overriding_system();
+    
+    rsx! {
+        div {
+            class: "enhanced-theme-selector",
+            style: "display: flex; flex-direction: column; gap: 4px;",
+            
+            div {
+                style: "display: flex; gap: 8px; align-items: center;",
+                
+                label {
+                    style: "color: var(--vscode-text-primary); font-size: var(--vscode-font-size-normal);",
+                    "Theme:"
+                }
+                
+                select {
+                    value: "{current_theme.as_str()}",
+                    style: "
+                        background-color: var(--vscode-secondary-background);
+                        color: var(--vscode-text-primary);
+                        border: 1px solid var(--vscode-border);
+                        border-radius: 3px;
+                        padding: 4px 8px;
+                        font-size: var(--vscode-font-size-normal);
+                        font-family: var(--vscode-font-family);
+                    ",
+                    onchange: move |evt| {
+                        let theme = Theme::from_str(&evt.value());
+                        on_theme_change.call(theme);
+                    },
+                    
+                    for theme in ThemeManager::get_available_themes() {
+                        option {
+                            value: "{theme.as_str()}",
+                            selected: theme == current_theme,
+                            "{ThemeManager::get_theme_display_name(&theme)}"
+                        }
+                    }
+                }
+                
+                if is_overriding {
+                    span {
+                        style: "
+                            color: var(--vscode-warning-foreground);
+                            font-size: 12px;
+                            margin-left: 4px;
+                        ",
+                        title: "Theme is manually overriding system preference",
+                        "⚠️"
+                    }
+                }
+            }
+            
+            div {
+                style: "
+                    color: var(--vscode-text-secondary);
+                    font-size: 11px;
+                    font-family: var(--vscode-font-family);
+                    font-style: italic;
+                ",
+                "Current: {status_description}"
             }
         }
     }

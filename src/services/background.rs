@@ -412,6 +412,7 @@ mod tests {
     use tempfile::NamedTempFile;
     use tokio::io::AsyncWriteExt;
     use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
     
     #[tokio::test]
     async fn test_progress_info_creation() {

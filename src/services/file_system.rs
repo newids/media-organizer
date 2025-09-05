@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use thiserror::Error;
 use walkdir::WalkDir;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Error)]
 pub enum FileSystemError {
@@ -111,6 +112,7 @@ pub struct FileEntry {
     pub is_directory: bool,
     pub is_hidden: bool,
     pub permissions: FilePermissions,
+    pub preview_metadata: Option<PreviewMetadata>,
 }
 
 impl PartialEq for FileEntry {
@@ -122,7 +124,8 @@ impl PartialEq for FileEntry {
             && self.is_directory == other.is_directory
             && self.is_hidden == other.is_hidden
             && self.permissions == other.permissions
-        // Note: We ignore modified and created times for comparison
+        // Note: We ignore modified, created times, and preview_metadata for comparison
+        // as preview_metadata is auxiliary data that doesn't affect file identity
     }
 }
 
@@ -202,6 +205,37 @@ impl FileEntry {
     /// Get the file type icon emoji
     pub fn icon(&self) -> &'static str {
         self.file_type.icon()
+    }
+    
+    /// Check if this file has preview metadata
+    pub fn has_preview_metadata(&self) -> bool {
+        self.preview_metadata.as_ref().map_or(false, |m| m.has_preview_data())
+    }
+    
+    /// Get preview metadata summary string
+    pub fn preview_summary(&self) -> Option<String> {
+        self.preview_metadata.as_ref().map(|m| m.summary()).filter(|s| !s.is_empty())
+    }
+    
+    /// Get dimensions if available
+    pub fn dimensions(&self) -> Option<(u32, u32)> {
+        self.preview_metadata.as_ref().and_then(|m| {
+            match (m.width, m.height) {
+                (Some(w), Some(h)) => Some((w, h)),
+                _ => None,
+            }
+        })
+    }
+    
+    /// Get duration if available (for video/audio files)
+    pub fn duration(&self) -> Option<f64> {
+        self.preview_metadata.as_ref().and_then(|m| m.duration)
+    }
+    
+    /// Check if this file requires metadata extraction for preview generation
+    pub fn needs_preview_metadata(&self) -> bool {
+        // Only extract metadata for media and document files
+        self.is_media() || self.is_document() || matches!(self.file_type, FileType::Document(DocumentFormat::Pdf))
     }
 }
 
@@ -425,6 +459,132 @@ impl Default for TraversalOptions {
     }
 }
 
+/// Preview-specific metadata for file types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PreviewMetadata {
+    /// Image/video dimensions
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+    /// Media duration in seconds
+    pub duration: Option<f64>,
+    /// Audio/video bitrate
+    pub bit_rate: Option<u32>,
+    /// Audio sample rate
+    pub sample_rate: Option<u32>,
+    /// Media codec information
+    pub codec: Option<String>,
+    /// Media title/name
+    pub title: Option<String>,
+    /// Media artist/creator
+    pub artist: Option<String>,
+    /// Album name for audio files
+    pub album: Option<String>,
+    /// Year created/recorded
+    pub year: Option<u32>,
+    /// Document page count
+    pub page_count: Option<u32>,
+    /// Image color space
+    pub color_space: Option<String>,
+    /// Image compression method
+    pub compression: Option<String>,
+    /// EXIF data for images
+    pub exif_data: Option<ExifMetadata>,
+    /// MIME type detection
+    pub mime_type: Option<String>,
+}
+
+/// EXIF metadata extracted from images
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExifMetadata {
+    pub camera_make: Option<String>,
+    pub camera_model: Option<String>,
+    pub lens_model: Option<String>,
+    pub focal_length: Option<f32>,
+    pub aperture: Option<f32>,
+    pub shutter_speed: Option<String>,
+    pub iso: Option<u32>,
+    pub flash: Option<bool>,
+    pub date_taken: Option<SystemTime>,
+    pub gps_latitude: Option<f64>,
+    pub gps_longitude: Option<f64>,
+    pub orientation: Option<u32>,
+}
+
+impl Default for PreviewMetadata {
+    fn default() -> Self {
+        Self {
+            width: None,
+            height: None,
+            duration: None,
+            bit_rate: None,
+            sample_rate: None,
+            codec: None,
+            title: None,
+            artist: None,
+            album: None,
+            year: None,
+            page_count: None,
+            color_space: None,
+            compression: None,
+            exif_data: None,
+            mime_type: None,
+        }
+    }
+}
+
+impl PreviewMetadata {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Check if this metadata has any meaningful preview-related information
+    pub fn has_preview_data(&self) -> bool {
+        self.width.is_some() 
+            || self.height.is_some() 
+            || self.duration.is_some()
+            || self.bit_rate.is_some()
+            || self.sample_rate.is_some()
+            || self.codec.is_some()
+            || self.title.is_some()
+            || self.artist.is_some()
+            || self.album.is_some()
+            || self.year.is_some()
+            || self.page_count.is_some()
+            || self.color_space.is_some()
+            || self.compression.is_some()
+            || self.exif_data.is_some()
+    }
+
+    /// Get a human-readable summary of the metadata
+    pub fn summary(&self) -> String {
+        let mut parts = Vec::new();
+        
+        if let (Some(w), Some(h)) = (self.width, self.height) {
+            parts.push(format!("{}×{}", w, h));
+        }
+        
+        if let Some(duration) = self.duration {
+            let minutes = (duration / 60.0) as u32;
+            let seconds = (duration % 60.0) as u32;
+            parts.push(format!("{}:{:02}", minutes, seconds));
+        }
+        
+        if let Some(codec) = &self.codec {
+            parts.push(codec.clone());
+        }
+        
+        if let Some(bit_rate) = self.bit_rate {
+            if bit_rate >= 1000 {
+                parts.push(format!("{:.1}k", bit_rate as f32 / 1000.0));
+            } else {
+                parts.push(format!("{}bps", bit_rate));
+            }
+        }
+        
+        parts.join(" • ")
+    }
+}
+
 impl TraversalOptions {
     pub fn recursive() -> Self {
         Self {
@@ -539,6 +699,10 @@ pub trait FileSystemService: Send + Sync {
     async fn get_home_directory(&self) -> Result<PathBuf, FileSystemError>;
     async fn get_desktop_directory(&self) -> Result<PathBuf, FileSystemError>;
     async fn get_documents_directory(&self) -> Result<PathBuf, FileSystemError>;
+    
+    // Preview metadata extraction methods
+    async fn extract_preview_metadata(&self, path: &Path) -> Result<PreviewMetadata, FileSystemError>;
+    async fn get_metadata_with_preview(&self, path: &Path) -> Result<FileEntry, FileSystemError>;
 }
 
 #[derive(Debug, Clone)]
@@ -678,7 +842,15 @@ impl NativeFileSystemService {
             is_directory: metadata.is_dir(),
             is_hidden,
             permissions: get_permissions(metadata),
+            preview_metadata: None, // Will be populated by extract_preview_metadata if needed
         }
+    }
+    
+    /// Create file entry with preview metadata
+    fn create_file_entry_with_preview(path: PathBuf, metadata: &std::fs::Metadata, preview_metadata: Option<PreviewMetadata>) -> FileEntry {
+        let mut entry = Self::create_file_entry(path, metadata);
+        entry.preview_metadata = preview_metadata;
+        entry
     }
 }
 
@@ -1262,6 +1434,247 @@ impl FileSystemService for NativeFileSystemService {
             }
         }).await
         .map_err(|e| FileSystemError::Io(e.to_string()))?
+    }
+    
+    async fn extract_preview_metadata(&self, path: &Path) -> Result<PreviewMetadata, FileSystemError> {
+        let path = path.to_path_buf();
+        
+        tokio::task::spawn_blocking(move || {
+            if !path.exists() {
+                return Err(FileSystemError::PathNotFound { path });
+            }
+            
+            let mut metadata = PreviewMetadata::new();
+            
+            // Extract basic file info
+            if let Ok(_file_metadata) = std::fs::metadata(&path) {
+                // File size is already available in FileEntry, but we can add MIME type detection here
+                if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+                    metadata.mime_type = Self::detect_mime_type(extension);
+                }
+            }
+            
+            // Extract format-specific metadata based on file type
+            if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+                match extension.to_lowercase().as_str() {
+                    // Image formats - extract dimensions, EXIF, color space
+                    "jpg" | "jpeg" | "png" | "gif" | "webp" | "tiff" | "tif" | "bmp" => {
+                        Self::extract_image_metadata(&mut metadata, &path)?;
+                    },
+                    
+                    // Video formats - extract dimensions, duration, codec, metadata
+                    "mp4" | "avi" | "mkv" | "mov" | "wmv" | "flv" | "webm" => {
+                        Self::extract_video_metadata(&mut metadata, &path)?;
+                    },
+                    
+                    // Audio formats - extract duration, bitrate, sample rate, ID3 tags
+                    "mp3" | "wav" | "flac" | "aac" | "ogg" | "m4a" => {
+                        Self::extract_audio_metadata(&mut metadata, &path)?;
+                    },
+                    
+                    // Document formats - extract page count, text content info
+                    "pdf" => {
+                        Self::extract_pdf_metadata(&mut metadata, &path)?;
+                    },
+                    
+                    _ => {
+                        // For other formats, just set MIME type
+                    }
+                }
+            }
+            
+            Ok(metadata)
+        }).await
+        .map_err(|e| FileSystemError::Io(e.to_string()))?
+    }
+    
+    async fn get_metadata_with_preview(&self, path: &Path) -> Result<FileEntry, FileSystemError> {
+        let path = path.to_path_buf();
+        
+        tokio::task::spawn_blocking(move || {
+            if !path.exists() {
+                return Err(FileSystemError::PathNotFound { path });
+            }
+            
+            let metadata = std::fs::metadata(&path)?;
+            let mut file_entry = Self::create_file_entry(path.clone(), &metadata);
+            
+            // Extract preview metadata only for supported file types
+            if file_entry.needs_preview_metadata() {
+                // For now, we'll do a synchronous extraction within the blocking task
+                // In a production system, this might be offloaded to a background service
+                match Self::extract_preview_metadata_sync(&path) {
+                    Ok(preview_metadata) => {
+                        file_entry.preview_metadata = Some(preview_metadata);
+                    },
+                    Err(e) => {
+                        // Log the error but don't fail the entire operation
+                        tracing::warn!("Failed to extract preview metadata for {}: {}", path.display(), e);
+                    }
+                }
+            }
+            
+            Ok(file_entry)
+        }).await
+        .map_err(|e| FileSystemError::Io(e.to_string()))?
+    }
+}
+
+impl NativeFileSystemService {
+    /// Synchronous version of metadata extraction for use in blocking contexts
+    fn extract_preview_metadata_sync(path: &Path) -> Result<PreviewMetadata, FileSystemError> {
+        let mut metadata = PreviewMetadata::new();
+        
+        // Extract basic file info and MIME type
+        if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+            metadata.mime_type = Self::detect_mime_type(extension);
+            
+            // Extract format-specific metadata
+            match extension.to_lowercase().as_str() {
+                "jpg" | "jpeg" | "png" | "gif" | "webp" | "tiff" | "tif" | "bmp" => {
+                    Self::extract_image_metadata(&mut metadata, path)?;
+                },
+                "mp4" | "avi" | "mkv" | "mov" | "wmv" | "flv" | "webm" => {
+                    Self::extract_video_metadata(&mut metadata, path)?;
+                },
+                "mp3" | "wav" | "flac" | "aac" | "ogg" | "m4a" => {
+                    Self::extract_audio_metadata(&mut metadata, path)?;
+                },
+                "pdf" => {
+                    Self::extract_pdf_metadata(&mut metadata, path)?;
+                },
+                _ => {}
+            }
+        }
+        
+        Ok(metadata)
+    }
+    
+    /// Detect MIME type from file extension
+    fn detect_mime_type(extension: &str) -> Option<String> {
+        match extension.to_lowercase().as_str() {
+            // Images
+            "jpg" | "jpeg" => Some("image/jpeg".to_string()),
+            "png" => Some("image/png".to_string()),
+            "gif" => Some("image/gif".to_string()),
+            "webp" => Some("image/webp".to_string()),
+            "tiff" | "tif" => Some("image/tiff".to_string()),
+            "bmp" => Some("image/bmp".to_string()),
+            "svg" => Some("image/svg+xml".to_string()),
+            
+            // Videos
+            "mp4" => Some("video/mp4".to_string()),
+            "avi" => Some("video/x-msvideo".to_string()),
+            "mkv" => Some("video/x-matroska".to_string()),
+            "mov" => Some("video/quicktime".to_string()),
+            "wmv" => Some("video/x-ms-wmv".to_string()),
+            "webm" => Some("video/webm".to_string()),
+            
+            // Audio
+            "mp3" => Some("audio/mpeg".to_string()),
+            "wav" => Some("audio/wav".to_string()),
+            "flac" => Some("audio/flac".to_string()),
+            "aac" => Some("audio/aac".to_string()),
+            "ogg" => Some("audio/ogg".to_string()),
+            "m4a" => Some("audio/mp4".to_string()),
+            
+            // Documents
+            "pdf" => Some("application/pdf".to_string()),
+            
+            _ => None,
+        }
+    }
+    
+    /// Extract image metadata (dimensions, EXIF data)
+    /// Note: This is a placeholder implementation. In production, you would use
+    /// libraries like `image` crate for basic info and `exif` crate for EXIF data
+    fn extract_image_metadata(metadata: &mut PreviewMetadata, path: &Path) -> Result<(), FileSystemError> {
+        // Placeholder implementation - in production this would use image processing libraries
+        // For now, we'll just set some basic info based on the file
+        
+        if let Ok(_file_metadata) = std::fs::metadata(path) {
+            // For demonstration, set some placeholder values
+            // In reality, you'd use the `image` crate to decode and get actual dimensions
+            
+            match path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase().as_str() {
+                "jpg" | "jpeg" => {
+                    // Placeholder: would use image crate to get actual dimensions
+                    metadata.color_space = Some("RGB".to_string());
+                    metadata.compression = Some("JPEG".to_string());
+                },
+                "png" => {
+                    metadata.color_space = Some("RGB".to_string());
+                    metadata.compression = Some("PNG".to_string());
+                },
+                _ => {}
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Extract video metadata (dimensions, duration, codec)
+    /// Note: This is a placeholder implementation. In production, you would use
+    /// FFmpeg bindings or similar libraries
+    fn extract_video_metadata(metadata: &mut PreviewMetadata, path: &Path) -> Result<(), FileSystemError> {
+        // Placeholder implementation - in production this would use FFmpeg
+        // For now, we'll just set basic format info
+        
+        if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+            match extension.to_lowercase().as_str() {
+                "mp4" => {
+                    metadata.codec = Some("H.264".to_string());
+                },
+                "mkv" => {
+                    metadata.codec = Some("H.264".to_string());
+                },
+                "webm" => {
+                    metadata.codec = Some("VP9".to_string());
+                },
+                _ => {}
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Extract audio metadata (duration, bitrate, ID3 tags)
+    /// Note: This is a placeholder implementation. In production, you would use
+    /// libraries like `symphonia` or `rodio` for audio metadata
+    fn extract_audio_metadata(metadata: &mut PreviewMetadata, path: &Path) -> Result<(), FileSystemError> {
+        // Placeholder implementation - in production this would use audio libraries
+        // For now, we'll just set basic format info
+        
+        if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
+            match extension.to_lowercase().as_str() {
+                "mp3" => {
+                    metadata.codec = Some("MP3".to_string());
+                    metadata.bit_rate = Some(128000); // Placeholder bitrate
+                },
+                "flac" => {
+                    metadata.codec = Some("FLAC".to_string());
+                    metadata.sample_rate = Some(44100); // Placeholder sample rate
+                },
+                "wav" => {
+                    metadata.codec = Some("PCM".to_string());
+                    metadata.sample_rate = Some(44100);
+                },
+                _ => {}
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Extract PDF metadata (page count, document info)
+    /// Note: This is a placeholder implementation. In production, you would use
+    /// PDF processing libraries
+    fn extract_pdf_metadata(metadata: &mut PreviewMetadata, _path: &Path) -> Result<(), FileSystemError> {
+        // Placeholder implementation - in production this would use PDF libraries
+        // For now, we'll just set a placeholder page count
+        metadata.page_count = Some(1); // Placeholder
+        
+        Ok(())
     }
 }
 

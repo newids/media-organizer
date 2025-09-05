@@ -1,0 +1,26 @@
+{
+  "name": "mediaorganizer-accessibility-tests",
+  "version": "0.1.0",
+  "description": "Accessibility testing configuration for MediaOrganizer",
+  "private": true,
+  "scripts": {
+    "test:a11y": "axe http://localhost:3000 --config .axeconfig --reporter json --output target/accessibility-audit.json",
+    "test:a11y-mobile": "axe http://localhost:3000 --config .axeconfig --reporter json --viewport-width 375 --viewport-height 667 --output target/accessibility-audit-mobile.json",
+    "test:a11y-tablet": "axe http://localhost:3000 --config .axeconfig --reporter json --viewport-width 768 --viewport-height 1024 --output target/accessibility-audit-tablet.json",
+    "test:a11y-desktop": "axe http://localhost:3000 --config .axeconfig --reporter json --viewport-width 1920 --viewport-height 1080 --output target/accessibility-audit-desktop.json",
+    "test:a11y-all": "npm run test:a11y-mobile && npm run test:a11y-tablet && npm run test:a11y-desktop",
+    "posttest:a11y": "echo 'Accessibility test completed. Check target/accessibility-audit.json for results.'"
+  },
+  "devDependencies": {
+    "@axe-core/cli": "^4.8.2"
+  },
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "axe-core",
+    "wcag",
+    "testing"
+  ],
+  "author": "MediaOrganizer Team",
+  "license": "MIT"
+}

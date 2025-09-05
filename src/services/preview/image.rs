@@ -3,14 +3,14 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use image::{ImageFormat, DynamicImage, GenericImageView};
 use crate::services::preview::{
-    PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
+    PreviewProvider, PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
     SupportedFormat, FileMetadata, PreviewContent, ExifData
 };
 
-/// Image preview handler supporting multiple formats using the image crate
-pub struct ImagePreviewHandler;
+/// Image preview provider supporting multiple formats using the image crate v0.24
+pub struct ImagePreviewProvider;
 
-impl ImagePreviewHandler {
+impl ImagePreviewProvider {
     pub fn new() -> Self {
         Self
     }
@@ -130,7 +130,99 @@ impl ImagePreviewHandler {
 }
 
 #[async_trait]
-impl PreviewHandler for ImagePreviewHandler {
+impl PreviewProvider for ImagePreviewProvider {
+    fn provider_id(&self) -> &'static str {
+        "image"
+    }
+    
+    fn provider_name(&self) -> &'static str {
+        "Image Preview Provider"
+    }
+    
+    fn supports_format(&self, format: SupportedFormat) -> bool {
+        format.is_image()
+    }
+    
+    fn supported_extensions(&self) -> Vec<&'static str> {
+        vec!["jpg", "jpeg", "png", "gif", "webp", "tiff", "tif", "bmp", "svg"]
+    }
+    
+    async fn generate_preview(&self, file_path: &Path, config: &PreviewConfig) -> Result<PreviewData, PreviewError> {
+        // Detect format
+        let format = Self::detect_format_from_content(file_path).await?;
+        
+        // Load image
+        let img = image::open(file_path)
+            .map_err(|e| PreviewError::ImageError(format!("Failed to load image: {}", e)))?;
+
+        // Extract metadata
+        let mut metadata = Self::extract_image_metadata(&img, file_path)?;
+        
+        // Extract EXIF data
+        metadata.exif_data = Self::extract_exif_data(file_path);
+
+        // Generate thumbnail
+        let thumbnail_data = Self::create_thumbnail(&img, config.thumbnail_size)?;
+
+        // Determine original format string
+        let original_format = match format {
+            SupportedFormat::Jpeg => "JPEG",
+            SupportedFormat::Png => "PNG", 
+            SupportedFormat::Gif => "GIF",
+            SupportedFormat::WebP => "WebP",
+            SupportedFormat::Tiff => "TIFF",
+            SupportedFormat::Bmp => "BMP",
+            SupportedFormat::Svg => "SVG",
+            _ => "Unknown",
+        }.to_string();
+
+        let preview_content = PreviewContent::Image {
+            thumbnail_data,
+            original_format,
+        };
+
+        Ok(PreviewData {
+            file_path: file_path.to_path_buf(),
+            format,
+            thumbnail_path: None, // Will be set by service if saved to disk
+            metadata,
+            preview_content,
+            generated_at: SystemTime::now(),
+        })
+    }
+    
+    async fn extract_metadata(&self, file_path: &Path) -> Result<FileMetadata, PreviewError> {
+        // For images, we need to load the image to get dimensions
+        let img = image::open(file_path)
+            .map_err(|e| PreviewError::ImageError(format!("Failed to load image: {}", e)))?;
+
+        let mut metadata = Self::extract_image_metadata(&img, file_path)?;
+        metadata.exif_data = Self::extract_exif_data(file_path);
+
+        Ok(metadata)
+    }
+    
+    async fn generate_thumbnail(&self, file_path: &Path, size: (u32, u32)) -> Result<Vec<u8>, PreviewError> {
+        // Load image
+        let img = image::open(file_path)
+            .map_err(|e| PreviewError::ImageError(format!("Failed to load image: {}", e)))?;
+
+        // Generate thumbnail
+        Self::create_thumbnail(&img, size)
+    }
+    
+    fn supports_background_processing(&self) -> bool {
+        true // Large images can benefit from background processing
+    }
+    
+    fn priority(&self) -> u32 {
+        200 // Higher priority than generic handlers
+    }
+}
+
+// Legacy PreviewHandler implementation for backward compatibility
+#[async_trait]
+impl PreviewHandler for ImagePreviewProvider {
     fn supports_format(&self, format: SupportedFormat) -> bool {
         format.is_image()
     }
@@ -200,11 +292,14 @@ impl PreviewHandler for ImagePreviewHandler {
     }
 }
 
-impl Default for ImagePreviewHandler {
+impl Default for ImagePreviewProvider {
     fn default() -> Self {
         Self::new()
     }
 }
+
+// Legacy type alias for backward compatibility
+pub type ImagePreviewHandler = ImagePreviewProvider;
 
 #[cfg(test)]
 mod tests {
@@ -213,14 +308,26 @@ mod tests {
     use std::fs;
 
     #[tokio::test]
-    async fn test_image_handler_supports_formats() {
-        let handler = ImagePreviewHandler::new();
+    async fn test_image_provider_supports_formats() {
+        let provider = ImagePreviewProvider::new();
         
-        assert!(handler.supports_format(SupportedFormat::Jpeg));
-        assert!(handler.supports_format(SupportedFormat::Png));
-        assert!(handler.supports_format(SupportedFormat::Gif));
-        assert!(!handler.supports_format(SupportedFormat::Mp4));
-        assert!(!handler.supports_format(SupportedFormat::Pdf));
+        assert!(provider.supports_format(SupportedFormat::Jpeg));
+        assert!(provider.supports_format(SupportedFormat::Png));
+        assert!(provider.supports_format(SupportedFormat::Gif));
+        assert!(!provider.supports_format(SupportedFormat::Mp4));
+        assert!(!provider.supports_format(SupportedFormat::Pdf));
+        
+        // Test provider metadata
+        assert_eq!(provider.provider_id(), "image");
+        assert_eq!(provider.provider_name(), "Image Preview Provider");
+        assert!(provider.supports_background_processing());
+        assert_eq!(provider.priority(), 200);
+        
+        // Test supported extensions
+        let extensions = provider.supported_extensions();
+        assert!(extensions.contains(&"jpg"));
+        assert!(extensions.contains(&"png"));
+        assert!(extensions.contains(&"gif"));
     }
 
     #[tokio::test] 
@@ -234,11 +341,11 @@ mod tests {
         
         dynamic_img.save(&image_path).unwrap();
         
-        let handler = ImagePreviewHandler::new();
+        let provider = ImagePreviewProvider::new();
         let config = PreviewConfig::default();
         
         // Test preview generation
-        let result = handler.generate_preview(&image_path, &config).await;
+        let result = provider.generate_preview(&image_path, &config).await;
         assert!(result.is_ok());
         
         let preview = result.unwrap();
@@ -247,7 +354,7 @@ mod tests {
         assert_eq!(preview.metadata.height, Some(100));
         
         // Test thumbnail generation
-        let thumbnail_result = handler.generate_thumbnail(&image_path, (64, 64)).await;
+        let thumbnail_result = provider.generate_thumbnail(&image_path, (64, 64)).await;
         assert!(thumbnail_result.is_ok());
         let thumbnail_data = thumbnail_result.unwrap();
         assert!(!thumbnail_data.is_empty());
@@ -263,9 +370,9 @@ mod tests {
         let dynamic_img = image::DynamicImage::ImageRgb8(img);
         dynamic_img.save(&image_path).unwrap();
         
-        let handler = ImagePreviewHandler::new();
+        let provider = ImagePreviewProvider::new();
         
-        let metadata_result = handler.extract_metadata(&image_path).await;
+        let metadata_result = provider.extract_metadata(&image_path).await;
         assert!(metadata_result.is_ok());
         
         let metadata = metadata_result.unwrap();
@@ -280,7 +387,7 @@ mod tests {
         let img = image::RgbImage::new(400, 300);
         let dynamic_img = image::DynamicImage::ImageRgb8(img);
         
-        let thumbnail_result = ImagePreviewHandler::create_thumbnail(&dynamic_img, (100, 100));
+        let thumbnail_result = ImagePreviewProvider::create_thumbnail(&dynamic_img, (100, 100));
         assert!(thumbnail_result.is_ok());
         
         let thumbnail_data = thumbnail_result.unwrap();
@@ -293,10 +400,10 @@ mod tests {
         let text_path = temp_dir.path().join("test.txt");
         fs::write(&text_path, "This is not an image").unwrap();
         
-        let handler = ImagePreviewHandler::new();
+        let provider = ImagePreviewProvider::new();
         let config = PreviewConfig::default();
         
-        let result = handler.generate_preview(&text_path, &config).await;
+        let result = provider.generate_preview(&text_path, &config).await;
         assert!(result.is_err());
         
         match result.unwrap_err() {

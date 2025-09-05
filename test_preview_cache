@@ -1,0 +1,19 @@
+#!/bin/bash
+# Performance Profiling Test Script
+
+echo "🚀 Starting MediaOrganizer Performance Profiling (Task 22.1)"
+echo "============================================================"
+
+# Run with GPU acceleration if available
+echo "Running performance benchmarks with GPU acceleration..."
+cargo test --release --features gpu-acceleration test_performance_profiling -- --nocapture
+
+# Run performance validation
+echo "Validating performance targets..."
+cargo test --release --features gpu-acceleration test_performance_targets -- --nocapture
+
+# Run UI profiling
+echo "Testing UI profiler functionality..."
+cargo test --release test_ui_profiler -- --nocapture
+
+echo "✅ Performance profiling tests completed!"

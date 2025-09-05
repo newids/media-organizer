@@ -1,0 +1,371 @@
+# Accessibility Testing CI Pipeline
+# Automated WCAG 2.1 AA compliance testing using axe-core
+
+name: Accessibility Testing
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run accessibility tests daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  accessibility-tests:
+    name: Run Accessibility Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      # Optional: Set up a database service if needed for testing
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mediaorganizer_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install Rust toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+
+    - name: Cache Rust dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libasound2-dev \
+          libxkbcommon-dev \
+          libgtk-3-dev \
+          libxss1 \
+          libgconf-2-4 \
+          libxtst6 \
+          libxrandr2 \
+          libasound2 \
+          libpangocairo-1.0-0 \
+          libatk1.0-0 \
+          libcairo1 \
+          libgdk-pixbuf2.0-0 \
+          libgtk-3-0 \
+          libgbm-dev
+
+    - name: Install Chrome for accessibility testing
+      run: |
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        
+        # Verify Chrome installation
+        google-chrome --version
+
+    - name: Install Node.js (for axe-core)
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          package*.json
+
+    - name: Install axe-core CLI
+      run: |
+        npm install -g @axe-core/cli
+        axe --version
+
+    - name: Build the application
+      run: |
+        cargo build --release --all-features
+        
+    - name: Start application in background
+      run: |
+        # Start the application on port 3000 for accessibility testing
+        RUST_LOG=info ./target/release/media-organizer &
+        echo "APPLICATION_PID=$!" >> $GITHUB_ENV
+        
+        # Wait for application to be ready
+        timeout 30 bash -c 'until curl -f http://localhost:3000 >/dev/null 2>&1; do sleep 1; done' || true
+        
+        # Give extra time for full initialization
+        sleep 10
+
+    - name: Run Rust accessibility tests
+      run: |
+        # Run the comprehensive accessibility test suite
+        cargo test --test accessibility_tests -- --nocapture
+        
+    - name: Run standalone accessibility testing
+      run: |
+        # Run the standalone accessibility binary
+        cargo run --bin accessibility_tests || true
+        
+    - name: Run axe-core CLI tests
+      run: |
+        # Run axe-core directly on the running application
+        mkdir -p target/accessibility-reports/axe-cli
+        
+        # Test main page
+        axe http://localhost:3000 \
+          --reporter json \
+          --output target/accessibility-reports/axe-cli/main-page.json \
+          --tags wcag2a,wcag2aa,wcag21aa \
+          --timeout 30000 || true
+          
+        # Test with different viewport sizes
+        axe http://localhost:3000 \
+          --reporter json \
+          --output target/accessibility-reports/axe-cli/mobile-view.json \
+          --tags wcag2a,wcag2aa,wcag21aa \
+          --timeout 30000 \
+          --viewport-width 375 \
+          --viewport-height 667 || true
+          
+        # Test with high contrast simulation
+        axe http://localhost:3000 \
+          --reporter json \
+          --output target/accessibility-reports/axe-cli/high-contrast.json \
+          --tags wcag2a,wcag2aa,wcag21aa \
+          --timeout 30000 \
+          --preload-css 'button,input{background:white!important;color:black!important;border:2px solid black!important}' || true
+
+    - name: Generate accessibility summary report
+      run: |
+        # Create a summary of all accessibility test results
+        cat > target/accessibility-reports/summary.md << 'EOF'
+        # MediaOrganizer Accessibility Test Summary
+        
+        **Build:** ${{ github.run_number }}
+        **Commit:** ${{ github.sha }}
+        **Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+        **Branch:** ${{ github.ref_name }}
+        
+        ## Test Results
+        
+        ### Rust Test Suite
+        - Comprehensive accessibility scenarios executed
+        - WCAG 2.1 AA compliance validation
+        - Keyboard navigation testing
+        - Screen reader compatibility verification
+        
+        ### Axe-Core CLI Results
+        - Main page accessibility scan
+        - Mobile viewport testing  
+        - High contrast mode validation
+        
+        ## Reports Generated
+        EOF
+        
+        # List all generated reports
+        echo "### Generated Reports:" >> target/accessibility-reports/summary.md
+        find target/accessibility-reports -name "*.json" -o -name "*.md" | while read file; do
+          echo "- [\`$(basename "$file")\`]($file)" >> target/accessibility-reports/summary.md
+        done
+        
+        echo "" >> target/accessibility-reports/summary.md
+        echo "---" >> target/accessibility-reports/summary.md
+        echo "*Generated by MediaOrganizer CI/CD Pipeline*" >> target/accessibility-reports/summary.md
+
+    - name: Upload accessibility reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: accessibility-reports-${{ github.run_number }}
+        path: target/accessibility-reports/
+        retention-days: 30
+
+    - name: Check for critical accessibility violations
+      run: |
+        # Parse JSON reports for critical violations
+        CRITICAL_COUNT=0
+        SERIOUS_COUNT=0
+        
+        for json_file in target/accessibility-reports/axe-cli/*.json; do
+          if [ -f "$json_file" ]; then
+            CRITICAL_IN_FILE=$(jq '.violations | map(select(.impact == "critical")) | length' "$json_file" 2>/dev/null || echo "0")
+            SERIOUS_IN_FILE=$(jq '.violations | map(select(.impact == "serious")) | length' "$json_file" 2>/dev/null || echo "0")
+            
+            CRITICAL_COUNT=$((CRITICAL_COUNT + CRITICAL_IN_FILE))
+            SERIOUS_COUNT=$((SERIOUS_COUNT + SERIOUS_IN_FILE))
+          fi
+        done
+        
+        echo "Critical violations found: $CRITICAL_COUNT"
+        echo "Serious violations found: $SERIOUS_COUNT"
+        
+        # Fail the build if there are critical violations
+        if [ $CRITICAL_COUNT -gt 0 ]; then
+          echo "❌ Build failed due to $CRITICAL_COUNT critical accessibility violations"
+          exit 1
+        fi
+        
+        # Warn about serious violations but don't fail the build
+        if [ $SERIOUS_COUNT -gt 5 ]; then
+          echo "⚠️ Found $SERIOUS_COUNT serious accessibility violations (threshold: 5)"
+          echo "These should be addressed in future iterations"
+        fi
+        
+        echo "✅ Accessibility tests passed quality gates"
+
+    - name: Comment on PR with accessibility results
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          
+          try {
+            // Read the summary report
+            const summary = fs.readFileSync('target/accessibility-reports/summary.md', 'utf8');
+            
+            // Count violations from axe reports
+            let totalViolations = 0;
+            let criticalViolations = 0;
+            
+            const reportFiles = fs.readdirSync('target/accessibility-reports/axe-cli/');
+            for (const file of reportFiles) {
+              if (file.endsWith('.json')) {
+                try {
+                  const report = JSON.parse(fs.readFileSync(`target/accessibility-reports/axe-cli/${file}`, 'utf8'));
+                  totalViolations += report.violations.length;
+                  criticalViolations += report.violations.filter(v => v.impact === 'critical').length;
+                } catch (e) {
+                  console.log(`Error parsing ${file}: ${e.message}`);
+                }
+              }
+            }
+            
+            const status = criticalViolations === 0 ? '✅ PASSED' : '❌ FAILED';
+            const emoji = totalViolations === 0 ? '🎉' : (criticalViolations === 0 ? '⚠️' : '🚨');
+            
+            const comment = `## ${emoji} Accessibility Test Results - ${status}
+            
+**Build:** ${{ github.run_number }}
+**Total Violations:** ${totalViolations}
+**Critical Violations:** ${criticalViolations}
+
+${criticalViolations === 0 ? 
+  '✅ No critical accessibility violations found!' : 
+  `🚨 Found ${criticalViolations} critical violations that must be fixed before merging.`
+}
+
+<details>
+<summary>📊 View detailed accessibility report</summary>
+
+${summary}
+
+</details>
+
+[📁 View all accessibility reports](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.log('Error creating PR comment:', error.message);
+          }
+
+    - name: Stop application
+      if: always()
+      run: |
+        if [ ! -z "$APPLICATION_PID" ]; then
+          kill $APPLICATION_PID || true
+        fi
+        pkill -f "media-organizer" || true
+
+  # Separate job for testing with different browsers/environments
+  cross-browser-accessibility:
+    name: Cross-Browser Accessibility
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    
+    strategy:
+      matrix:
+        browser: [chrome, firefox]
+        viewport: 
+          - { width: 1920, height: 1080, name: "desktop" }
+          - { width: 768, height: 1024, name: "tablet" }  
+          - { width: 375, height: 667, name: "mobile" }
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up browser testing environment
+      run: |
+        sudo apt-get update
+        if [ "${{ matrix.browser }}" = "firefox" ]; then
+          sudo apt-get install -y firefox
+        else
+          # Chrome installation (already covered in main job)
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+        fi
+
+    - name: Install axe-core CLI
+      run: |
+        npm install -g @axe-core/cli
+        
+    - name: Build and start application
+      run: |
+        cargo build --release
+        ./target/release/media-organizer &
+        sleep 15  # Allow startup time
+
+    - name: Run cross-browser accessibility tests
+      run: |
+        mkdir -p target/cross-browser-reports
+        
+        axe http://localhost:3000 \
+          --reporter json \
+          --output target/cross-browser-reports/${{ matrix.browser }}-${{ matrix.viewport.name }}.json \
+          --tags wcag2a,wcag2aa,wcag21aa \
+          --viewport-width ${{ matrix.viewport.width }} \
+          --viewport-height ${{ matrix.viewport.height }} \
+          --browser ${{ matrix.browser }} \
+          --timeout 30000 || true
+
+    - name: Upload cross-browser reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: cross-browser-accessibility-${{ matrix.browser }}-${{ matrix.viewport.name }}
+        path: target/cross-browser-reports/

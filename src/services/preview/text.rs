@@ -3,11 +3,24 @@ use std::time::SystemTime;
 use std::fs;
 use async_trait::async_trait;
 use crate::services::preview::{
-    PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
+    PreviewProvider, PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
     SupportedFormat, FileMetadata, PreviewContent
 };
 
-/// Text preview handler supporting various text formats with syntax highlighting detection
+/// Text/Code preview provider supporting various formats with syntax highlighting using syntect 5.0
+pub struct TextPreviewProvider {
+    _initialized: bool,
+}
+
+impl TextPreviewProvider {
+    pub fn new() -> Result<Self, PreviewError> {
+        Ok(Self {
+            _initialized: true,
+        })
+    }
+}
+
+/// Legacy text preview handler for backward compatibility
 pub struct TextPreviewHandler {
     _initialized: bool,
 }
@@ -262,6 +275,101 @@ impl TextPreviewHandler {
 }
 
 #[async_trait]
+impl PreviewProvider for TextPreviewProvider {
+    fn provider_id(&self) -> &'static str {
+        "text"
+    }
+    
+    fn provider_name(&self) -> &'static str {
+        "Text/Code Preview Provider"
+    }
+    
+    fn supports_format(&self, format: SupportedFormat) -> bool {
+        format.is_text()
+    }
+    
+    fn supported_extensions(&self) -> Vec<&'static str> {
+        vec![
+            "txt", "md", "rst", "log", "cfg", "conf", "ini", "toml", "yaml", "yml", "json", "xml",
+            "html", "htm", "css", "js", "ts", "jsx", "tsx", "py", "rs", "go", "java", "c", "cpp",
+            "h", "hpp", "cs", "php", "rb", "swift", "kt", "scala", "sh", "bash", "ps1", "bat",
+            "dockerfile", "makefile", "cmake", "sql", "r", "m", "pl", "pm", "lua", "vim", "vimrc"
+        ]
+    }
+    
+    async fn generate_preview(&self, file_path: &Path, config: &PreviewConfig) -> Result<PreviewData, PreviewError> {
+        // Detect format from extension
+        let format = SupportedFormat::from_extension(
+            file_path.extension()
+                .and_then(|ext| ext.to_str())
+                .ok_or_else(|| PreviewError::UnsupportedFormat("No extension".to_string()))?
+        )
+        .filter(|f| f.is_text())
+        .ok_or_else(|| PreviewError::UnsupportedFormat("Not a text file".to_string()))?;
+
+        // Extract metadata
+        let metadata = TextPreviewHandler::extract_text_metadata(file_path)?;
+        
+        // Read file content
+        let file_content = fs::read(file_path)
+            .map_err(|e| PreviewError::TextError(format!("Failed to read text file: {}", e)))?;
+        
+        // Detect encoding
+        let encoding = TextPreviewHandler::detect_encoding(&file_content);
+        
+        // Convert to string
+        let content = String::from_utf8_lossy(&file_content);
+        
+        // Extract preview text
+        let preview_text = TextPreviewHandler::extract_preview_text(&content, config.max_preview_text_length);
+        
+        // Detect language for syntax highlighting
+        let language = TextPreviewHandler::detect_language(file_path, &content);
+        
+        let preview_content = PreviewContent::Text {
+            content: preview_text.clone(),
+            language: language,
+            line_count: content.lines().count(),
+        };
+
+        Ok(PreviewData {
+            file_path: file_path.to_path_buf(),
+            format,
+            thumbnail_path: None,
+            metadata,
+            preview_content,
+            generated_at: SystemTime::now(),
+        })
+    }
+    
+    async fn extract_metadata(&self, file_path: &Path) -> Result<FileMetadata, PreviewError> {
+        TextPreviewHandler::extract_text_metadata(file_path)
+    }
+    
+    async fn generate_thumbnail(&self, file_path: &Path, size: (u32, u32)) -> Result<Vec<u8>, PreviewError> {
+        // Text files don't have traditional thumbnails, generate a text-based representation
+        let file_content = fs::read(file_path)
+            .map_err(|e| PreviewError::TextError(format!("Failed to read text file: {}", e)))?;
+        
+        let content = String::from_utf8_lossy(&file_content);
+        let preview = TextPreviewHandler::extract_preview_text(&content, 200);
+        
+        // For now, return empty thumbnail - in the future this could generate
+        // a text-based image thumbnail using a text rendering library
+        Ok(Vec::new())
+    }
+    
+    fn supports_background_processing(&self) -> bool {
+        false // Text processing is generally fast
+    }
+    
+    fn priority(&self) -> u32 {
+        150 // Standard priority for text files
+    }
+}
+
+// Legacy PreviewHandler implementation for backward compatibility
+#[async_trait]
 impl PreviewHandler for TextPreviewHandler {
     fn supports_format(&self, format: SupportedFormat) -> bool {
         format.is_text()
@@ -297,9 +405,9 @@ impl PreviewHandler for TextPreviewHandler {
         let language = Self::detect_language(file_path, &content);
         
         let preview_content = PreviewContent::Text {
-            preview_text,
+            content: preview_text,
             language,
-            encoding,
+            line_count: content.lines().count(),
         };
         
         Ok(PreviewData {

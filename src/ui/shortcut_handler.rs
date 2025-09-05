@@ -7,7 +7,7 @@ use crate::ui::shortcuts::{ShortcutAction, ShortcutRegistry};
 #[derive(Clone)]
 pub struct ShortcutHandler {
     app_state: AppState,
-    registry: ShortcutRegistry,
+    pub registry: ShortcutRegistry,
 }
 
 impl ShortcutHandler {
@@ -52,6 +52,19 @@ impl ShortcutHandler {
             ShortcutAction::ToggleSearch => self.handle_toggle_search(),
             ShortcutAction::NewFolder => self.handle_new_folder().await,
             ShortcutAction::ShowSettings => self.handle_show_settings(),
+            ShortcutAction::ShowCommandPalette => self.handle_show_command_palette(),
+            // VS Code compatibility shortcuts
+            ShortcutAction::FocusExplorer => self.handle_focus_explorer(),
+            ShortcutAction::FocusEditor1 => self.handle_focus_editor(1),
+            ShortcutAction::FocusEditor2 => self.handle_focus_editor(2),
+            ShortcutAction::FocusEditor3 => self.handle_focus_editor(3),
+            ShortcutAction::CloseTab => self.handle_close_tab().await,
+            ShortcutAction::SwitchTab => self.handle_switch_tab(),
+            ShortcutAction::ZoomIn => self.handle_zoom_in(),
+            ShortcutAction::ZoomOut => self.handle_zoom_out(),
+            ShortcutAction::ToggleSpace => self.handle_toggle_space(),
+            ShortcutAction::ShowShortcutCheatSheet => self.handle_show_shortcut_cheat_sheet(),
+            ShortcutAction::ToggleHighContrast => self.handle_toggle_high_contrast(),
             ShortcutAction::Custom(name) => self.handle_custom_action(&name).await,
         }
     }
@@ -252,6 +265,11 @@ impl ShortcutHandler {
         tracing::info!("Show settings action");
     }
 
+    fn handle_show_command_palette(&mut self) {
+        self.app_state.command_registry.write().toggle_command_palette();
+        tracing::info!("Command palette toggled");
+    }
+
     async fn handle_new_folder(&mut self) {
         // TODO: Implement new folder creation dialog
         tracing::info!("New folder action");
@@ -261,6 +279,93 @@ impl ShortcutHandler {
     async fn handle_custom_action(&mut self, action_name: &str) {
         tracing::info!("Custom action: {}", action_name);
         self.set_operation_feedback(&format!("Custom action: {}", action_name), false).await;
+    }
+
+    // VS Code compatibility handlers
+    fn handle_focus_explorer(&mut self) {
+        // TODO: Focus the file explorer sidebar
+        tracing::info!("Focus explorer action");
+        // For now, just ensure sidebar is visible and has focus
+        // This would typically set focus to the file tree component
+    }
+
+    fn handle_focus_editor(&mut self, editor_number: usize) {
+        // TODO: Focus specific editor group/tab
+        tracing::info!("Focus editor {} action", editor_number);
+        // This would switch focus to the specified editor group in a tabbed interface
+    }
+
+    async fn handle_close_tab(&mut self) {
+        // TODO: Close the currently active tab
+        tracing::info!("Close tab action");
+        self.set_operation_feedback("Close tab", false).await;
+        // This would close the current file tab in the editor area
+    }
+
+    fn handle_switch_tab(&mut self) {
+        // TODO: Switch to next/previous tab (Ctrl+Tab behavior)
+        tracing::info!("Switch tab action");
+        // This would cycle through open tabs, similar to Alt+Tab for windows
+    }
+
+    fn handle_zoom_in(&mut self) {
+        // TODO: Increase zoom level for preview content
+        tracing::info!("Zoom in action");
+        // This would increase the zoom level of the current preview
+        // Could be implemented with a zoom state in the preview component
+    }
+
+    fn handle_zoom_out(&mut self) {
+        // TODO: Decrease zoom level for preview content
+        tracing::info!("Zoom out action");
+        // This would decrease the zoom level of the current preview
+    }
+
+    fn handle_toggle_space(&mut self) {
+        // This maps to the Space key for toggling preview - different from TogglePreview
+        // Space key typically shows/hides preview for selected file
+        let selected_files = self.app_state.get_selected_files();
+        if !selected_files.is_empty() {
+            // Toggle preview visibility for the selected file
+            let current_mode = self.app_state.get_view_mode();
+            let new_mode = match current_mode {
+                ViewMode::Preview => ViewMode::Grid,
+                _ => ViewMode::Preview,
+            };
+            
+            self.app_state.view_mode.set(new_mode.clone());
+            tracing::info!("Toggled preview via space key: {:?}", new_mode);
+        } else {
+            tracing::info!("Space key pressed but no file selected for preview");
+        }
+    }
+
+    fn handle_show_shortcut_cheat_sheet(&mut self) {
+        // Toggle the shortcut cheat sheet visibility
+        let current_visibility = *self.app_state.cheat_sheet_visible.read();
+        self.app_state.cheat_sheet_visible.set(!current_visibility);
+        tracing::info!("Shortcut cheat sheet toggled: {}", !current_visibility);
+    }
+
+    fn handle_toggle_high_contrast(&mut self) {
+        // Toggle to high contrast mode or back to dark mode
+        {
+            let mut settings = self.app_state.settings.write();
+            let new_theme = match settings.theme {
+                crate::state::Theme::HighContrast => crate::state::Theme::Dark, // Return to dark mode
+                _ => crate::state::Theme::HighContrast, // Switch to high contrast
+            };
+            
+            settings.theme = new_theme.clone();
+            
+            // Apply the theme immediately
+            crate::theme::ThemeManager::apply_theme(&new_theme);
+            
+            // Save settings
+            crate::state::save_settings_debounced(settings.clone());
+            
+            tracing::info!("Toggled to theme: {:?}", new_theme);
+        }
     }
 
     // Helper methods

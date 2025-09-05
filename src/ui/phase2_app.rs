@@ -1,14 +1,15 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
 use crate::state::{save_panel_state_debounced, load_panel_state, use_app_state, use_file_entries, load_settings, save_settings_debounced, Theme};
-use crate::theme::{ThemeManager, ThemeSelector, use_theme_manager};
+use crate::theme::{ThemeManager, ThemeSelector, EnhancedThemeSelector, use_theme_manager};
 use crate::services::file_system::{FileEntry};
 use crate::ui::{use_shortcut_handler};
 use crate::ui::components::{
     ContextMenu, use_context_menu,
     DragPreview, DropZone, DragOperation,
     use_drag_drop, use_drop_zone,
-    SettingsPanel
+    SettingsPanel, CommandPalette, ShortcutCheatSheet,
+    EmptyFileTree
 };
 // use crate::ui::components::{VirtualFileTree};
 
@@ -47,6 +48,10 @@ pub fn phase2_app() -> Element {
     // Initialize settings panel state
     let mut settings_panel_visible = use_signal(|| false);
     
+    // Initialize folder selection state
+    let mut has_selected_folder = use_signal(|| false);
+    let mut selected_folder_path = use_signal(|| Option::<PathBuf>::None);
+    
     // Initialize theme system
     use_effect(move || {
         let settings = current_settings.read();
@@ -54,11 +59,35 @@ pub fn phase2_app() -> Element {
         ThemeManager::initialize_with_settings(&settings);
         tracing::info!("Theme system initialized with theme: {:?}", settings.theme);
     });
+    
+    // Periodic system theme check for Auto mode
+    use_effect(move || {
+        let mut theme_manager_clone = theme_manager.clone();
+        let mut current_settings_clone = current_settings.clone();
+        
+        spawn(async move {
+            loop {
+                tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+                
+                // Check if system theme changed while in Auto mode
+                let mut settings = current_settings_clone.read().clone();
+                let theme_changed = theme_manager_clone.write().check_system_theme_change(&mut settings);
+                
+                if theme_changed {
+                    // Update settings if system theme changed
+                    save_settings_debounced(settings.clone());
+                    current_settings_clone.set(settings);
+                    tracing::info!("System theme change detected and applied");
+                }
+            }
+        });
+    });
 
     // Keyboard shortcut handler for settings panel
     let handle_keydown = {
         let mut settings_panel_visible = settings_panel_visible;
         let shortcut_handler = shortcut_handler;
+        let mut app_state_for_shortcuts = app_state.clone();
         
         move |evt: KeyboardEvent| {
             let key = evt.data.key();
@@ -81,11 +110,45 @@ pub fn phase2_app() -> Element {
                 return;
             }
             
+            // Check for theme cycle shortcut (Ctrl+T)
+            if key_str == "t" && ctrl && !shift && !alt && !meta {
+                let mut settings = {
+                    let mut s = current_settings.write();
+                    s.clone()
+                };
+                
+                theme_manager.write().cycle_theme(&mut settings);
+                
+                save_settings_debounced(settings.clone());
+                current_settings.set(settings);
+                
+                evt.prevent_default();
+                tracing::info!("Theme cycled via keyboard shortcut");
+                return;
+            }
+            
             // Check for escape to close settings panel
             if key_str == "Escape" && *settings_panel_visible.read() {
                 settings_panel_visible.set(false);
                 evt.prevent_default();
                 tracing::info!("Settings panel closed via Escape key");
+                return;
+            }
+            
+            // Check for escape to close shortcut cheat sheet
+            if key_str == "Escape" && *app_state_for_shortcuts.cheat_sheet_visible.read() {
+                app_state_for_shortcuts.cheat_sheet_visible.set(false);
+                evt.prevent_default();
+                tracing::info!("Shortcut cheat sheet closed via Escape key");
+                return;
+            }
+            
+            // Check for F1 to toggle shortcut cheat sheet
+            if key_str == "F1" && !ctrl && !shift && !alt && !meta {
+                let current_visibility = *app_state_for_shortcuts.cheat_sheet_visible.read();
+                app_state_for_shortcuts.cheat_sheet_visible.set(!current_visibility);
+                evt.prevent_default();
+                tracing::info!("Shortcut cheat sheet toggled via F1 key: {}", !current_visibility);
                 return;
             }
             
@@ -193,11 +256,12 @@ pub fn phase2_app() -> Element {
                     "MediaOrganizer - Task 10.4: Settings & Theme System ⚙️"
                 }
                 
-                // Theme Selector in title bar
+                // Enhanced Theme Selector in title bar
                 div {
-                    title: "Select application theme (Ctrl+, for settings)",
-                    ThemeSelector {
+                    title: "Select application theme (Ctrl+T to cycle, Ctrl+, for settings)",
+                    EnhancedThemeSelector {
                         current_theme: current_settings.read().theme.clone(),
+                        theme_manager_state: theme_manager,
                         on_theme_change: move |new_theme: Theme| {
                             // Update settings
                             let mut settings = {
@@ -206,8 +270,8 @@ pub fn phase2_app() -> Element {
                                 s.clone()
                             };
                             
-                            // Update theme manager
-                            theme_manager.write().set_theme(new_theme.clone(), &mut settings);
+                            // Update theme manager with manual override tracking
+                            theme_manager.write().set_theme_with_override(new_theme.clone(), &mut settings, true);
                             
                             // Save to persistence
                             save_settings_debounced(settings.clone());
@@ -215,7 +279,7 @@ pub fn phase2_app() -> Element {
                             // Update current_settings signal to trigger re-render
                             current_settings.set(settings);
                             
-                            tracing::info!("Theme changed to: {:?}", new_theme);
+                            tracing::info!("Theme manually changed to: {:?}", new_theme);
                         }
                     }
                 }
@@ -260,14 +324,41 @@ pub fn phase2_app() -> Element {
                         "aria-label": "File list",
                         style: "height: calc(100vh - 120px); overflow: hidden;", // Reserve space for header and status bar
                         
-                        div {
-                            style: "padding: 20px; color: #333;",
-                            h3 { "File Tree (Temporarily Disabled)" }
-                            p { {format!("Files loaded: {}", file_entries.read().len())} }
+                        // Show empty state if no folder is selected
+                        if !*has_selected_folder.read() {
+                            EmptyFileTree {
+                                on_folder_select: move |_| {
+                                    tracing::info!("Folder selection requested from empty state");
+                                    // Open folder selection dialog
+                                    spawn(async move {
+                                        use rfd::AsyncFileDialog;
+                                        
+                                        if let Some(folder) = AsyncFileDialog::new()
+                                            .set_title("Select Folder to Open")
+                                            .pick_folder()
+                                            .await
+                                        {
+                                            let folder_path = folder.path().to_path_buf();
+                                            tracing::info!("User selected folder: {:?}", folder_path);
+                                            
+                                            selected_folder_path.set(Some(folder_path));
+                                            has_selected_folder.set(true);
+                                        } else {
+                                            tracing::info!("User cancelled folder selection");
+                                        }
+                                    });
+                                }
+                            }
+                        } else {
+                            // Show existing file tree logic when folder is selected
+                            div {
+                                style: "padding: 20px; color: var(--vscode-text-secondary, #999999);",
+                                h3 { "Files in selected folder" }
+                                p { {format!("Files loaded: {}", file_entries.read().len())} }
                             div {
                                 role: "list",
                                 "aria-label": format!("Directory contents - {} items", file_entries.read().len()),
-                                style: "max-height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-top: 10px;",
+                                style: "max-height: 400px; overflow-y: auto; border: 1px solid var(--vscode-border, #464647); padding: 10px; margin-top: 10px;",
                                 {
                                     let entries = file_entries.read();
                                     let items: Vec<_> = entries.iter().take(20).cloned().collect();
@@ -369,7 +460,7 @@ pub fn phase2_app() -> Element {
                                                 }
                                                 if entry.size > 0 {
                                                     span {
-                                                        style: "margin-left: 10px; color: #666; font-size: 0.9em; pointer-events: none;",
+                                                        style: "margin-left: 10px; color: var(--vscode-text-muted, #6a6a6a); font-size: 0.9em; pointer-events: none;",
                                                         "aria-hidden": "true",
                                                         "({entry.size} bytes)"
                                                     }
@@ -383,7 +474,7 @@ pub fn phase2_app() -> Element {
                                     if total_files > 20 {
                                         rsx! {
                                             div {
-                                                style: "padding: 10px; color: #666; font-style: italic;",
+                                                style: "padding: 10px; color: var(--vscode-text-muted, #6a6a6a); font-style: italic;",
                                                 {format!("... and {} more files", total_files - 20)}
                                             }
                                         }
@@ -392,6 +483,7 @@ pub fn phase2_app() -> Element {
                                     }
                                 }
                             }
+                        }
                         }
                     }
                     }
@@ -492,15 +584,14 @@ pub fn phase2_app() -> Element {
                         
                         p {
                             class: "content-area-text",
-                            {format!("Current Theme: {} ({})", 
-                                ThemeManager::get_theme_display_name(&current_settings.read().theme),
-                                ThemeManager::get_theme_display_name(&ThemeManager::get_effective_theme(&current_settings.read().theme))
+                            {format!("Current Theme: {}", 
+                                theme_manager.read().get_theme_status_description()
                             )}
                         }
                         
                         div {
                             class: "content-area-badge",
-                            "Interactive: Change theme using selector in title bar"
+                            "Interactive: Change theme using selector in title bar or Ctrl+T to cycle"
                         }
                         
                         div {
@@ -607,6 +698,21 @@ pub fn phase2_app() -> Element {
                     settings_panel_visible.set(false);
                 }
             }
+            
+            // Command Palette
+            CommandPalette {}
+            
+            // Shortcut Cheat Sheet
+            {
+                let mut cheat_sheet_visible = app_state.cheat_sheet_visible;
+                rsx! {
+                    ShortcutCheatSheet {
+                        is_visible: *cheat_sheet_visible.read(),
+                        on_close: move |_| cheat_sheet_visible.set(false),
+                        command_registry: app_state.command_registry,
+                    }
+                }
+            }
         }
     }
 }
@@ -627,6 +733,7 @@ fn create_demo_entries() -> Vec<FileEntry> {
             is_directory: true,
             is_hidden: false,
             permissions: FilePermissions::read_write(),
+            preview_metadata: None,
         },
         FileEntry {
             path: std::path::PathBuf::from("Pictures"),
@@ -638,6 +745,7 @@ fn create_demo_entries() -> Vec<FileEntry> {
             is_directory: true,
             is_hidden: false,
             permissions: FilePermissions::read_write(),
+            preview_metadata: None,
         },
         FileEntry {
             path: std::path::PathBuf::from("Downloads"),
@@ -649,6 +757,7 @@ fn create_demo_entries() -> Vec<FileEntry> {
             is_directory: true,
             is_hidden: false,
             permissions: FilePermissions::read_write(),
+            preview_metadata: None,
         },
         FileEntry {
             path: std::path::PathBuf::from("example.jpg"),
@@ -660,6 +769,7 @@ fn create_demo_entries() -> Vec<FileEntry> {
             is_directory: false,
             is_hidden: false,
             permissions: FilePermissions::read_only(),
+            preview_metadata: None,
         },
         FileEntry {
             path: std::path::PathBuf::from("document.pdf"),
@@ -671,6 +781,7 @@ fn create_demo_entries() -> Vec<FileEntry> {
             is_directory: false,
             is_hidden: false,
             permissions: FilePermissions::read_write(),
+            preview_metadata: None,
         },
         FileEntry {
             path: std::path::PathBuf::from("video.mp4"),
@@ -682,6 +793,7 @@ fn create_demo_entries() -> Vec<FileEntry> {
             is_directory: false,
             is_hidden: false,
             permissions: FilePermissions::read_only(),
+            preview_metadata: None,
         },
         FileEntry {
             path: std::path::PathBuf::from("music.mp3"),
@@ -693,6 +805,7 @@ fn create_demo_entries() -> Vec<FileEntry> {
             is_directory: false,
             is_hidden: false,
             permissions: FilePermissions::read_only(),
+            preview_metadata: None,
         },
     ]
 }

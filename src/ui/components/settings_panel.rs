@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use crate::state::{SettingsState, Theme, ViewMode, save_settings_debounced};
-use crate::theme::{ThemeManager, ThemeSelector};
+use crate::theme::{ThemeManager, ThemeSelector, EnhancedThemeSelector};
 use crate::ui::shortcuts::ShortcutRegistry;
 use std::collections::HashMap;
 
@@ -94,7 +94,7 @@ pub fn SettingsPanel(
                 left: 0;
                 right: 0;
                 bottom: 0;
-                background: rgba(0, 0, 0, 0.5);
+                background: var(--vscode-overlay-background, rgba(0, 0, 0, 0.5));
                 z-index: 10000;
                 display: flex;
                 align-items: center;
@@ -117,7 +117,7 @@ pub fn SettingsPanel(
                     height: 600px;
                     display: flex;
                     flex-direction: column;
-                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+                    box-shadow: var(--vscode-shadow-large, 0 8px 16px rgba(0, 0, 0, 0.4));
                     animation: slideIn 0.2s ease-out;
                 ",
                 onclick: move |evt| evt.stop_propagation(), // Prevent closing when clicking panel
@@ -701,7 +701,7 @@ fn KeyboardSettingsTab() -> Element {
                                 background: {};
                             ",
                                 if index % 2 == 0 { "1px solid var(--vscode-panel-border, #333)" } else { "none" },
-                                if index % 2 == 0 { "transparent" } else { "var(--vscode-list-hover-background, rgba(255, 255, 255, 0.02))" }
+                                if index % 2 == 0 { "transparent" } else { "var(--vscode-list-hover-background, rgba(255, 255, 255, 0.1))" }
                             ),
                             
                             div {

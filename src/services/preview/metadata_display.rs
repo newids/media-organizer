@@ -268,6 +268,12 @@ impl MetadataDisplay {
             SupportedFormat::Python => "Python Source Code".to_string(),
             SupportedFormat::Cpp => "C++ Source Code".to_string(),
             SupportedFormat::Java => "Java Source Code".to_string(),
+            // Archive formats
+            SupportedFormat::Zip => "ZIP Archive".to_string(),
+            SupportedFormat::Tar => "TAR Archive".to_string(),
+            SupportedFormat::Gz => "GZIP Archive".to_string(),
+            SupportedFormat::SevenZip => "7-Zip Archive".to_string(),
+            SupportedFormat::Rar => "RAR Archive".to_string(),
         }
     }
 
@@ -367,7 +373,7 @@ impl MetadataDisplay {
     /// Extract encoding information from preview content
     fn extract_encoding_from_content(content: Option<&PreviewContent>) -> Option<String> {
         match content {
-            Some(PreviewContent::Text { encoding, .. }) => Some(encoding.clone()),
+            Some(PreviewContent::Text { .. }) => Some("UTF-8".to_string()),
             _ => None,
         }
     }

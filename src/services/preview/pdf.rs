@@ -1,18 +1,19 @@
 use std::path::Path;
 use std::time::SystemTime;
 use async_trait::async_trait;
+use chrono;
 use crate::services::preview::{
-    PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
+    PreviewProvider, PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
     SupportedFormat, FileMetadata, PreviewContent
 };
 
-/// PDF preview handler supporting basic document metadata extraction
-pub struct PdfPreviewHandler {
+/// PDF preview provider supporting basic document metadata extraction
+pub struct PdfPreviewProvider {
     #[cfg(feature = "pdf")]
     _initialized: bool,
 }
 
-impl PdfPreviewHandler {
+impl PdfPreviewProvider {
     pub fn new() -> Result<Self, PreviewError> {
         #[cfg(feature = "pdf")]
         {
@@ -334,7 +335,128 @@ impl PdfPreviewHandler {
 }
 
 #[async_trait]
-impl PreviewHandler for PdfPreviewHandler {
+impl PreviewProvider for PdfPreviewProvider {
+    fn provider_id(&self) -> &'static str {
+        "pdf"
+    }
+    
+    fn provider_name(&self) -> &'static str {
+        "PDF Preview Provider"
+    }
+    
+    fn supports_format(&self, format: SupportedFormat) -> bool {
+        format.is_document()
+    }
+    
+    fn supported_extensions(&self) -> Vec<&'static str> {
+        vec!["pdf"]
+    }
+    
+    async fn generate_preview(&self, file_path: &Path, _config: &PreviewConfig) -> Result<PreviewData, PreviewError> {
+        // Detect format from extension
+        let format = SupportedFormat::from_extension(
+            file_path.extension()
+                .and_then(|ext| ext.to_str())
+                .ok_or_else(|| PreviewError::UnsupportedFormat("No extension".to_string()))?
+        )
+        .filter(|f| f.is_document())
+        .ok_or_else(|| PreviewError::UnsupportedFormat("Not a PDF file".to_string()))?;
+
+        #[cfg(feature = "pdf")]
+        {            
+            // Extract metadata
+            let metadata = Self::extract_pdf_metadata(file_path)?;
+                
+            // Extract document outline
+            let outline = Self::extract_document_outline(file_path)
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to extract PDF outline: {}", e);
+                    vec!["Unable to extract document outline".to_string()]
+                });
+            
+            // Generate first page thumbnail
+            let first_page_image = Self::create_pdf_placeholder_thumbnail()?;
+            
+            let preview_content = PreviewContent::Document {
+                first_page_image,
+                outline,
+            };
+            
+            Ok(PreviewData {
+                file_path: file_path.to_path_buf(),
+                format,
+                thumbnail_path: None,
+                metadata,
+                preview_content,
+                generated_at: SystemTime::now(),
+            })
+        }
+        
+        #[cfg(not(feature = "pdf"))]
+        {
+            // Fallback implementation without PDF processing
+            let metadata = Self::extract_pdf_metadata_fallback(file_path)?;
+            let outline = Self::extract_document_outline_fallback();
+            let first_page_image = Self::create_pdf_placeholder_thumbnail()?;
+            
+            let preview_content = PreviewContent::Document {
+                first_page_image,
+                outline,
+            };
+            
+            Ok(PreviewData {
+                file_path: file_path.to_path_buf(),
+                format,
+                thumbnail_path: None,
+                metadata,
+                preview_content,
+                generated_at: SystemTime::now(),
+            })
+        }
+    }
+    
+    async fn extract_metadata(&self, file_path: &Path) -> Result<FileMetadata, PreviewError> {
+        #[cfg(feature = "pdf")]
+        {
+            Self::extract_pdf_metadata(file_path)
+        }
+        
+        #[cfg(not(feature = "pdf"))]
+        {
+            Self::extract_pdf_metadata_fallback(file_path)
+        }
+    }
+    
+    async fn generate_thumbnail(&self, file_path: &Path, _size: (u32, u32)) -> Result<Vec<u8>, PreviewError> {
+        // For now, always generate placeholder thumbnail
+        // Real PDF page rendering would require additional dependencies
+        let _ = file_path; // Suppress unused variable warning
+        Self::create_pdf_placeholder_thumbnail()
+    }
+    
+    fn supports_background_processing(&self) -> bool {
+        true // PDF processing can benefit from background processing
+    }
+    
+    fn priority(&self) -> u32 {
+        280 // Higher priority than generic handlers
+    }
+}
+
+impl Default for PdfPreviewProvider {
+    fn default() -> Self {
+        Self::new().unwrap_or_else(|e| {
+            tracing::warn!("Failed to create PdfPreviewProvider: {}", e);
+            panic!("PDF support not available");
+        })
+    }
+}
+
+// Legacy type alias for backward compatibility
+pub type PdfPreviewHandler = PdfPreviewProvider;
+
+#[async_trait]
+impl PreviewHandler for PdfPreviewProvider {
     fn supports_format(&self, format: SupportedFormat) -> bool {
         format.is_document()
     }
@@ -422,14 +544,6 @@ impl PreviewHandler for PdfPreviewHandler {
     }
 }
 
-impl Default for PdfPreviewHandler {
-    fn default() -> Self {
-        Self::new().unwrap_or_else(|e| {
-            tracing::warn!("Failed to create PdfPreviewHandler: {}", e);
-            panic!("PDF support not available");
-        })
-    }
-}
 
 #[cfg(test)]
 mod tests {

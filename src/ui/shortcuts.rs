@@ -97,6 +97,19 @@ pub enum ShortcutAction {
     ToggleSearch,
     NewFolder,
     ShowSettings,
+    ShowCommandPalette,
+    // VS Code compatibility shortcuts
+    FocusExplorer,
+    FocusEditor1,
+    FocusEditor2,
+    FocusEditor3,
+    CloseTab,
+    SwitchTab,
+    ZoomIn,
+    ZoomOut,
+    ToggleSpace,
+    ShowShortcutCheatSheet,
+    ToggleHighContrast,
     Custom(String),
 }
 
@@ -121,6 +134,19 @@ impl ShortcutAction {
             ShortcutAction::ToggleSearch => "Toggle search",
             ShortcutAction::NewFolder => "Create new folder",
             ShortcutAction::ShowSettings => "Open settings panel",
+            ShortcutAction::ShowCommandPalette => "Show command palette",
+            // VS Code compatibility shortcuts
+            ShortcutAction::FocusExplorer => "Focus file explorer",
+            ShortcutAction::FocusEditor1 => "Focus editor group 1",
+            ShortcutAction::FocusEditor2 => "Focus editor group 2",
+            ShortcutAction::FocusEditor3 => "Focus editor group 3",
+            ShortcutAction::CloseTab => "Close current tab",
+            ShortcutAction::SwitchTab => "Switch between tabs",
+            ShortcutAction::ZoomIn => "Zoom in",
+            ShortcutAction::ZoomOut => "Zoom out",
+            ShortcutAction::ToggleSpace => "Toggle preview space",
+            ShortcutAction::ShowShortcutCheatSheet => "Show shortcut cheat sheet",
+            ShortcutAction::ToggleHighContrast => "Toggle high contrast mode",
             ShortcutAction::Custom(_) => "Custom action",
         }
     }
@@ -174,8 +200,27 @@ impl ShortcutRegistry {
             // Properties
             (KeyCombination::new("i").with_alt().with_ctrl(), ShortcutAction::ShowProperties),
             
-            // Settings
+            // Settings and Command Palette
             (KeyCombination::new(",").with_ctrl(), ShortcutAction::ShowSettings),
+            (KeyCombination::new("p").with_ctrl().with_shift(), ShortcutAction::ShowCommandPalette),
+            
+            // VS Code compatibility shortcuts
+            (KeyCombination::new("e").with_ctrl().with_shift(), ShortcutAction::FocusExplorer),
+            (KeyCombination::new("1").with_ctrl(), ShortcutAction::FocusEditor1),
+            (KeyCombination::new("2").with_ctrl(), ShortcutAction::FocusEditor2),
+            (KeyCombination::new("3").with_ctrl(), ShortcutAction::FocusEditor3),
+            (KeyCombination::new("w").with_ctrl(), ShortcutAction::CloseTab),
+            (KeyCombination::new("Tab").with_ctrl(), ShortcutAction::SwitchTab),
+            (KeyCombination::new(" "), ShortcutAction::ToggleSpace),
+            (KeyCombination::new("=").with_ctrl(), ShortcutAction::ZoomIn),
+            (KeyCombination::new("+").with_ctrl(), ShortcutAction::ZoomIn),
+            (KeyCombination::new("-").with_ctrl(), ShortcutAction::ZoomOut),
+            
+            // Help and utility shortcuts
+            (KeyCombination::new("F1"), ShortcutAction::ShowShortcutCheatSheet),
+            
+            // Accessibility shortcuts
+            (KeyCombination::new("h").with_ctrl().with_shift(), ShortcutAction::ToggleHighContrast),
         ];
 
         if let Ok(mut map) = self.shortcuts.lock() {
@@ -352,5 +397,50 @@ mod tests {
         // Test triggering when re-enabled
         let triggered = registry.try_trigger("c", true, false, false, false);
         assert!(triggered.is_some());
+    }
+
+    #[test]
+    fn test_vscode_shortcuts() {
+        let registry = ShortcutRegistry::new();
+        
+        // Test new VS Code shortcuts
+        let vscode_shortcuts = vec![
+            ("e", true, true, false, false, "FocusExplorer"),    // Ctrl+Shift+E
+            ("1", true, false, false, false, "FocusEditor"),     // Ctrl+1
+            ("w", true, false, false, false, "CloseTab"),        // Ctrl+W
+            (" ", false, false, false, false, "ToggleSpace"),    // Space
+            ("=", true, false, false, false, "ZoomIn"),          // Ctrl+=
+            ("-", true, false, false, false, "ZoomOut"),         // Ctrl+-
+        ];
+        
+        for (key, ctrl, shift, alt, meta, expected_name) in vscode_shortcuts {
+            let triggered = registry.try_trigger(key, ctrl, shift, alt, meta);
+            assert!(triggered.is_some(), "Expected shortcut {} to be registered", expected_name);
+            
+            let action_debug = format!("{:?}", triggered.unwrap());
+            assert!(action_debug.contains(expected_name) || 
+                   (key == "1" && action_debug.contains("FocusEditor1")), 
+                   "Action {:?} should contain {}", action_debug, expected_name);
+        }
+    }
+
+    #[test]
+    fn test_total_shortcuts_count() {
+        let registry = ShortcutRegistry::new();
+        let all_shortcuts = registry.get_all_shortcuts();
+        
+        // We should have more shortcuts now with VS Code compatibility
+        assert!(all_shortcuts.len() >= 22, "Expected at least 22 shortcuts, got {}", all_shortcuts.len());
+        
+        // Check that some key shortcuts exist
+        let shortcut_keys: Vec<String> = all_shortcuts.iter()
+            .map(|(combo, _)| format!("{}+{}+{}+{}+{}", 
+                combo.ctrl, combo.shift, combo.alt, combo.meta, combo.key))
+            .collect();
+        
+        assert!(shortcut_keys.iter().any(|s| s.contains("true+true") && s.contains("+e")), 
+                "Should have Ctrl+Shift+E shortcut");
+        assert!(shortcut_keys.iter().any(|s| s.contains("true+false") && s.contains("+w")), 
+                "Should have Ctrl+W shortcut");
     }
 }

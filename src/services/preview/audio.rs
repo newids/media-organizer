@@ -3,20 +3,20 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use id3::TagLike;
 use crate::services::preview::{
-    PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
+    PreviewProvider, PreviewHandler, PreviewData, PreviewConfig, PreviewError, 
     SupportedFormat, FileMetadata, PreviewContent
 };
 
 #[cfg(feature = "audio")]
 use rodio::Source;
 
-/// Audio preview handler with waveform visualization using rodio
-pub struct AudioPreviewHandler {
+/// Audio preview provider supporting multiple formats using rodio and symphonia
+pub struct AudioPreviewProvider {
     #[cfg(feature = "audio")]
     _initialized: bool,
 }
 
-impl AudioPreviewHandler {
+impl AudioPreviewProvider {
     pub fn new() -> Result<Self, PreviewError> {
         #[cfg(feature = "audio")]
         {
@@ -30,6 +30,9 @@ impl AudioPreviewHandler {
             Err(PreviewError::AudioError("Audio support not enabled. Enable the 'audio' feature.".to_string()))
         }
     }
+}
+
+impl AudioPreviewProvider {
 
     #[cfg(feature = "audio")]
     fn extract_audio_metadata(file_path: &Path) -> Result<FileMetadata, PreviewError> {
@@ -456,7 +459,140 @@ impl AudioPreviewHandler {
 }
 
 #[async_trait]
-impl PreviewHandler for AudioPreviewHandler {
+impl PreviewProvider for AudioPreviewProvider {
+    fn provider_id(&self) -> &'static str {
+        "audio"
+    }
+    
+    fn provider_name(&self) -> &'static str {
+        "Audio Preview Provider"
+    }
+    
+    fn supports_format(&self, format: SupportedFormat) -> bool {
+        format.is_audio()
+    }
+    
+    fn supported_extensions(&self) -> Vec<&'static str> {
+        vec!["mp3", "wav", "flac", "ogg", "aac", "m4a", "wma", "aiff", "au"]
+    }
+    
+    async fn generate_preview(&self, file_path: &Path, config: &PreviewConfig) -> Result<PreviewData, PreviewError> {
+        // Detect format from extension
+        let format = SupportedFormat::from_extension(
+            file_path.extension()
+                .and_then(|ext| ext.to_str())
+                .ok_or_else(|| PreviewError::UnsupportedFormat("No extension".to_string()))?
+        )
+        .filter(|f| f.is_audio())
+        .ok_or_else(|| PreviewError::UnsupportedFormat("Not an audio file".to_string()))?;
+
+        #[cfg(feature = "audio")]
+        {
+            // Extract metadata
+            let metadata = Self::extract_audio_metadata(file_path)?;
+            
+            // Generate waveform data
+            let waveform_data = Self::generate_waveform_data(file_path, config)
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to generate waveform for {}: {}", file_path.display(), e);
+                    Self::generate_waveform_data_fallback(config)
+                });
+            
+            // Generate audio sample (optional)
+            let sample_data = Self::create_audio_sample(file_path)
+                .unwrap_or_else(|e| {
+                    tracing::warn!("Failed to create audio sample for {}: {}", file_path.display(), e);
+                    None
+                });
+            
+            let preview_content = PreviewContent::Audio {
+                waveform_data,
+                sample_data,
+            };
+            
+            Ok(PreviewData {
+                file_path: file_path.to_path_buf(),
+                format,
+                thumbnail_path: None,
+                metadata,
+                preview_content,
+                generated_at: SystemTime::now(),
+            })
+        }
+        
+        #[cfg(not(feature = "audio"))]
+        {
+            // Fallback implementation without audio processing
+            let metadata = Self::extract_audio_metadata_fallback(file_path)?;
+            let waveform_data = Self::generate_waveform_data_fallback(config);
+            
+            let preview_content = PreviewContent::Audio {
+                waveform_data,
+                sample_data: None,
+            };
+            
+            Ok(PreviewData {
+                file_path: file_path.to_path_buf(),
+                format,
+                thumbnail_path: None,
+                metadata,
+                preview_content,
+                generated_at: SystemTime::now(),
+            })
+        }
+    }
+    
+    async fn extract_metadata(&self, file_path: &Path) -> Result<FileMetadata, PreviewError> {
+        #[cfg(feature = "audio")]
+        {
+            Self::extract_audio_metadata(file_path)
+        }
+        
+        #[cfg(not(feature = "audio"))]
+        {
+            Self::extract_audio_metadata_fallback(file_path)
+        }
+    }
+    
+    async fn generate_thumbnail(&self, file_path: &Path, size: (u32, u32)) -> Result<Vec<u8>, PreviewError> {
+        // For audio files, generate a simple waveform visualization as thumbnail
+        #[cfg(feature = "audio")]
+        {
+            let config = PreviewConfig::default();
+            let waveform = Self::generate_waveform_data(file_path, &config)
+                .unwrap_or_else(|_| Self::generate_waveform_data_fallback(&config));
+            
+            Self::render_waveform_image(&waveform, size)
+        }
+        
+        #[cfg(not(feature = "audio"))]
+        {
+            let config = PreviewConfig::default();
+            let waveform = Self::generate_waveform_data_fallback(&config);
+            Self::render_waveform_image(&waveform, size)
+        }
+    }
+    
+    fn supports_background_processing(&self) -> bool {
+        true // Audio waveform generation benefits from background processing
+    }
+    
+    fn priority(&self) -> u32 {
+        250 // Higher priority than generic handlers
+    }
+}
+
+impl Default for AudioPreviewProvider {
+    fn default() -> Self {
+        Self::new().unwrap_or_else(|e| {
+            tracing::warn!("Failed to create AudioPreviewProvider: {}", e);
+            panic!("Audio support not available");
+        })
+    }
+}
+
+#[async_trait]
+impl PreviewHandler for AudioPreviewProvider {
     fn supports_format(&self, format: SupportedFormat) -> bool {
         format.is_audio()
     }
@@ -560,14 +696,8 @@ impl PreviewHandler for AudioPreviewHandler {
 }
 
 
-impl Default for AudioPreviewHandler {
-    fn default() -> Self {
-        Self::new().unwrap_or_else(|e| {
-            tracing::warn!("Failed to create AudioPreviewHandler: {}", e);
-            panic!("Audio support not available");
-        })
-    }
-}
+// Legacy type alias for backward compatibility
+pub type AudioPreviewHandler = AudioPreviewProvider;
 
 #[cfg(test)]
 mod tests {
@@ -605,7 +735,7 @@ mod tests {
         
         #[cfg(not(feature = "audio"))]
         {
-            let metadata = AudioPreviewHandler::extract_audio_metadata_fallback(&audio_path).unwrap();
+            let metadata = AudioPreviewProvider::extract_audio_metadata_fallback(&audio_path).unwrap();
             assert_eq!(metadata.codec, Some("MP3".to_string()));
             assert_eq!(metadata.sample_rate, Some(44100));
             assert!(metadata.file_size > 0);
@@ -615,7 +745,7 @@ mod tests {
     #[test]
     fn test_waveform_fallback_generation() {
         let config = PreviewConfig::default();
-        let waveform = AudioPreviewHandler::generate_waveform_data_fallback(&config);
+        let waveform = AudioPreviewProvider::generate_waveform_data_fallback(&config);
         
         assert_eq!(waveform.len(), config.audio_waveform_samples);
         assert!(waveform.iter().any(|&x| x != 0.0)); // Should contain non-zero values
@@ -627,7 +757,7 @@ mod tests {
             .map(|i| (i as f32 / 100.0 * 2.0 * std::f32::consts::PI).sin())
             .collect();
         
-        let result = AudioPreviewHandler::render_waveform_image(&waveform_data, (256, 128));
+        let result = AudioPreviewProvider::render_waveform_image(&waveform_data, (256, 128));
         assert!(result.is_ok());
         
         let image_data = result.unwrap();
@@ -656,7 +786,7 @@ mod tests {
     #[test]
     fn test_mono_conversion() {
         let stereo_samples = vec![0.1, 0.2, 0.3, 0.4, 0.5, 0.6]; // 3 stereo samples
-        let mono = AudioPreviewHandler::convert_to_mono(&stereo_samples, 2);
+        let mono = AudioPreviewProvider::convert_to_mono(&stereo_samples, 2);
         
         assert_eq!(mono.len(), 3);
         assert!((mono[0] - 0.15).abs() < 1e-6); // (0.1 + 0.2) / 2
@@ -668,7 +798,7 @@ mod tests {
     #[test]
     fn test_waveform_normalization() {
         let mut waveform = vec![2.0, -4.0, 1.0, -2.0];
-        AudioPreviewHandler::normalize_waveform(&mut waveform);
+        AudioPreviewProvider::normalize_waveform(&mut waveform);
         
         // Should be normalized to max absolute value of 1.0
         assert_eq!(waveform[0], 0.5);   // 2.0 / 4.0
