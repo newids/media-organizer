@@ -260,6 +260,81 @@ pub struct FileTreeState {
     pub selected_path: Option<PathBuf>,
 }
 
+impl FileTreeState {
+    /// Set the root directory and clear previous state
+    pub fn set_root_directory(&mut self, path: PathBuf) {
+        self.root_directory = Some(path.clone());
+        self.expanded_directories.clear();
+        self.directory_children.clear();
+        self.loading_directories.clear();
+        self.error_directories.clear();
+        self.selected_path = None;
+        
+        // Automatically expand the root directory
+        self.expanded_directories.insert(path, true);
+    }
+    
+    /// Check if a directory is currently expanded
+    pub fn is_expanded(&self, path: &PathBuf) -> bool {
+        self.expanded_directories.get(path).copied().unwrap_or(false)
+    }
+    
+    /// Toggle directory expansion state
+    pub fn toggle_expansion(&mut self, path: PathBuf) -> bool {
+        let current_state = self.is_expanded(&path);
+        let new_state = !current_state;
+        self.expanded_directories.insert(path, new_state);
+        new_state
+    }
+    
+    /// Set directory loading state
+    pub fn set_loading(&mut self, path: PathBuf, loading: bool) {
+        if loading {
+            self.loading_directories.insert(path);
+        } else {
+            self.loading_directories.remove(&path);
+        }
+    }
+    
+    /// Check if a directory is currently loading
+    pub fn is_loading(&self, path: &PathBuf) -> bool {
+        self.loading_directories.contains(path)
+    }
+    
+    /// Set directory children after successful load
+    pub fn set_directory_children(&mut self, path: PathBuf, children: Vec<FileEntry>) {
+        self.directory_children.insert(path.clone(), children);
+        self.set_loading(path.clone(), false);
+        self.error_directories.remove(&path);
+    }
+    
+    /// Set directory error after failed load
+    pub fn set_directory_error(&mut self, path: PathBuf, error: String) {
+        self.error_directories.insert(path.clone(), error);
+        self.set_loading(path, false);
+    }
+    
+    /// Get children for a directory
+    pub fn get_directory_children(&self, path: &PathBuf) -> Option<&Vec<FileEntry>> {
+        self.directory_children.get(path)
+    }
+    
+    /// Get error message for a directory
+    pub fn get_directory_error(&self, path: &PathBuf) -> Option<&String> {
+        self.error_directories.get(path)
+    }
+    
+    /// Select a file or directory
+    pub fn set_selected_path(&mut self, path: Option<PathBuf>) {
+        self.selected_path = path;
+    }
+    
+    /// Get the currently selected path
+    pub fn get_selected_path(&self) -> Option<&PathBuf> {
+        self.selected_path.as_ref()
+    }
+}
+
 impl Default for ActivityBarView {
     fn default() -> Self {
         ActivityBarView::Explorer
@@ -1212,6 +1287,109 @@ impl AppState {
     /// Check if animations are enabled from layout state
     pub fn are_animations_enabled_from_layout(&self) -> bool {
         self.layout_state.read().ui_preferences.enable_animations
+    }
+    
+    // File tree management methods
+    
+    /// Set the root folder for the file tree and load its contents
+    pub async fn set_file_tree_root(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        // Update file tree state
+        self.file_tree_state.write().set_root_directory(path.clone());
+        
+        // Load the root directory contents
+        self.load_file_tree_directory(path).await
+    }
+    
+    /// Load directory contents for the file tree
+    pub async fn load_file_tree_directory(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        // Set loading state
+        self.file_tree_state.write().set_loading(path.clone(), true);
+        
+        // Load directory contents using file service
+        match self.file_service.list_directory(&path).await {
+            Ok(children) => {
+                // Sort children: directories first, then files
+                let mut sorted_children = children;
+                sorted_children.sort_by(|a, b| {
+                    match (a.is_directory, b.is_directory) {
+                        (true, false) => std::cmp::Ordering::Less,
+                        (false, true) => std::cmp::Ordering::Greater,
+                        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+                    }
+                });
+                
+                // Update file tree state
+                self.file_tree_state.write().set_directory_children(path.clone(), sorted_children.clone());
+                
+                // If this is the root directory, also update the main file entries
+                let root_dir = self.file_tree_state.read().root_directory.clone();
+                if Some(path.clone()) == root_dir {
+                    self.file_entries.set(sorted_children);
+                }
+                
+                Ok(())
+            }
+            Err(e) => {
+                let error_msg = e.to_string();
+                self.file_tree_state.write().set_directory_error(path, error_msg);
+                Err(Box::new(e))
+            }
+        }
+    }
+    
+    /// Toggle directory expansion in file tree
+    pub async fn toggle_file_tree_directory(&mut self, path: PathBuf) -> Result<bool, Box<dyn std::error::Error>> {
+        // Toggle expansion state
+        let is_expanded = self.file_tree_state.write().toggle_expansion(path.clone());
+        
+        // If expanding and we don't have children loaded, load them
+        if is_expanded {
+            if self.file_tree_state.read().get_directory_children(&path).is_none() {
+                self.load_file_tree_directory(path).await?;
+            }
+        }
+        
+        Ok(is_expanded)
+    }
+    
+    /// Get file tree root directory
+    pub fn get_file_tree_root(&self) -> Option<PathBuf> {
+        self.file_tree_state.read().root_directory.clone()
+    }
+    
+    /// Check if file tree has a root directory set
+    pub fn has_file_tree_root(&self) -> bool {
+        self.file_tree_state.read().root_directory.is_some()
+    }
+    
+    /// Get children for a directory in the file tree
+    pub fn get_file_tree_children(&self, path: &PathBuf) -> Option<Vec<FileEntry>> {
+        self.file_tree_state.read().get_directory_children(path).cloned()
+    }
+    
+    /// Check if a directory is expanded in the file tree
+    pub fn is_file_tree_directory_expanded(&self, path: &PathBuf) -> bool {
+        self.file_tree_state.read().is_expanded(path)
+    }
+    
+    /// Check if a directory is loading in the file tree
+    pub fn is_file_tree_directory_loading(&self, path: &PathBuf) -> bool {
+        self.file_tree_state.read().is_loading(path)
+    }
+    
+    /// Get error message for a directory in the file tree
+    pub fn get_file_tree_directory_error(&self, path: &PathBuf) -> Option<String> {
+        self.file_tree_state.read().get_directory_error(path).cloned()
+    }
+    
+    /// Set selected path in file tree
+    pub fn set_file_tree_selection(&mut self, path: Option<PathBuf>) {
+        self.file_tree_state.write().set_selected_path(path);
+    }
+    
+    /// Get selected path in file tree
+    pub fn get_file_tree_selection(&self) -> Option<PathBuf> {
+        self.file_tree_state.read().get_selected_path().cloned()
     }
 }
 

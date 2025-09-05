@@ -27,6 +27,7 @@ pub fn phase2_app() -> Element {
     let app_state = use_app_state();
     let app_state_for_load = app_state.clone();
     let app_state_for_status = app_state.clone();
+    let mut app_state_for_folder_select = app_state.clone();
     let file_entries = use_file_entries();
     let mut selected_item = use_signal::<Option<FileEntry>>(|| None);
     
@@ -49,8 +50,6 @@ pub fn phase2_app() -> Element {
     let mut settings_panel_visible = use_signal(|| false);
     
     // Initialize folder selection state
-    let mut has_selected_folder = use_signal(|| false);
-    let mut selected_folder_path = use_signal(|| Option::<PathBuf>::None);
     
     // Initialize theme system
     use_effect(move || {
@@ -325,10 +324,11 @@ pub fn phase2_app() -> Element {
                         style: "height: calc(100vh - 120px); overflow: hidden;", // Reserve space for header and status bar
                         
                         // Show empty state if no folder is selected
-                        if !*has_selected_folder.read() {
+                        if !app_state.has_file_tree_root() {
                             EmptyFileTree {
                                 on_folder_select: move |_| {
                                     tracing::info!("Folder selection requested from empty state");
+                                    let mut app_state_for_folder_select = app_state_for_folder_select.clone();
                                     // Open folder selection dialog
                                     spawn(async move {
                                         use rfd::AsyncFileDialog;
@@ -341,8 +341,15 @@ pub fn phase2_app() -> Element {
                                             let folder_path = folder.path().to_path_buf();
                                             tracing::info!("User selected folder: {:?}", folder_path);
                                             
-                                            selected_folder_path.set(Some(folder_path));
-                                            has_selected_folder.set(true);
+                                            // Use app state to set root and load contents
+                                            match app_state_for_folder_select.set_file_tree_root(folder_path.clone()).await {
+                                                Ok(()) => {
+                                                    tracing::info!("Successfully loaded folder: {:?}", folder_path);
+                                                }
+                                                Err(e) => {
+                                                    tracing::error!("Failed to load folder {:?}: {}", folder_path, e);
+                                                }
+                                            }
                                         } else {
                                             tracing::info!("User cancelled folder selection");
                                         }
@@ -350,140 +357,180 @@ pub fn phase2_app() -> Element {
                                 }
                             }
                         } else {
-                            // Show existing file tree logic when folder is selected
-                            div {
-                                style: "padding: 20px; color: var(--vscode-text-secondary, #999999);",
-                                h3 { "Files in selected folder" }
-                                p { {format!("Files loaded: {}", file_entries.read().len())} }
-                            div {
-                                role: "list",
-                                "aria-label": format!("Directory contents - {} items", file_entries.read().len()),
-                                style: "max-height: 400px; overflow-y: auto; border: 1px solid var(--vscode-border, #464647); padding: 10px; margin-top: 10px;",
-                                {
-                                    let entries = file_entries.read();
-                                    let items: Vec<_> = entries.iter().take(20).cloned().collect();
-                                    items.into_iter().enumerate().map(|(index, entry)| {
-                                        let entry_clone = entry.clone();
-                                        let entry_clone_key = entry.clone();
-                                        let entry_clone_menu = entry.clone();
-                                        let entry_clone_drag = entry.clone();
-                                        let mut drag_state_clone = drag_state.clone();
-                                        
-                                        rsx! {
+                            // Show the loaded file tree
+                            if let Some(root_path) = app_state.get_file_tree_root() {
+                                div {
+                                    style: "padding: 10px;",
+                                    
+                                    // Show current folder path
+                                    div {
+                                        style: "margin-bottom: 10px; padding: 5px; background: var(--vscode-background-secondary, #1e1e1e); border-radius: 4px; font-size: 0.9em;",
+                                        span {
+                                            style: "color: var(--vscode-text-muted, #6a6a6a);",
+                                            "📁 "
+                                        }
+                                        span {
+                                            style: "color: var(--vscode-text-primary, #cccccc);",
+                                            {root_path.display().to_string()}
+                                        }
+                                    }
+                                    
+                                    // Show loading state
+                                    if app_state.is_file_tree_directory_loading(&root_path) {
+                                        div {
+                                            style: "padding: 20px; text-align: center; color: var(--vscode-text-secondary, #999999);",
+                                            "Loading directory contents..."
+                                        }
+                                    }
+                                    // Show error state
+                                    else if let Some(error) = app_state.get_file_tree_directory_error(&root_path) {
+                                        div {
+                                            style: "padding: 20px; text-align: center; color: var(--vscode-error, #f44747);",
+                                            "Error loading directory:"
                                             div {
-                                                key: "entry-{index}-{entry.path.to_string_lossy()}",
-                                                class: "file-tree-item",
-                                                tabindex: 0,
-                                                role: "listitem",
-                                                "aria-label": format!("{} {}{}", if entry.is_directory { "Folder" } else { "File" }, entry.name, if entry.size > 0 { format!(", {} bytes", entry.size) } else { String::new() }),
-                                                "aria-describedby": format!("file-details-{}", index),
-                                                draggable: true,
-                                                
-                                                onclick: move |_| {
-                                                    tracing::info!("File clicked: {}", entry_clone.name);
-                                                    selected_item.set(Some(entry_clone.clone()));
-                                                },
-                                                
-                                                onkeydown: move |evt| {
-                                                    let key = evt.data.key();
-                                                    match key {
-                                                        dioxus::events::Key::Enter => {
-                                                            tracing::info!("File selected via keyboard: {}", entry_clone_key.name);
-                                                            selected_item.set(Some(entry_clone_key.clone()));
-                                                            evt.prevent_default();
-                                                        },
-                                                        _ => {
-                                                            // Handle Space key via string comparison since it's not available as enum variant
-                                                            let key_str = key.to_string();
-                                                            if key_str == " " || key_str == "Space" {
-                                                                tracing::info!("File selected via keyboard: {}", entry_clone_key.name);
-                                                                selected_item.set(Some(entry_clone_key.clone()));
+                                                style: "margin-top: 5px; font-size: 0.9em;",
+                                                {error}
+                                            }
+                                        }
+                                    }
+                                    // Show file list
+                                    else if let Some(children) = app_state.get_file_tree_children(&root_path) {
+                                        {
+                                            let children_count = children.len();
+                                            rsx! {
+                                                div {
+                                                    role: "list",
+                                                    "aria-label": format!("Directory contents - {} items", children_count),
+                                                    style: "max-height: calc(100vh - 220px); overflow-y: auto; border: 1px solid var(--vscode-border, #464647); border-radius: 4px;",
+                                                    {
+                                                        children.into_iter().enumerate().map(|(index, entry)| {
+                                                    let entry_clone = entry.clone();
+                                                    let entry_clone_key = entry.clone();
+                                                    let entry_clone_menu = entry.clone();
+                                                    let entry_clone_drag = entry.clone();
+                                                    let mut drag_state_clone = drag_state.clone();
+                                                    let mut app_state_clone = app_state.clone();
+                                                    
+                                                    rsx! {
+                                                        div {
+                                                            key: "entry-{index}-{entry.path.to_string_lossy()}",
+                                                            class: "file-tree-item",
+                                                            tabindex: 0,
+                                                            role: "listitem",
+                                                            "aria-label": format!("{} {}{}", if entry.is_directory { "Folder" } else { "File" }, entry.name, if entry.size > 0 { format!(", {} bytes", entry.size) } else { String::new() }),
+                                                            "aria-describedby": format!("file-details-{}", index),
+                                                            draggable: true,
+                                                            
+                                                            onclick: move |_| {
+                                                                tracing::info!("File clicked: {}", entry_clone.name);
+                                                                selected_item.set(Some(entry_clone.clone()));
+                                                                app_state_clone.set_file_tree_selection(Some(entry_clone.path.clone()));
+                                                            },
+                                                            
+                                                            onkeydown: move |evt| {
+                                                                let key = evt.data.key();
+                                                                match key {
+                                                                    dioxus::events::Key::Enter => {
+                                                                        tracing::info!("File selected via keyboard: {}", entry_clone_key.name);
+                                                                        selected_item.set(Some(entry_clone_key.clone()));
+                                                                        evt.prevent_default();
+                                                                    },
+                                                                    _ => {
+                                                                        let key_str = key.to_string();
+                                                                        if key_str == " " || key_str == "Space" {
+                                                                            tracing::info!("File selected via keyboard: {}", entry_clone_key.name);
+                                                                            selected_item.set(Some(entry_clone_key.clone()));
+                                                                            evt.prevent_default();
+                                                                        }
+                                                                    }
+                                                                }
+                                                            },
+                                                            
+                                                            oncontextmenu: move |evt| {
                                                                 evt.prevent_default();
+                                                                let client_x = evt.data.client_coordinates().x as f64;
+                                                                let client_y = evt.data.client_coordinates().y as f64;
+                                                                
+                                                                context_menu_state.write().show_at(
+                                                                    client_x, client_y, Some(entry_clone_menu.clone())
+                                                                );
+                                                                
+                                                                tracing::info!("Context menu opened for: {}", entry_clone_menu.name);
+                                                            },
+                                                            
+                                                            ondragstart: move |evt| {
+                                                                let client_x = evt.data.client_coordinates().x as f64;
+                                                                let client_y = evt.data.client_coordinates().y as f64;
+                                                                
+                                                                let operation = DragOperation::from_modifiers(
+                                                                    evt.data.modifiers().ctrl(),
+                                                                    evt.data.modifiers().shift(),
+                                                                    evt.data.modifiers().alt()
+                                                                );
+                                                                
+                                                                drag_state_clone.write().start_drag(
+                                                                    vec![entry_clone_drag.clone()],
+                                                                    client_x,
+                                                                    client_y,
+                                                                    operation
+                                                                );
+                                                                
+                                                                tracing::info!("Started dragging: {}", entry_clone_drag.name);
+                                                            },
+                                                            
+                                                            // Hidden details for screen readers
+                                                            div {
+                                                                id: format!("file-details-{}", index),
+                                                                class: "sr-only",
+                                                                style: "position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;",
+                                                                {format!("{} type: {}, last modified: recently", 
+                                                                    if entry.is_directory { "Directory" } else { "File" },
+                                                                    if entry.is_directory { "Folder" } else { "Document" }
+                                                                )}
+                                                            }
+                                                            
+                                                            span {
+                                                                style: "margin-right: 8px; pointer-events: none;",
+                                                                "aria-hidden": "true",
+                                                                if entry.is_directory { "📁" } else { "📄" }
+                                                            }
+                                                            span { 
+                                                                style: "pointer-events: none;",
+                                                                {entry.name.clone()}
+                                                            }
+                                                            if entry.size > 0 {
+                                                                span {
+                                                                    style: "margin-left: 10px; color: var(--vscode-text-muted, #6a6a6a); font-size: 0.9em; pointer-events: none;",
+                                                                    "aria-hidden": "true",
+                                                                    "({entry.size} bytes)"
+                                                                }
                                                             }
                                                         }
                                                     }
-                                                },
-                                                
-                                                oncontextmenu: move |evt| {
-                                                    evt.prevent_default();
-                                                    let client_x = evt.data.client_coordinates().x as f64;
-                                                    let client_y = evt.data.client_coordinates().y as f64;
-                                                    
-                                                    context_menu_state.write().show_at(
-                                                        client_x, client_y, Some(entry_clone_menu.clone())
-                                                    );
-                                                    
-                                                    tracing::info!("Context menu opened for: {}", entry_clone_menu.name);
-                                                },
-                                                
-                                                ondragstart: move |evt| {
-                                                    let client_x = evt.data.client_coordinates().x as f64;
-                                                    let client_y = evt.data.client_coordinates().y as f64;
-                                                    
-                                                    // Determine drag operation based on modifiers
-                                                    let operation = DragOperation::from_modifiers(
-                                                        evt.data.modifiers().ctrl(),
-                                                        evt.data.modifiers().shift(),
-                                                        evt.data.modifiers().alt()
-                                                    );
-                                                    
-                                                    // Directly call the drag state method
-                                                    drag_state_clone.write().start_drag(
-                                                        vec![entry_clone_drag.clone()],
-                                                        client_x,
-                                                        client_y,
-                                                        operation
-                                                    );
-                                                    
-                                                    tracing::info!("Started dragging: {}", entry_clone_drag.name);
-                                                },
-                                                
-                                                // Hidden details for screen readers
-                                                div {
-                                                    id: format!("file-details-{}", index),
-                                                    class: "sr-only",
-                                                    style: "position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;",
-                                                    {format!("{} type: {}, last modified: recently", 
-                                                        if entry.is_directory { "Directory" } else { "File" },
-                                                        if entry.is_directory { "Folder" } else { "Document" }
-                                                    )}
-                                                }
-                                                
-                                                span {
-                                                    style: "margin-right: 8px; pointer-events: none;",
-                                                    "aria-hidden": "true",
-                                                    if entry.is_directory { "📁" } else { "📄" }
-                                                }
-                                                span { 
-                                                    style: "pointer-events: none;",
-                                                    {entry.name.clone()}
-                                                }
-                                                if entry.size > 0 {
-                                                    span {
-                                                        style: "margin-left: 10px; color: var(--vscode-text-muted, #6a6a6a); font-size: 0.9em; pointer-events: none;",
-                                                        "aria-hidden": "true",
-                                                        "({entry.size} bytes)"
+                                                })
+                                            }
+                                            
+                                                    // Show count summary
+                                                    div {
+                                                        style: "padding: 10px; border-top: 1px solid var(--vscode-border, #464647); color: var(--vscode-text-muted, #6a6a6a); font-size: 0.9em; text-align: center;",
+                                                        {format!("{} items total", children_count)}
                                                     }
                                                 }
                                             }
                                         }
-                                    })
-                                }
-                                {
-                                    let total_files = file_entries.read().len();
-                                    if total_files > 20 {
-                                        rsx! {
-                                            div {
-                                                style: "padding: 10px; color: var(--vscode-text-muted, #6a6a6a); font-style: italic;",
-                                                {format!("... and {} more files", total_files - 20)}
-                                            }
-                                        }
                                     } else {
-                                        rsx! { div {} }
+                                        div {
+                                            style: "padding: 20px; text-align: center; color: var(--vscode-text-secondary, #999999);",
+                                            "Directory is empty"
+                                        }
                                     }
                                 }
+                            } else {
+                                div {
+                                    style: "padding: 20px; text-align: center; color: var(--vscode-text-secondary, #999999);",
+                                    "No folder selected"
+                                }
                             }
-                        }
                         }
                     }
                     }
