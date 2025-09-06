@@ -45,10 +45,11 @@
   - ✅ 다른 패널과의 일관성 확인 완료
   - ✅ 애플리케이션 테스트 및 빌드 검증 완료
 
-- [ ] **Task 4.3**: Remove unnecessary text from panels
-  - "File Tree (Temporarily Disabled)" 텍스트 제거
-  - 불필요한 설명 텍스트 정리
-  - 더 깔끔한 UI로 개선
+- [x] **Task 4.3**: Remove unnecessary text from panels
+  - ✅ 과도하게 자세한 File Explorer 설명 텍스트 제거 ("Navigate through your files and folders" → "File Explorer")
+  - ✅ 메인 콘텐츠 영역 설명 간소화 ("File management interface" → "Main content")
+  - ✅ 리사이즈 핸들 설명 간소화 (긴 키보드 단축키 설명 → "Drag to resize panel")
+  - ✅ 더 깔끔한 UI로 개선 완료
 
 ### Phase 5: Testing and Validation
 - [ ] **Task 5.1**: Test folder selection and navigation functionality
@@ -94,6 +95,6 @@
 - [ ] All functionality tested and working
 
 ---
-**Progress**: 7/9 tasks completed (77.8%)
+**Progress**: 8/9 tasks completed (88.9%)
 
-**Next Task**: Task 4.3 - Remove unnecessary text from panels
+**Next Task**: Task 5.1 - Test folder selection and navigation functionality

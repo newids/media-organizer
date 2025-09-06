@@ -415,7 +415,7 @@ pub fn phase2_app() -> Element {
             div {
                 class: "main-content",
                 role: "main",
-                "aria-label": "File management interface",
+                "aria-label": "Main content",
                 
                 // Left Panel (File Tree) with Drop Zone
                 DropZone {
@@ -438,8 +438,8 @@ pub fn phase2_app() -> Element {
                     div {
                         class: "file-tree-header",
                         role: "banner",
-                        "aria-label": "File Explorer - Navigate through your files and folders",
-                        title: "File Explorer - Navigate through your files and folders",
+                        "aria-label": "File Explorer",
+                        title: "File Explorer",
                         "Explorer"
                     }
                     
@@ -666,9 +666,9 @@ pub fn phase2_app() -> Element {
                 // Resize Handle
                 div {
                     class: "{resize_handle_class}",
-                    title: "Drag to resize the file explorer panel. Use arrow keys to resize (Shift+Arrow for faster), Home/End for min/max width.",
+                    title: "Drag to resize panel",
                     role: "separator",
-                    "aria-label": "Resize file explorer panel. Arrow keys to resize, Shift+Arrow for faster adjustment, Home for minimum, End for maximum",
+                    "aria-label": "Resize panel",
                     tabindex: 0,
                     onmousedown: move |evt| {
                         is_dragging.set(true);
