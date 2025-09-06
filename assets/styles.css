@@ -795,6 +795,7 @@ body {
   display: flex;
   flex-direction: column;
   transition: width var(--vscode-transition-normal);
+  margin: 0;
 }
 
 .file-tree-panel.dragging {
