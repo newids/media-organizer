@@ -299,6 +299,118 @@ pub fn phase2_app() -> Element {
                 }
             }
             
+            // Path display bar above main content
+            if let Some(current_path) = app_state.get_file_tree_root() {
+                div {
+                    class: "path-display-bar",
+                    role: "banner",
+                    "aria-label": "Current folder path",
+                    style: "
+                        background: var(--vscode-breadcrumb-background, #2d2d30);
+                        border-bottom: 1px solid var(--vscode-border, #464647);
+                        padding: 8px 16px;
+                        font-size: 0.9em;
+                        color: var(--vscode-breadcrumb-foreground, #cccccc);
+                        display: flex;
+                        align-items: center;
+                        min-height: 32px;
+                        user-select: none;
+                    ",
+                    
+                    // Home icon
+                    span {
+                        style: "margin-right: 8px; font-size: 1.1em;",
+                        "🏠"
+                    }
+                    
+                    // Path segments
+                    {
+                        let path_segments = {
+                            let mut segments = Vec::new();
+                            let mut current = current_path.as_path();
+                            
+                            // Build path segments from current path up to root
+                            while let Some(parent) = current.parent() {
+                                if let Some(name) = current.file_name() {
+                                    segments.push((current.to_path_buf(), name.to_string_lossy().to_string()));
+                                }
+                                current = parent;
+                                
+                                // Stop at root to avoid infinite loop
+                                if parent.parent().is_none() {
+                                    segments.push((parent.to_path_buf(), parent.to_string_lossy().to_string()));
+                                    break;
+                                }
+                            }
+                            
+                            // Reverse to show from root to current
+                            segments.reverse();
+                            segments
+                        };
+                        
+                        path_segments.into_iter().enumerate().map(|(index, (path, name))| {
+                            let path_clone = path.clone();
+                            let app_state_for_nav = app_state.clone();
+                            
+                            rsx! {
+                                span {
+                                    key: "path-segment-{index}",
+                                    style: "display: flex; align-items: center;",
+                                    
+                                    // Path separator (except for first segment)
+                                    if index > 0 {
+                                        span {
+                                            style: "margin: 0 6px; color: var(--vscode-breadcrumb-foreground, #999999);",
+                                            "/"
+                                        }
+                                    }
+                                    
+                                    // Clickable path segment
+                                    button {
+                                        style: "
+                                            background: none;
+                                            border: none;
+                                            color: var(--vscode-breadcrumb-foreground, #cccccc);
+                                            cursor: pointer;
+                                            padding: 4px 6px;
+                                            border-radius: 3px;
+                                            font-size: inherit;
+                                            font-family: inherit;
+                                            transition: background-color 0.2s;
+                                        ",
+                                        onmouseenter: move |_| {
+                                            // Add hover effect via inline style
+                                        },
+                                        onmouseleave: move |_| {
+                                            // Remove hover effect via inline style
+                                        },
+                                        onclick: move |_| {
+                                            let path_to_navigate = path_clone.clone();
+                                            let mut app_state_nav = app_state_for_nav.clone();
+                                            
+                                            tracing::info!("Navigating to path segment: {:?}", path_to_navigate);
+                                            
+                                            spawn(async move {
+                                                match app_state_nav.handle_folder_change(path_to_navigate.clone()).await {
+                                                    Ok(()) => {
+                                                        tracing::info!("Successfully navigated to: {:?}", path_to_navigate);
+                                                    }
+                                                    Err(e) => {
+                                                        tracing::error!("Failed to navigate to {:?}: {}", path_to_navigate, e);
+                                                    }
+                                                }
+                                            });
+                                        },
+                                        title: format!("Navigate to {}", path.display()),
+                                        {name}
+                                    }
+                                }
+                            }
+                        })
+                    }
+                }
+            }
+            
             // Main content area with split layout
             div {
                 class: "main-content",

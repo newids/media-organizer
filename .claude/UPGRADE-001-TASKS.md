@@ -34,10 +34,10 @@
   - ✅ 지속성을 위한 설정 저장 (persistence.rs 통합)
 
 ### Phase 4: UI Enhancements
-- [ ] **Task 4.1**: Create path display bar above main-content panel
-  - 메인 콘텐츠 패널 상단에 경로 표시 바 추가
-  - 현재 폴더 경로를 사용자 친화적으로 표시
-  - 경로 세그먼트 클릭으로 상위 폴더 탐색 가능
+- [x] **Task 4.1**: Create path display bar above main-content panel
+  - ✅ 메인 콘텐츠 패널 상단에 경로 표시 바 추가 완료
+  - ✅ 현재 폴더 경로를 사용자 친화적으로 표시 (홈 아이콘과 경로 세그먼트)
+  - ✅ 경로 세그먼트 클릭으로 상위 폴더 탐색 기능 구현
 
 - [ ] **Task 4.2**: Remove margin from file-tree-panel CSS
   - `assets/styles.css`에서 file-tree-panel 마진 제거
@@ -93,6 +93,6 @@
 - [ ] All functionality tested and working
 
 ---
-**Progress**: 5/9 tasks completed (55.6%)
+**Progress**: 6/9 tasks completed (66.7%)
 
-**Next Task**: Task 4.1 - Create path display bar above main-content panel
+**Next Task**: Task 4.2 - Remove margin from file-tree-panel CSS
