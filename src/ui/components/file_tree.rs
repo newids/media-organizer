@@ -199,7 +199,7 @@ pub fn FileTreeNode(
                         text-overflow: ellipsis;
                         font-size: 13px;
                     ",
-                    title: path.display().to_string(),
+                    title: crate::utils::normalize_path_display(path),
                     "{name}"
                 }
             }

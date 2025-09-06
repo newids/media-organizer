@@ -602,10 +602,19 @@ pub fn Sidebar(
                         font-size: 11px;
                         font-weight: bold;
                         color: var(--vscode-foreground, #cccccc);
-                        text-transform: uppercase;
                     ",
                     role: "banner",
-                    "EXPLORER"
+                    title: "File Explorer",
+                    // Icon-based navigation instead of text label
+                    span {
+                        style: "
+                            display: inline-block;
+                            width: 16px;
+                            height: 16px;
+                            opacity: 0.7;
+                        ",
+                        "📁"
+                    }
                 }
                 
                 // Sidebar Content

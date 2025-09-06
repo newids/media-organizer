@@ -9,6 +9,7 @@ pub mod services;
 pub mod state;
 pub mod theme;
 pub mod ui;
+pub mod utils;
 
 // Re-export commonly used types for convenience
 pub use state::{LayoutState, Theme, ActivityBarPosition, SidebarPosition, PanelPosition};

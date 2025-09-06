@@ -36,10 +36,13 @@ pub fn SimpleFileTree() -> Element {
         div {
             class: "file-tree",
             style: "
-                padding: 8px 0;
+                padding: 4px 0;
                 font-size: 13px;
                 color: var(--vscode-foreground, #cccccc);
                 user-select: none;
+                --list-item-padding: 1px 4px;
+                --list-item-margin: 0;
+                --list-indent-margin: 16px;
             ",
             role: "tree",
             "aria-label": "File explorer tree",
@@ -52,7 +55,7 @@ pub fn SimpleFileTree() -> Element {
                 }
             } else {
                 div {
-                    style: "padding: 16px; color: var(--vscode-text-secondary, #999999);",
+                    style: "padding: 8px 16px; color: var(--vscode-text-secondary, #999999);",
                     "Loading file tree..."
                 }
             }
@@ -106,7 +109,7 @@ pub fn SimpleFileTreeNode(
                 style: "
                     display: flex;
                     align-items: center;
-                    padding: 2px 8px 2px {indent_px + 8}px;
+                    padding: var(--list-item-padding, 1px 4px) 1px {indent_px + 4}px;
                     cursor: pointer;
                     white-space: nowrap;
                     background: {if is_selected { \"var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.3))\" } else { \"transparent\" }};
@@ -137,7 +140,7 @@ pub fn SimpleFileTreeNode(
                             display: flex;
                             align-items: center;
                             justify-content: center;
-                            margin-right: 4px;
+                            margin-right: 2px;
                             cursor: pointer;
                             transform: {if is_expanded { \"rotate(90deg)\" } else { \"rotate(0deg)\" }};
                             transition: transform 0.15s ease;
@@ -165,7 +168,7 @@ pub fn SimpleFileTreeNode(
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        margin-right: 6px;
+                        margin-right: 4px;
                         opacity: 0.8;
                     ",
                     
@@ -181,7 +184,7 @@ pub fn SimpleFileTreeNode(
                         text-overflow: ellipsis;
                         font-size: 13px;
                     ",
-                    title: path.display().to_string(),
+                    title: crate::utils::normalize_path_display(path),
                     "{name}"
                 }
             }

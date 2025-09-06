@@ -827,11 +827,271 @@
             "testStrategy": "Automated and manual cross-platform testing; final performance validation against benchmarks."
           }
         ]
+      },
+      {
+        "id": 23,
+        "title": "UI Polish and Label Cleanup",
+        "description": "Remove verbose labels from title bar, theme status, and explorer sections to create a cleaner, VS Code-like interface with concise UI text.",
+        "details": "Clean up the application's UI text by removing verbose elements: 1) Simplify title bar from 'MediaOrganizer - Task 10.4: Settings & Theme System ⚙️' to just 'MediaOrganizer' or app icon, 2) Remove current theme status label 'current : Auto(following system: Dark)' and replace with a simple theme toggle icon or compact indicator, 3) Remove 'EXPLORER' label and use icon-only navigation or subtle visual hierarchy. Implement VS Code-style minimalism by using icons with tooltips instead of text labels where appropriate. Ensure all text changes maintain semantic meaning and don't compromise accessibility - preserve ARIA labels and screen reader compatibility while cleaning visual presentation. Update CSS/styling to accommodate reduced text content and maintain proper spacing and alignment. Consider adding subtle visual cues (borders, backgrounds, icons) to replace removed text labels for visual hierarchy.",
+        "testStrategy": "Manual UI review to verify all verbose labels are removed and replaced appropriately. Test theme switching functionality still works after status label removal. Verify title bar displays correctly across different window sizes. Accessibility testing with screen readers to ensure ARIA labels and semantic structure remain intact. Cross-platform testing to ensure UI changes work consistently. User acceptance testing to confirm VS Code-like feel is achieved while maintaining usability and discoverability of features.",
+        "status": "done",
+        "dependencies": [
+          20,
+          21
+        ],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Simplify Title Bar Text and Branding",
+            "description": "Remove verbose title bar text and replace with clean, minimal branding that follows VS Code conventions.",
+            "dependencies": [],
+            "details": "Update the title bar component to display only 'MediaOrganizer' instead of the current verbose format 'MediaOrganizer - Task 10.4: Settings & Theme System ⚙️'. Consider replacing text with an app icon if appropriate. Ensure the title bar maintains proper window controls positioning and accessibility. Update any related CSS classes and ensure proper text truncation for smaller window sizes. Preserve window title functionality for OS-level window management.",
+            "status": "done",
+            "testStrategy": "Manual testing across different window sizes and OS platforms. Verify window controls remain functional and title displays correctly in taskbar/dock."
+          },
+          {
+            "id": 2,
+            "title": "Replace Theme Status Label with Icon Toggle",
+            "description": "Remove the verbose theme status text and implement a clean icon-based theme toggle with tooltip.",
+            "dependencies": [],
+            "details": "Replace the current theme status label 'current : Auto(following system: Dark)' with a simple theme toggle icon (sun/moon/auto icons). Implement tooltip on hover to show current theme state. Ensure the icon updates dynamically when theme changes. Maintain all existing theme switching functionality while removing the text label. Use appropriate ARIA labels for accessibility. Position the icon appropriately in the UI layout, likely in a toolbar or status area.",
+            "status": "done",
+            "testStrategy": "Test theme switching functionality remains intact. Verify tooltip displays correct theme state. Accessibility testing with screen readers to ensure ARIA labels work properly."
+          },
+          {
+            "id": 3,
+            "title": "Remove Explorer Section Label and Implement Icon Navigation",
+            "description": "Remove the 'EXPLORER' text label and replace with icon-based navigation or subtle visual hierarchy.",
+            "dependencies": [],
+            "details": "Remove the 'EXPLORER' section label and implement VS Code-style icon-only navigation. Use a folder icon or similar visual indicator instead of text. Implement tooltips for discoverability. Consider using subtle visual hierarchy like borders, background colors, or spacing to maintain section distinction. Ensure the change doesn't compromise navigation clarity. Update CSS to handle the layout changes and maintain proper spacing without the text label.",
+            "status": "done",
+            "testStrategy": "Manual UI review to ensure navigation remains intuitive. User testing to verify discoverability of explorer functionality. Accessibility testing to ensure screen readers can still identify the section."
+          },
+          {
+            "id": 4,
+            "title": "Update CSS and Visual Hierarchy for Reduced Text Content",
+            "description": "Adjust styling and layout to accommodate removed text labels while maintaining visual hierarchy and proper spacing.",
+            "dependencies": [
+              "23.1",
+              "23.2",
+              "23.3"
+            ],
+            "details": "Update CSS classes and styling to properly handle the reduced text content from previous subtasks. Implement subtle visual cues like borders, background colors, or spacing to replace removed text labels for visual hierarchy. Ensure proper alignment and spacing throughout the interface. Add hover states and visual feedback for icon-based elements. Verify responsive behavior across different screen sizes. Maintain consistent spacing and alignment with VS Code design patterns.",
+            "status": "done",
+            "testStrategy": "Visual regression testing to ensure layout remains consistent. Cross-browser testing for CSS compatibility. Responsive design testing across different screen sizes and zoom levels."
+          }
+        ]
+      },
+      {
+        "id": 24,
+        "title": "Fix Path Display and Layout Issues",
+        "description": "Correct the double slash issue in file path display by removing redundant slashes, and remove margins around list box components to improve visual density and spacing.",
+        "details": "Address two specific UI issues: 1) Path Display Fix: Locate file path rendering components and implement string normalization to remove double slashes (e.g., \"folder//file.txt\" becomes \"folder/file.txt\"). Use path normalization utilities or regex replacement to clean paths before display. Ensure cross-platform compatibility for both forward and backslashes. 2) List Box Layout Optimization: Identify list box components in the explorer and other UI sections, then remove or reduce excessive margins/padding in CSS. Update component styles to achieve tighter visual density similar to VS Code's compact file explorer. Consider using CSS variables for consistent spacing (e.g., --list-item-padding: 2px 4px). Test with various content lengths to ensure readability is maintained while improving space efficiency.",
+        "testStrategy": "Manual testing of file path display across different directory structures to verify no double slashes appear. Test with nested folders, root directories, and edge cases like network paths. Visual comparison of list box spacing before and after changes to confirm improved density. Cross-platform testing on Windows, macOS, and Linux to ensure path normalization works correctly with different path separators. Accessibility testing to ensure reduced margins don't impact keyboard navigation or screen reader functionality.",
+        "status": "done",
+        "dependencies": [
+          11,
+          23
+        ],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Path Normalization Utility",
+            "description": "Create a utility function to normalize file paths by removing redundant slashes and ensuring cross-platform compatibility for path display.",
+            "dependencies": [],
+            "details": "Create a path normalization utility that handles double slash removal using regex patterns. Implement functions to normalize both forward slashes (//) and backslashes (\\\\) while maintaining cross-platform compatibility. Use Rust's std::path::Path for proper path handling or implement custom regex-based normalization (e.g., path.replace(/\\/+/g, '/') for forward slashes). Include edge case handling for network paths, root directories, and mixed slash types. Export the utility function for use across file path rendering components.",
+            "status": "done",
+            "testStrategy": "Unit tests with various path formats including nested folders, root directories, network paths (//server/share), and mixed slash combinations. Verify cross-platform behavior on Windows, macOS, and Linux path formats."
+          },
+          {
+            "id": 2,
+            "title": "Apply Path Normalization to File Display Components",
+            "description": "Locate and update all file path rendering components to use the path normalization utility before displaying paths to users.",
+            "dependencies": [
+              "24.1"
+            ],
+            "details": "Identify all components that render file paths including file explorer, breadcrumb navigation, tab titles, and status bar path displays. Integrate the path normalization utility created in subtask 24.1 into these components. Update the rendering logic to call the normalization function before displaying any file path string. Ensure the normalization is applied consistently across all path display contexts. Handle both absolute and relative paths appropriately.",
+            "status": "done",
+            "testStrategy": "Manual testing across different directory structures to verify no double slashes appear in any UI component. Test with deeply nested folders, files at root level, and various file types. Verify paths display correctly in explorer, tabs, breadcrumbs, and status indicators."
+          },
+          {
+            "id": 3,
+            "title": "Optimize List Box Component Spacing",
+            "description": "Remove excessive margins and padding from list box components throughout the UI to achieve improved visual density similar to VS Code's compact layout.",
+            "dependencies": [
+              "24.2"
+            ],
+            "details": "Identify all list box components in the file explorer, command palette, and other UI sections. Analyze current CSS margins and padding values and reduce them to achieve tighter spacing. Implement CSS variables for consistent spacing (e.g., --list-item-padding: 2px 4px, --list-item-margin: 0). Update component stylesheets to use these variables and remove excessive whitespace. Ensure list items maintain adequate hover and selection states while improving overall density. Consider implementing compact/comfortable view modes if needed.",
+            "status": "done",
+            "testStrategy": "Visual comparison testing before and after changes to confirm improved density without compromising readability. Test with various content lengths including long file names, nested folder structures, and different screen sizes. Verify hover states, selection highlighting, and keyboard navigation remain functional and visually clear."
+          }
+        ]
+      },
+      {
+        "id": 25,
+        "title": "Text Encoding and Font Improvements",
+        "description": "Fix Korean character and UTF-8 character display issues to ensure proper text rendering, and change default application font to system font for better OS integration and readability.",
+        "details": "Address text rendering and font issues through two main improvements: 1) Text Encoding Fixes: Investigate and resolve Korean character display issues by ensuring proper UTF-8 encoding throughout the application. Check text input/output pipelines, file path handling, and UI text rendering components. Implement proper Unicode normalization (NFC/NFD) for Korean characters and other complex scripts. Verify that all text processing functions handle multi-byte UTF-8 sequences correctly. Add fallback character handling for unsupported glyphs. 2) System Font Integration: Replace the current application font with system default fonts for better OS integration. On Windows, use Segoe UI; on macOS, use San Francisco (SF Pro); on Linux, use system default or Liberation Sans. Implement font fallback chains to handle missing characters gracefully. Update CSS/styling to use system font stacks like '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif'. Ensure consistent font rendering across all UI components including menus, dialogs, file lists, and preview panels. Test font scaling and high-DPI display compatibility. Consider implementing font preference settings for user customization while maintaining system font as default.",
+        "testStrategy": "Create test files with Korean characters, emoji, and various UTF-8 encoded text to verify proper display in file names, paths, and content previews. Test text input/output with Korean IME and other international input methods. Verify font rendering across different operating systems and display scales (100%, 125%, 150%, 200%). Compare before/after screenshots to ensure system font integration improves readability and OS consistency. Test with various file path lengths and special characters to ensure no encoding corruption. Perform accessibility testing to verify screen reader compatibility with proper text encoding. Test font fallback behavior when system fonts are missing or corrupted.",
+        "status": "pending",
+        "dependencies": [
+          21,
+          23
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 26,
+        "title": "Status Bar Enhancement: Move File Count Display",
+        "description": "Move the file/folder total count display from its current location to the status bar, following VS Code conventions for showing file information in the status bar.",
+        "details": "Implement a VS Code-style status bar enhancement by relocating the file/folder count display: 1) Status Bar Integration: Create or enhance the existing status bar component to include file count information. Position the count display in the left section of the status bar, similar to VS Code's \"X files, Y folders\" format. 2) Remove Current Count Display: Identify and remove the existing file/folder count display from its current location (likely in the explorer panel or header area). Ensure no visual artifacts remain after removal. 3) Dynamic Count Updates: Implement real-time count updates that reflect changes when files/folders are added, removed, or filtered. Use efficient counting mechanisms that don't impact performance with large directory structures. 4) Formatting and Styling: Follow VS Code's text formatting conventions (e.g., \"1,234 files, 56 folders\" with proper number formatting and pluralization). Apply consistent styling with other status bar elements including font size, color, and spacing. 5) Context Awareness: Display counts relevant to the current view/selection - show total counts for the current directory or filtered results when search is active. Consider showing selection counts when multiple items are selected.",
+        "testStrategy": "Manual testing to verify file/folder counts display correctly in the status bar with accurate numbers matching the actual directory contents. Test count updates in real-time when navigating between directories, adding/removing files, and applying filters or search. Verify proper number formatting with large file counts (thousands, millions) and correct pluralization (1 file vs 2 files). Test visual consistency with other status bar elements including font, spacing, and color themes. Cross-platform testing to ensure status bar integration works correctly on Windows, macOS, and Linux. Performance testing with large directories (1000+ files) to ensure count calculations don't impact UI responsiveness.",
+        "status": "pending",
+        "dependencies": [
+          23,
+          24
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 27,
+        "title": "Implement VS Code-Style File Tree Expansion",
+        "description": "Implement expandable folder functionality in the file explorer with proper expand/collapse states and navigation similar to Visual Studio Code's file tree.",
+        "details": "Implement a hierarchical file tree with expand/collapse functionality: 1) Tree State Management: Create a TreeState struct to track expanded/collapsed folders using a HashMap<PathBuf, bool> or similar structure. Integrate with the existing layout state management system. 2) UI Components: Modify the file list component to display folders with expand/collapse indicators (chevron icons). Use CSS transforms for smooth rotation animations (90deg for expanded, 0deg for collapsed). Implement proper indentation for nested items using CSS padding or margin-left calculations. 3) Folder Expansion Logic: On folder click, toggle expansion state and dynamically load child items. Use async file system operations to read directory contents on-demand. Implement lazy loading to avoid performance issues with large directory structures. 4) Navigation Enhancement: Add keyboard support for arrow key navigation (Right to expand, Left to collapse, Up/Down for selection). Ensure proper focus management and accessibility with ARIA expanded/collapsed attributes. 5) Visual Indicators: Use appropriate icons for expanded/collapsed folders (folder-open/folder-closed). Maintain consistent spacing and alignment with file items. 6) Performance Optimization: Implement virtualization for large directory trees to maintain smooth scrolling. Cache expanded states and directory contents to avoid redundant file system calls.",
+        "testStrategy": "Unit tests for tree state management including expand/collapse operations and state persistence. Integration tests for folder expansion with mock file system to verify proper loading of subdirectories. Manual testing with deeply nested folder structures to verify performance and visual consistency. Keyboard navigation tests to ensure proper arrow key handling and focus management. Accessibility testing with screen readers to verify ARIA attributes and proper announcement of expand/collapse states. Visual regression tests to ensure consistent styling across different themes and folder depths.",
+        "status": "pending",
+        "dependencies": [
+          16,
+          21,
+          24
+        ],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Tree State Management System",
+            "description": "Create a comprehensive state management system to track folder expansion states and integrate with existing layout management.",
+            "dependencies": [],
+            "details": "Create a TreeState struct with HashMap<PathBuf, bool> to track expanded/collapsed folders. Implement methods for toggle_expansion, is_expanded, and get_expanded_folders. Integrate with Dioxus state management using use_state or use_context. Add persistence layer to save/restore expansion states across sessions using localStorage or similar. Ensure thread-safe operations for async file system calls.",
+            "status": "pending",
+            "testStrategy": "Unit tests for TreeState operations including toggle, persistence, and state retrieval. Mock tests for integration with Dioxus state management."
+          },
+          {
+            "id": 2,
+            "title": "Create Expandable UI Components with Visual Indicators",
+            "description": "Modify file list components to display folders with expand/collapse indicators and proper visual hierarchy.",
+            "dependencies": [
+              "27.1"
+            ],
+            "details": "Add chevron icons to folder items with CSS transform animations (0deg collapsed, 90deg expanded). Implement proper indentation using CSS calc() with nesting level multiplier. Create folder-open and folder-closed icons. Add hover states and focus indicators. Use CSS transitions for smooth animations (200ms duration). Ensure consistent spacing and alignment with file items. Apply ARIA expanded/collapsed attributes for accessibility.",
+            "status": "pending",
+            "testStrategy": "Visual regression tests for expand/collapse animations. Manual testing for consistent spacing and icon alignment across different nesting levels."
+          },
+          {
+            "id": 3,
+            "title": "Implement Folder Expansion Logic with Lazy Loading",
+            "description": "Add click handlers and async file system operations for dynamic folder content loading.",
+            "dependencies": [
+              "27.1",
+              "27.2"
+            ],
+            "details": "Implement onClick handlers for folder items to toggle expansion state. Add async directory reading using tokio::fs::read_dir or similar. Implement lazy loading to only read directory contents when expanded. Add error handling for permission denied or inaccessible directories. Cache directory contents to avoid redundant file system calls. Implement loading indicators for slow directory operations. Handle edge cases like empty directories and symbolic links.",
+            "status": "pending",
+            "testStrategy": "Integration tests with mock file system to verify proper directory loading. Performance tests with large directory structures. Error handling tests for inaccessible directories."
+          },
+          {
+            "id": 4,
+            "title": "Add Keyboard Navigation and Performance Optimization",
+            "description": "Implement keyboard controls for tree navigation and optimize performance for large directory structures.",
+            "dependencies": [
+              "27.2",
+              "27.3"
+            ],
+            "details": "Add keyboard event handlers for Right arrow (expand), Left arrow (collapse), Up/Down arrows (navigation). Implement proper focus management with focus trapping within the tree. Add Home/End keys for jumping to first/last items. Implement virtualization using react-window-like approach for large trees (render only visible items). Add scroll-into-view behavior for keyboard navigation. Ensure proper tab order and focus indicators. Implement Ctrl+A for select all functionality.",
+            "status": "pending",
+            "testStrategy": "Manual keyboard navigation testing across all supported shortcuts. Performance benchmarks with directories containing 1000+ items. Accessibility testing with screen readers for proper focus management."
+          }
+        ]
+      },
+      {
+        "id": 28,
+        "title": "Fix File Preview System: Debug and repair the file preview functionality that was supposedly completed earlier but is not working. When user selects a supported file type, display the preview properly. For unsupported file types, show file information and metadata instead.",
+        "description": "Debug and repair the existing file preview system to ensure proper preview display for supported file types and fallback metadata display for unsupported types.",
+        "details": "Investigate and fix the broken file preview functionality by: 1) **Debugging Preview Service Integration**: Examine the connection between the Preview Panel UI (Task 18) and Preview Service Architecture (Task 17). Check if preview providers are properly registered and accessible. Verify async preview generation is working and not timing out. Debug any threading issues with background preview generation. 2) **Fix Preview Display Logic**: Investigate the preview rendering pipeline to identify where it's failing. Check if preview data is being generated but not displayed, or if generation itself is broken. Verify the PreviewProvider trait implementations for images, text/code, PDF, video, audio, archives, 3D models, and office files. Test each provider individually to isolate the issue. 3) **Repair Fallback Mechanism**: Ensure unsupported file types properly trigger the fallback to display file information and metadata instead of preview content. Verify metadata extraction (EXIF, creation/modification dates) is working correctly. Check if the \"unsupported file type\" UI state is properly handled. 4) **Integration Testing**: Test the complete workflow from file selection to preview display. Verify thumbnail caching is working and not causing display issues. Check if lazy loading and progressive rendering are functioning properly. 5) **Error Handling**: Add proper error logging and user feedback for preview failures. Implement graceful degradation when preview generation fails.",
+        "testStrategy": "Systematic testing approach: 1) **Provider-by-Provider Testing**: Test each file type provider individually (images, text, PDF, video, audio, etc.) with sample files to identify which providers are broken. 2) **Integration Testing**: Test the complete file selection to preview display workflow with various file types. Verify supported files show previews and unsupported files show metadata. 3) **Performance Verification**: Confirm preview generation meets performance targets (<500ms for images, <1s for docs) and doesn't hang the UI. 4) **Error Scenario Testing**: Test with corrupted files, very large files, and files with unusual metadata to ensure graceful error handling. 5) **Cross-Platform Testing**: Verify preview functionality works across different operating systems. 6) **Memory and Resource Testing**: Monitor for memory leaks during preview generation and ensure proper resource cleanup.",
+        "status": "pending",
+        "dependencies": [
+          17,
+          18
+        ],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Debug Preview Service Integration and Provider Registration",
+            "description": "Investigate and fix the connection between the Preview Panel UI and Preview Service Architecture. Verify that preview providers are properly registered, accessible, and not experiencing threading or timeout issues.",
+            "dependencies": [],
+            "details": "Examine the preview service initialization code to ensure all PreviewProvider implementations are properly registered in the service registry. Check async preview generation workflows for timeout issues and verify background thread management is working correctly. Add debug logging to trace provider lookup and registration. Verify the communication channel between UI components and the preview service is functioning. Test provider accessibility by attempting to retrieve each registered provider type.",
+            "status": "pending",
+            "testStrategy": "Unit tests for provider registration. Integration tests for UI-service communication. Add debug logging to trace provider lookup failures and timeout issues."
+          },
+          {
+            "id": 2,
+            "title": "Fix Preview Rendering Pipeline and Provider Implementations",
+            "description": "Investigate and repair the preview rendering pipeline to identify where preview generation or display is failing. Test each PreviewProvider implementation individually to isolate broken providers.",
+            "dependencies": [
+              "28.1"
+            ],
+            "details": "Systematically test each PreviewProvider implementation (images, text/code, PDF, video, audio, archives, 3D models, office files) with sample files to identify which providers are broken. Check if preview data is being generated correctly but failing to display, or if generation itself is broken. Verify the PreviewProvider trait methods are implemented correctly and returning expected data formats. Fix any issues with image decoding, text rendering, PDF processing, or media file handling. Ensure preview data is properly formatted for the UI components.",
+            "status": "pending",
+            "testStrategy": "Provider-by-provider testing with sample files for each supported format. Unit tests for individual provider implementations. Verify preview data format and content correctness."
+          },
+          {
+            "id": 3,
+            "title": "Repair Fallback Mechanism for Unsupported File Types",
+            "description": "Fix the fallback system that should display file information and metadata for unsupported file types instead of preview content. Ensure metadata extraction is working correctly.",
+            "dependencies": [
+              "28.1"
+            ],
+            "details": "Verify the logic that determines when a file type is unsupported and should trigger fallback behavior. Fix metadata extraction functionality including EXIF data, file creation/modification dates, file size, and other relevant properties. Ensure the UI properly switches to metadata display mode for unsupported files. Test the fallback mechanism with various unsupported file types to ensure consistent behavior. Verify that the 'unsupported file type' UI state is properly rendered and styled.",
+            "status": "pending",
+            "testStrategy": "Test fallback behavior with various unsupported file formats. Verify metadata extraction accuracy for different file types. UI testing for unsupported file display state."
+          },
+          {
+            "id": 4,
+            "title": "Fix Preview Display Integration and Caching Issues",
+            "description": "Repair the complete workflow from file selection to preview display, focusing on thumbnail caching, lazy loading, and progressive rendering functionality.",
+            "dependencies": [
+              "28.2",
+              "28.3"
+            ],
+            "details": "Test and fix the complete file selection to preview display workflow. Investigate thumbnail caching issues that might be causing display problems - verify cache invalidation, storage, and retrieval mechanisms. Fix lazy loading implementation to ensure previews load efficiently without blocking the UI. Repair progressive rendering for large files to provide immediate feedback while full previews generate. Ensure proper cleanup of preview resources and memory management. Verify that preview updates correctly when different files are selected.",
+            "status": "pending",
+            "testStrategy": "End-to-end integration testing of file selection to preview display. Performance testing for lazy loading and caching. Memory usage profiling during preview operations."
+          },
+          {
+            "id": 5,
+            "title": "Implement Error Handling and User Feedback",
+            "description": "Add comprehensive error handling, logging, and user feedback for preview failures. Implement graceful degradation when preview generation fails.",
+            "dependencies": [
+              "28.2",
+              "28.3",
+              "28.4"
+            ],
+            "details": "Implement proper error logging throughout the preview system to help diagnose future issues. Add user-friendly error messages and loading states in the UI when previews fail or take time to generate. Implement graceful degradation that falls back to metadata display when preview generation fails unexpectedly. Add retry mechanisms for transient failures. Ensure error states are properly styled and provide helpful information to users. Add telemetry or logging to track preview success/failure rates for different file types.",
+            "status": "pending",
+            "testStrategy": "Error injection testing to verify graceful failure handling. User experience testing for error states and loading indicators. Log analysis to ensure proper error tracking."
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-08-11T15:50:46.096Z",
-      "updated": "2025-08-25T02:10:59.104Z",
+      "updated": "2025-09-06T14:54:11.293Z",
       "description": "Tasks for master context"
     }
   }

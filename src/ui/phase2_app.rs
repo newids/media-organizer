@@ -267,7 +267,7 @@ pub fn phase2_app() -> Element {
                 
                 h1 {
                     style: "margin: 0; font-size: inherit; font-weight: inherit;",
-                    "MediaOrganizer - Task 10.4: Settings & Theme System ⚙️"
+                    "MediaOrganizer"
                 }
                 
                 // Enhanced Theme Selector in title bar
@@ -401,7 +401,7 @@ pub fn phase2_app() -> Element {
                                                 }
                                             });
                                         },
-                                        title: format!("Navigate to {}", path.display()),
+                                        title: format!("Navigate to {}", crate::utils::normalize_path_display(&path)),
                                         {name}
                                     }
                                 }
@@ -498,7 +498,7 @@ pub fn phase2_app() -> Element {
                                         }
                                         span {
                                             style: "color: var(--vscode-text-primary, #cccccc);",
-                                            {root_path.display().to_string()}
+                                            {crate::utils::normalize_path_display(&root_path)}
                                         }
                                     }
                                     
@@ -756,12 +756,7 @@ pub fn phase2_app() -> Element {
                             "✅ Real-time theme switching with CSS custom properties"
                         }
                         
-                        p {
-                            class: "content-area-text",
-                            {format!("Current Theme: {}", 
-                                theme_manager.read().get_theme_status_description()
-                            )}
-                        }
+                        // Theme status removed - now shown via icon in title bar
                         
                         div {
                             class: "content-area-badge",

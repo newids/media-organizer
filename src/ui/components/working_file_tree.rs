@@ -49,10 +49,13 @@ pub fn WorkingFileTree() -> Element {
         div {
             class: "working-file-tree",
             style: "
-                padding: 8px 0;
+                padding: 4px 0;
                 font-size: 13px;
                 color: var(--vscode-foreground, #cccccc);
                 user-select: none;
+                --list-item-padding: 1px 4px;
+                --list-item-margin: 0;
+                --list-indent-margin: 16px;
             ",
             role: "tree",
             "aria-label": "File explorer tree - Navigate files and folders",
@@ -267,13 +270,13 @@ pub fn WorkingFileTree() -> Element {
                     // Directory contents
                     if children.is_empty() {
                         div {
-                            style: "padding: 16px; color: var(--vscode-text-secondary, #999999); font-style: italic;",
+                            style: "padding: 8px 16px; color: var(--vscode-text-secondary, #999999); font-style: italic;",
                             "Loading directory..."
                         }
                     } else {
                         for (_index, entry) in children.iter().enumerate() {
                             WorkingFileTreeItem {
-                                key: format!("{}-{}", entry.name, entry.path.display()),
+                                key: format!("{}-{}", entry.name, crate::utils::normalize_path_display(&entry.path)),
                                 entry: entry.clone(),
                                 is_focused: focused_item.read().as_ref().map(|f| f == &entry.path).unwrap_or(false),
                             }
@@ -282,7 +285,7 @@ pub fn WorkingFileTree() -> Element {
                 }
             } else {
                 div {
-                    style: "padding: 16px; color: var(--vscode-text-secondary, #999999);",
+                    style: "padding: 8px 16px; color: var(--vscode-text-secondary, #999999);",
                     "Initializing file tree..."
                 }
             }
@@ -350,7 +353,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
     // Clone path for closures and display title
     let click_path = path.clone();
     let expand_path = path.clone();
-    let title_path = path.display().to_string();
+    let title_path = crate::utils::normalize_path_display(&path);
     
     rsx! {
         div {
@@ -367,7 +370,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                 style: "
                     display: flex;
                     align-items: center;
-                    padding: 2px 4px;
+                    padding: var(--list-item-padding, 1px 4px);
                     cursor: pointer;
                     white-space: nowrap;
                     background: {background};
@@ -380,7 +383,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                 ",
                 role: "button",
                 tabindex: "0",
-                "aria-describedby": format!("file-item-{}", title_path.replace('/', "-").replace(' ', "_")),
+                "aria-describedby": format!("file-item-{}", crate::utils::path_to_element_id(&path)),
                 onclick: move |_| {
                     file_tree_state.write().selected_path = Some(click_path.clone());
                     tracing::info!("Selected: {:?}", click_path);
@@ -439,7 +442,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                             display: flex;
                             align-items: center;
                             justify-content: center;
-                            margin-right: 2px;
+                            margin-right: 1px;
                             transform: rotate({arrow_rotation});
                             transition: transform 0.15s ease;
                         ",
@@ -480,7 +483,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                         display: flex;
                         align-items: center;
                         justify-content: center;
-                        margin-right: 6px;
+                        margin-right: 4px;
                     ",
                     
                     if is_directory {
@@ -532,13 +535,13 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
             if is_expanded && is_directory && !children.is_empty() {
                 div {
                     class: "file-tree-children",
-                    style: "margin-left: 18px;",
+                    style: "margin-left: var(--list-indent-margin, 16px);",
                     role: "group",
                     "aria-label": format!("Contents of {}", name),
                     
                     for child in children.iter() {
                         WorkingFileTreeItem {
-                            key: format!("child-{}", child.path.display()),
+                            key: format!("child-{}", crate::utils::normalize_path_display(&child.path)),
                             entry: child.clone(),
                             is_focused: false, // Focus is handled at the top level
                         }
@@ -548,7 +551,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
             
             // Hidden description for screen readers
             div {
-                id: format!("file-item-{}", title_path.replace('/', "-").replace(' ', "_")),
+                id: format!("file-item-{}", crate::utils::path_to_element_id(&path)),
                 style: "
                     position: absolute;
                     width: 1px;
