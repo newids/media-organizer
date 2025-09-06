@@ -28,7 +28,22 @@ pub fn phase2_app() -> Element {
     let app_state_for_load = app_state.clone();
     let app_state_for_status = app_state.clone();
     let mut app_state_for_folder_select = app_state.clone();
+    let mut app_state_for_startup = app_state.clone();
     let file_entries = use_file_entries();
+    
+    // Load settings and restore last opened folder on startup
+    use_future(move || {
+        let mut app_state_for_startup = app_state_for_startup.clone();
+        async move {
+            // Load settings from persistence
+            app_state_for_startup.load_settings_from_persistence();
+            
+            // Try to restore last opened folder if enabled
+            if let Err(e) = app_state_for_startup.restore_last_opened_folder().await {
+                tracing::warn!("Failed to restore last opened folder: {}", e);
+            }
+        }
+    });
     let mut selected_item = use_signal::<Option<FileEntry>>(|| None);
     
     // Initialize theme system
@@ -341,10 +356,10 @@ pub fn phase2_app() -> Element {
                                             let folder_path = folder.path().to_path_buf();
                                             tracing::info!("User selected folder: {:?}", folder_path);
                                             
-                                            // Use app state to set root and load contents
-                                            match app_state_for_folder_select.set_file_tree_root(folder_path.clone()).await {
+                                            // Use app state to handle folder change with persistence
+                                            match app_state_for_folder_select.handle_folder_change(folder_path.clone()).await {
                                                 Ok(()) => {
-                                                    tracing::info!("Successfully loaded folder: {:?}", folder_path);
+                                                    tracing::info!("Successfully loaded folder with persistence: {:?}", folder_path);
                                                 }
                                                 Err(e) => {
                                                     tracing::error!("Failed to load folder {:?}: {}", folder_path, e);

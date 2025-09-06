@@ -148,6 +148,11 @@ impl NavigationState {
         self.current_path.parent().is_some()
     }
     
+    /// Clear navigation history (used when changing root contexts)
+    pub fn clear_history(&mut self) {
+        self.history.clear();
+    }
+    
     fn create_breadcrumbs(path: &PathBuf) -> Vec<BreadcrumbItem> {
         let mut breadcrumbs = Vec::new();
         let mut current = path.as_path();
@@ -226,6 +231,12 @@ impl NavigationHistory {
     
     pub fn can_forward(&self) -> bool {
         self.current_index.map_or(false, |index| index < self.history.len() - 1)
+    }
+    
+    /// Clear all navigation history
+    pub fn clear(&mut self) {
+        self.history.clear();
+        self.current_index = None;
     }
 }
 

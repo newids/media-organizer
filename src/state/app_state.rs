@@ -509,6 +509,8 @@ pub struct SettingsState {
     pub show_hidden_files: bool,
     /// Whether to remember last directory on startup
     pub remember_last_directory: bool,
+    /// Last opened folder path (persisted across sessions)
+    pub last_opened_folder: Option<PathBuf>,
     /// Auto-save interval in seconds
     pub auto_save_interval: u64,
     /// Enable animations and transitions
@@ -525,6 +527,7 @@ impl Default for SettingsState {
             default_view_mode: ViewMode::default(),
             show_hidden_files: false,
             remember_last_directory: true,
+            last_opened_folder: None,
             auto_save_interval: 300, // 5 minutes
             enable_animations: true,
             custom_css_variables: std::collections::HashMap::new(),
@@ -1390,6 +1393,107 @@ impl AppState {
     /// Get selected path in file tree
     pub fn get_file_tree_selection(&self) -> Option<PathBuf> {
         self.file_tree_state.read().get_selected_path().cloned()
+    }
+    
+    // Folder selection persistence methods
+    
+    /// Set the root folder with persistence support
+    pub async fn set_root_folder_with_persistence(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        // Set the file tree root
+        self.set_file_tree_root(path.clone()).await?;
+        
+        // Update settings if remember_last_directory is enabled
+        if self.settings.read().remember_last_directory {
+            self.settings.write().last_opened_folder = Some(path.clone());
+            
+            // Persist the updated settings
+            self.save_settings_to_persistence();
+        }
+        
+        Ok(())
+    }
+    
+    /// Load the last opened folder from settings on startup
+    pub async fn restore_last_opened_folder(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        let settings = self.settings.read().clone();
+        
+        if settings.remember_last_directory {
+            if let Some(last_folder) = settings.last_opened_folder {
+                // Verify the folder still exists and is accessible
+                if last_folder.exists() && last_folder.is_dir() {
+                    self.set_file_tree_root(last_folder).await?;
+                } else {
+                    // Clear the invalid path from settings
+                    self.settings.write().last_opened_folder = None;
+                    self.save_settings_to_persistence();
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Get the last opened folder from settings
+    pub fn get_last_opened_folder(&self) -> Option<PathBuf> {
+        self.settings.read().last_opened_folder.clone()
+    }
+    
+    /// Clear the last opened folder from settings
+    pub fn clear_last_opened_folder(&mut self) {
+        self.settings.write().last_opened_folder = None;
+        self.save_settings_to_persistence();
+    }
+    
+    /// Update folder change tracking
+    pub async fn handle_folder_change(&mut self, path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        // Update the file tree state
+        self.set_file_tree_root(path.clone()).await?;
+        
+        // Update settings with the new folder if persistence is enabled
+        if self.settings.read().remember_last_directory {
+            self.settings.write().last_opened_folder = Some(path.clone());
+            self.save_settings_to_persistence();
+        }
+        
+        // Clear any existing navigation history since we're changing contexts
+        self.navigation.write().clear_history();
+        
+        // Navigate to the new root folder in the navigation system
+        self.navigate_to(path).await?;
+        
+        Ok(())
+    }
+    
+    /// Save current settings to persistence layer
+    fn save_settings_to_persistence(&self) {
+        let settings = self.settings.read().clone();
+        
+        // Use the persistence system to save settings
+        crate::state::persistence::save_settings_debounced(settings);
+    }
+    
+    /// Load settings from persistence layer
+    pub fn load_settings_from_persistence(&mut self) {
+        let loaded_settings = crate::state::persistence::load_settings();
+        self.settings.set(loaded_settings);
+    }
+    
+    /// Check if folder persistence is enabled
+    pub fn is_folder_persistence_enabled(&self) -> bool {
+        self.settings.read().remember_last_directory
+    }
+    
+    /// Toggle folder persistence setting
+    pub fn toggle_folder_persistence(&mut self) {
+        let current_value = self.settings.read().remember_last_directory;
+        self.settings.write().remember_last_directory = !current_value;
+        
+        // If we're disabling persistence, clear the stored folder
+        if !self.settings.read().remember_last_directory {
+            self.settings.write().last_opened_folder = None;
+        }
+        
+        self.save_settings_to_persistence();
     }
 }
 

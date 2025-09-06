@@ -23,15 +23,15 @@
   - ✅ 선택된 폴더 경로 검증 및 저장
 
 ### Phase 3: Core Functionality
-- [ ] **Task 3.1**: Add folder opening and file listing functionality
-  - 선택된 폴더의 파일과 하위 폴더 로드
-  - 파일 시스템 서비스를 통한 디렉토리 탐색 구현
-  - 에러 핸들링 및 로딩 상태 관리
+- [x] **Task 3.1**: Add folder opening and file listing functionality
+  - ✅ 선택된 폴더의 파일과 하위 폴더 로드 완료
+  - ✅ 파일 시스템 서비스를 통한 디렉토리 탐색 구현 완료
+  - ✅ 에러 핸들링 및 로딩 상태 관리 완료
 
-- [ ] **Task 3.2**: Update app state to handle folder selection
-  - AppState에 선택된 폴더 경로 저장
-  - 폴더 변경 시 상태 업데이트 로직 구현
-  - 지속성을 위한 설정 저장
+- [x] **Task 3.2**: Update app state to handle folder selection
+  - ✅ AppState에 선택된 폴더 경로 저장 (SettingsState.last_opened_folder 추가)
+  - ✅ 폴더 변경 시 상태 업데이트 로직 구현 (handle_folder_change 메서드)
+  - ✅ 지속성을 위한 설정 저장 (persistence.rs 통합)
 
 ### Phase 4: UI Enhancements
 - [ ] **Task 4.1**: Create path display bar above main-content panel
@@ -93,6 +93,6 @@
 - [ ] All functionality tested and working
 
 ---
-**Progress**: 3/9 tasks completed (33.3%)
+**Progress**: 5/9 tasks completed (55.6%)
 
-**Next Task**: Task 3.1 - Add folder opening and file listing functionality
+**Next Task**: Task 4.1 - Create path display bar above main-content panel
