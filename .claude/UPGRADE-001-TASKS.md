@@ -52,11 +52,11 @@
   - ✅ 더 깔끔한 UI로 개선 완료
 
 ### Phase 5: Testing and Validation
-- [ ] **Task 5.1**: Test folder selection and navigation functionality
-  - 폴더 선택이 제대로 작동하는지 테스트
-  - 파일 목록 표시가 올바른지 확인
-  - 경로 표시와 네비게이션 테스트
-  - 에러 상황 처리 검증
+- [x] **Task 5.1**: Test folder selection and navigation functionality
+  - ✅ 폴더 선택이 제대로 작동하는지 테스트 (rfd 다이얼로그 구현 검증)
+  - ✅ 파일 목록 표시가 올바른지 확인 (디렉토리 내용 표시 및 UI 검증)
+  - ✅ 경로 표시와 네비게이션 테스트 (클릭 가능한 경로 세그먼트 검증)
+  - ✅ 에러 상황 처리 검증 (로딩 상태, 오류 메시지 표시 확인)
 
 ## Implementation Notes
 
@@ -86,15 +86,15 @@
 
 ## Success Criteria
 - [x] Analysis completed and plan created
-- [ ] Empty state shows helpful guide text and folder selection button
-- [ ] Users can select a folder through native dialog
-- [ ] Selected folder contents are displayed in file tree
-- [ ] Current folder path is shown above main content
-- [ ] File tree panel has no margins
-- [ ] All unnecessary text removed
-- [ ] All functionality tested and working
+- [x] Empty state shows helpful guide text and folder selection button
+- [x] Users can select a folder through native dialog
+- [x] Selected folder contents are displayed in file tree
+- [x] Current folder path is shown above main content
+- [x] File tree panel has no margins
+- [x] All unnecessary text removed
+- [x] All functionality tested and working
 
 ---
-**Progress**: 8/9 tasks completed (88.9%)
+**Progress**: 9/9 tasks completed (100%)
 
-**Next Task**: Task 5.1 - Test folder selection and navigation functionality
+**Status**: ✅ **ALL TASKS COMPLETED** - File tree panel enhancement is fully implemented and tested
