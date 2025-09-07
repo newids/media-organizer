@@ -4,6 +4,24 @@ use std::time::{SystemTime, Duration};
 use chrono::{DateTime, Utc};
 use thiserror::Error;
 
+/// Convert a path to a properly encoded string for database storage
+/// This preserves UTF-8 paths correctly and handles non-UTF-8 paths gracefully
+fn path_to_string(path: &Path) -> String {
+    // First try to get the path as a valid UTF-8 string
+    if let Some(utf8_str) = path.to_str() {
+        utf8_str.to_string()
+    } else {
+        // If path contains invalid UTF-8, we need to handle it specially
+        // For file system paths, we'll convert using display which handles platform-specific encoding
+        path.display().to_string()
+    }
+}
+
+/// Convert a string back to a PathBuf
+fn string_to_pathbuf(s: &str) -> PathBuf {
+    PathBuf::from(s)
+}
+
 /// Cache service configuration
 #[derive(Debug, Clone)]
 pub struct CacheConfig {
@@ -356,7 +374,7 @@ impl CacheService {
             "#
         )
         .bind(&metadata.id)
-        .bind(metadata.path.to_string_lossy().as_ref())
+        .bind(&path_to_string(&metadata.path))
         .bind(metadata.size as i64)
         .bind(modified_timestamp)
         .bind(&metadata.hash)
@@ -371,7 +389,7 @@ impl CacheService {
     
     /// Retrieve file metadata from cache by path
     pub async fn get_metadata(&self, path: &Path) -> Result<Option<CachedFileMetadata>, CacheError> {
-        let path_str = path.to_string_lossy();
+        let path_str = path_to_string(path);
         
         let row = sqlx::query(
             r#"
@@ -380,7 +398,7 @@ impl CacheService {
             WHERE path = ?
             "#
         )
-        .bind(path_str.as_ref())
+        .bind(&path_str)
         .fetch_optional(&self.pool)
         .await?;
         
@@ -419,10 +437,10 @@ impl CacheService {
     
     /// Check if metadata exists in cache for the given path
     pub async fn metadata_exists(&self, path: &Path) -> Result<bool, CacheError> {
-        let path_str = path.to_string_lossy();
+        let path_str = path_to_string(path);
         
         let row = sqlx::query("SELECT 1 FROM file_metadata WHERE path = ?")
-            .bind(path_str.as_ref())
+            .bind(&path_str)
             .fetch_optional(&self.pool)
             .await?;
         
@@ -448,7 +466,7 @@ impl CacheService {
                 "#
             )
             .bind(&metadata.id)
-            .bind(metadata.path.to_string_lossy().as_ref())
+            .bind(&path_to_string(&metadata.path))
             .bind(metadata.size as i64)
             .bind(modified_timestamp)
             .bind(&metadata.hash)
@@ -465,10 +483,10 @@ impl CacheService {
     
     /// Remove metadata from cache by path
     pub async fn remove_metadata(&self, path: &Path) -> Result<bool, CacheError> {
-        let path_str = path.to_string_lossy();
+        let path_str = path_to_string(path);
         
         let result = sqlx::query("DELETE FROM file_metadata WHERE path = ?")
-            .bind(path_str.as_ref())
+            .bind(&path_str)
             .execute(&self.pool)
             .await?;
         
@@ -481,7 +499,7 @@ impl CacheService {
     
     /// Get all metadata entries that match a path prefix (useful for directory operations)
     pub async fn get_metadata_by_prefix(&self, path_prefix: &Path) -> Result<Vec<CachedFileMetadata>, CacheError> {
-        let prefix_str = format!("{}%", path_prefix.to_string_lossy());
+        let prefix_str = format!("{}%", path_to_string(path_prefix));
         
         let rows = sqlx::query(
             r#"
@@ -521,7 +539,7 @@ impl CacheService {
     
     /// Remove all metadata entries that match a path prefix (useful for directory deletions)
     pub async fn remove_metadata_by_prefix(&self, path_prefix: &Path) -> Result<usize, CacheError> {
-        let prefix_str = format!("{}%", path_prefix.to_string_lossy());
+        let prefix_str = format!("{}%", path_to_string(path_prefix));
         
         let result = sqlx::query("DELETE FROM file_metadata WHERE path LIKE ?")
             .bind(&prefix_str)
@@ -545,8 +563,8 @@ impl CacheService {
             "#
         )
         .bind(&thumbnail.id)
-        .bind(thumbnail.file_path.to_string_lossy().as_ref())
-        .bind(thumbnail.thumbnail_path.to_string_lossy().as_ref())
+        .bind(&path_to_string(&thumbnail.file_path))
+        .bind(&path_to_string(&thumbnail.thumbnail_path))
         .bind(thumbnail.created_at.to_rfc3339())
         .execute(&self.pool)
         .await?;
@@ -558,7 +576,7 @@ impl CacheService {
     
     /// Retrieve thumbnail path from cache by file path
     pub async fn get_thumbnail_path(&self, file_path: &Path) -> Result<Option<CachedThumbnail>, CacheError> {
-        let file_path_str = file_path.to_string_lossy();
+        let file_path_str = path_to_string(file_path);
         
         let row = sqlx::query(
             r#"
@@ -567,7 +585,7 @@ impl CacheService {
             WHERE file_path = ?
             "#
         )
-        .bind(file_path_str.as_ref())
+        .bind(&file_path_str)
         .fetch_optional(&self.pool)
         .await?;
         
@@ -599,10 +617,10 @@ impl CacheService {
     
     /// Check if thumbnail cache entry exists for the given file path
     pub async fn thumbnail_exists(&self, file_path: &Path) -> Result<bool, CacheError> {
-        let file_path_str = file_path.to_string_lossy();
+        let file_path_str = path_to_string(file_path);
         
         let row = sqlx::query("SELECT 1 FROM thumbnail_cache WHERE file_path = ?")
-            .bind(file_path_str.as_ref())
+            .bind(&file_path_str)
             .fetch_optional(&self.pool)
             .await?;
         
@@ -626,8 +644,8 @@ impl CacheService {
                 "#
             )
             .bind(&thumbnail.id)
-            .bind(thumbnail.file_path.to_string_lossy().as_ref())
-            .bind(thumbnail.thumbnail_path.to_string_lossy().as_ref())
+            .bind(&path_to_string(&thumbnail.file_path))
+            .bind(&path_to_string(&thumbnail.thumbnail_path))
             .bind(thumbnail.created_at.to_rfc3339())
             .execute(&mut *tx)
             .await?;
@@ -640,10 +658,10 @@ impl CacheService {
     
     /// Remove thumbnail from cache by file path
     pub async fn remove_thumbnail(&self, file_path: &Path) -> Result<bool, CacheError> {
-        let file_path_str = file_path.to_string_lossy();
+        let file_path_str = path_to_string(file_path);
         
         let result = sqlx::query("DELETE FROM thumbnail_cache WHERE file_path = ?")
-            .bind(file_path_str.as_ref())
+            .bind(&file_path_str)
             .execute(&self.pool)
             .await?;
         
@@ -656,7 +674,7 @@ impl CacheService {
     
     /// Get all thumbnail entries that match a file path prefix (useful for directory operations)
     pub async fn get_thumbnails_by_prefix(&self, path_prefix: &Path) -> Result<Vec<CachedThumbnail>, CacheError> {
-        let prefix_str = format!("{}%", path_prefix.to_string_lossy());
+        let prefix_str = format!("{}%", path_to_string(path_prefix));
         
         let rows = sqlx::query(
             r#"
@@ -689,7 +707,7 @@ impl CacheService {
     
     /// Remove all thumbnail entries that match a file path prefix (useful for directory deletions)
     pub async fn remove_thumbnails_by_prefix(&self, path_prefix: &Path) -> Result<usize, CacheError> {
-        let prefix_str = format!("{}%", path_prefix.to_string_lossy());
+        let prefix_str = format!("{}%", path_to_string(path_prefix));
         
         let result = sqlx::query("DELETE FROM thumbnail_cache WHERE file_path LIKE ?")
             .bind(&prefix_str)
@@ -1381,7 +1399,7 @@ mod tests {
         
         // Verify the paths start with the prefix
         for result in &results {
-            assert!(result.path.to_string_lossy().starts_with("/test/dir1"));
+            assert!(path_to_string(&result.path).starts_with("/test/dir1"));
         }
         
         // Remove metadata by prefix
@@ -1595,7 +1613,7 @@ mod tests {
         
         // Verify the file paths start with the prefix
         for result in &results {
-            assert!(result.file_path.to_string_lossy().starts_with("/test/dir1"));
+            assert!(path_to_string(&result.file_path).starts_with("/test/dir1"));
         }
         
         // Remove thumbnails by prefix

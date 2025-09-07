@@ -1801,7 +1801,7 @@ pub fn EditorTabContentComponent(
                     div {
                         class: "file-editor-content",
                         style: "
-                            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                            font-family: var(--vscode-font-mono);
                             white-space: pre-wrap;
                             line-height: 1.4;
                         ",
@@ -2048,7 +2048,7 @@ fn get_panel_content(active_tab: crate::state::PanelTab) -> Element {
                     h3 { style: "margin-bottom: 8px;", "Output" }
                     pre {
                         style: "
-                            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                            font-family: var(--vscode-font-mono);
                             font-size: 12px;
                             line-height: 1.4;
                             margin: 0;
@@ -2070,7 +2070,7 @@ fn get_panel_content(active_tab: crate::state::PanelTab) -> Element {
                             border: 1px solid var(--vscode-border, #464647);
                             border-radius: 4px;
                             padding: 12px;
-                            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                            font-family: var(--vscode-font-mono);
                             font-size: 13px;
                             color: var(--vscode-terminal-foreground, #ffffff);
                         ",

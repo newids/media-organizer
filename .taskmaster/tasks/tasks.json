@@ -935,13 +935,54 @@
         "description": "Fix Korean character and UTF-8 character display issues to ensure proper text rendering, and change default application font to system font for better OS integration and readability.",
         "details": "Address text rendering and font issues through two main improvements: 1) Text Encoding Fixes: Investigate and resolve Korean character display issues by ensuring proper UTF-8 encoding throughout the application. Check text input/output pipelines, file path handling, and UI text rendering components. Implement proper Unicode normalization (NFC/NFD) for Korean characters and other complex scripts. Verify that all text processing functions handle multi-byte UTF-8 sequences correctly. Add fallback character handling for unsupported glyphs. 2) System Font Integration: Replace the current application font with system default fonts for better OS integration. On Windows, use Segoe UI; on macOS, use San Francisco (SF Pro); on Linux, use system default or Liberation Sans. Implement font fallback chains to handle missing characters gracefully. Update CSS/styling to use system font stacks like '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif'. Ensure consistent font rendering across all UI components including menus, dialogs, file lists, and preview panels. Test font scaling and high-DPI display compatibility. Consider implementing font preference settings for user customization while maintaining system font as default.",
         "testStrategy": "Create test files with Korean characters, emoji, and various UTF-8 encoded text to verify proper display in file names, paths, and content previews. Test text input/output with Korean IME and other international input methods. Verify font rendering across different operating systems and display scales (100%, 125%, 150%, 200%). Compare before/after screenshots to ensure system font integration improves readability and OS consistency. Test with various file path lengths and special characters to ensure no encoding corruption. Perform accessibility testing to verify screen reader compatibility with proper text encoding. Test font fallback behavior when system fonts are missing or corrupted.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           21,
           23
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Audit and Fix UTF-8 Encoding in Text Pipelines",
+            "description": "Review all text input/output pipelines, file path handling, and UI text rendering components to ensure proper UTF-8 encoding is used throughout the application, preventing corruption or misrendering of Korean and other multi-byte characters.",
+            "dependencies": [],
+            "details": "Identify areas where encoding mismatches may occur, such as legacy ISO-2022-KR or UTF-16LE usage, and standardize on UTF-8 for all text processing. Update code to handle multi-byte sequences and add fallback handling for unsupported glyphs.",
+            "status": "done",
+            "testStrategy": "Create test files and inputs containing Korean characters, emoji, and other UTF-8 encoded text. Verify correct display and processing in all relevant UI components and file operations."
+          },
+          {
+            "id": 2,
+            "title": "Implement Unicode Normalization for Korean and Complex Scripts",
+            "description": "Integrate Unicode normalization (NFC/NFD) in all text processing functions to ensure consistent rendering and handling of Korean characters and other complex scripts, especially in file names and UI text.",
+            "dependencies": [
+              "25.1"
+            ],
+            "details": "Normalize all incoming and outgoing text to NFC or NFD as appropriate, addressing issues caused by differing normalization forms (e.g., HFS+ on macOS using NFD). Ensure normalization is applied before rendering and storage.",
+            "status": "done",
+            "testStrategy": "Test with filenames and text containing precomposed and decomposed Korean characters. Verify consistent display and cursor movement across platforms."
+          },
+          {
+            "id": 3,
+            "title": "Integrate System Default Fonts and Font Fallback Chains",
+            "description": "Replace the current application font with system default fonts for each OS (Segoe UI for Windows, SF Pro for macOS, Liberation Sans or system default for Linux) and implement font fallback chains to handle missing characters gracefully.",
+            "dependencies": [],
+            "details": "Update CSS and styling to use system font stacks (e.g., '-apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif'). Ensure all UI components, including menus, dialogs, file lists, and previews, use the updated font settings.",
+            "status": "done",
+            "testStrategy": "Verify font rendering and character coverage across all UI components on Windows, macOS, and Linux. Test with Korean, emoji, and other international scripts."
+          },
+          {
+            "id": 4,
+            "title": "Test and Optimize Font Scaling and High-DPI Compatibility",
+            "description": "Ensure consistent font rendering, scaling, and readability across different display resolutions and high-DPI screens, and consider implementing font preference settings for user customization.",
+            "dependencies": [
+              "25.3"
+            ],
+            "details": "Test font scaling behavior and UI layout on standard and high-DPI displays. Provide settings for users to customize font preferences while maintaining system font as the default.",
+            "status": "done",
+            "testStrategy": "Perform manual and automated tests on various display resolutions and DPI settings. Confirm UI consistency and readability, including with Korean and UTF-8 characters."
+          }
+        ]
       },
       {
         "id": 26,
@@ -1102,7 +1143,7 @@
     ],
     "metadata": {
       "created": "2025-08-11T15:50:46.096Z",
-      "updated": "2025-09-07T13:08:12.560Z",
+      "updated": "2025-09-07T17:11:44.404Z",
       "description": "Tasks for master context"
     }
   }

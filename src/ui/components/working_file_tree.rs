@@ -474,7 +474,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool, depth: Option<usi
                         
                         if current_expanded {
                             // Collapse directory - support recursive collapse with Shift+Click
-                            let should_collapse_recursively = evt.shift_key();
+                            let should_collapse_recursively = evt.data.modifiers().shift();
                             
                             if should_collapse_recursively {
                                 // Collapse all children recursively
