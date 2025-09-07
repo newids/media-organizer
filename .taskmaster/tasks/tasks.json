@@ -990,13 +990,67 @@
         "description": "Move the file/folder total count display from its current location to the status bar, following VS Code conventions for showing file information in the status bar.",
         "details": "Implement a VS Code-style status bar enhancement by relocating the file/folder count display: 1) Status Bar Integration: Create or enhance the existing status bar component to include file count information. Position the count display in the left section of the status bar, similar to VS Code's \"X files, Y folders\" format. 2) Remove Current Count Display: Identify and remove the existing file/folder count display from its current location (likely in the explorer panel or header area). Ensure no visual artifacts remain after removal. 3) Dynamic Count Updates: Implement real-time count updates that reflect changes when files/folders are added, removed, or filtered. Use efficient counting mechanisms that don't impact performance with large directory structures. 4) Formatting and Styling: Follow VS Code's text formatting conventions (e.g., \"1,234 files, 56 folders\" with proper number formatting and pluralization). Apply consistent styling with other status bar elements including font size, color, and spacing. 5) Context Awareness: Display counts relevant to the current view/selection - show total counts for the current directory or filtered results when search is active. Consider showing selection counts when multiple items are selected.",
         "testStrategy": "Manual testing to verify file/folder counts display correctly in the status bar with accurate numbers matching the actual directory contents. Test count updates in real-time when navigating between directories, adding/removing files, and applying filters or search. Verify proper number formatting with large file counts (thousands, millions) and correct pluralization (1 file vs 2 files). Test visual consistency with other status bar elements including font, spacing, and color themes. Cross-platform testing to ensure status bar integration works correctly on Windows, macOS, and Linux. Performance testing with large directories (1000+ files) to ensure count calculations don't impact UI responsiveness.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           23,
           24
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Integrate File/Folder Count into Status Bar",
+            "description": "Develop or enhance the status bar component to display the file and folder count in the left section, following VS Code's convention (e.g., 'X files, Y folders').",
+            "dependencies": [],
+            "details": "Implement a new status bar item or modify the existing one to show the file/folder count, ensuring it is positioned and formatted according to VS Code standards.\n<info added on 2025-09-07T17:23:20.212Z>\nSuccessfully implemented file/folder count display in status bar! Modified phase2_app.rs status bar to show separate counts with proper pluralization (e.g., \"5 files, 2 folders\"). The implementation uses FileEntry.is_directory field to distinguish files from folders, counts them separately using filter operations, applies proper pluralization logic (\"1 file\" vs \"2 files\"), displays in VS Code style format: \"X files, Y folders\", and is positioned in status-bar-left section as specified. Code compiles successfully and application runs with dynamic count updates based on current file_entries signal. Created test directory structure to verify functionality.\n</info added on 2025-09-07T17:23:20.212Z>",
+            "status": "done",
+            "testStrategy": "Verify that the status bar displays the correct file and folder count for the current directory, matching the VS Code layout."
+          },
+          {
+            "id": 2,
+            "title": "Remove Existing File/Folder Count Display",
+            "description": "Identify and remove the current file/folder count display from its original location (such as the explorer panel or header), ensuring no visual remnants remain.",
+            "dependencies": [
+              "26.1"
+            ],
+            "details": "Locate the UI element responsible for the current count display and remove it from the codebase and interface, cleaning up any related styles or logic.\n<info added on 2025-09-07T17:25:24.443Z>\nCompleted analysis of existing count displays. After thorough investigation of the codebase:\n\n1. Searched through all UI components for existing file/folder count displays\n2. Found only individual folder children counts (\", X items\") in working_file_tree.rs line 414, which show contents of each expanded folder - these are appropriate and should remain as they serve a different purpose from the status bar count\n3. No previous main file/folder count display exists that conflicts with the new status bar implementation\n4. File tree header shows only \"Explorer\" text with no counts\n5. No remnants or duplicate count displays found anywhere in the UI\n\nTherefore, no removal is needed - the task is complete as there are no existing count displays that need to be removed. The individual folder children counts serve a different purpose and are correctly positioned.\n</info added on 2025-09-07T17:25:24.443Z>",
+            "status": "done",
+            "testStrategy": "Confirm that the file/folder count is no longer visible in its previous location and that the UI remains visually consistent."
+          },
+          {
+            "id": 3,
+            "title": "Implement Real-Time Count Updates",
+            "description": "Ensure the status bar count updates dynamically in response to file/folder additions, deletions, or filtering, using efficient mechanisms suitable for large directories.",
+            "dependencies": [
+              "26.1"
+            ],
+            "details": "Set up event listeners or observers to detect changes in the file system or UI filters, triggering efficient recounts and status bar updates as needed.\n<info added on 2025-09-07T17:26:52.179Z>\nReal-time count updates are already properly implemented through Dioxus signal-based reactivity. The status bar uses `file_entries.read()` which automatically triggers UI re-renders when data changes. The `file_entries` signal is updated in all key scenarios including directory navigation, manual refresh, file tree root changes, and file operations. File/folder counts are calculated on-demand during render using efficient `filter().count()` operations that always reflect current state. No additional implementation is needed as the current architecture provides automatic reactivity with instant updates when files/folders are added, removed, filtered, or when navigating between directories.\n</info added on 2025-09-07T17:26:52.179Z>",
+            "status": "done",
+            "testStrategy": "Test by adding, removing, and filtering files/folders, confirming that the status bar count updates instantly and accurately without performance degradation."
+          },
+          {
+            "id": 4,
+            "title": "Apply VS Code-Style Formatting and Styling",
+            "description": "Format the count display text with proper number formatting, pluralization, and styling to match other status bar elements (font size, color, spacing).",
+            "dependencies": [
+              "26.1"
+            ],
+            "details": "Implement formatting logic for numbers (e.g., thousands separators), handle singular/plural cases, and apply consistent CSS or style rules for seamless integration.\n<info added on 2025-09-07T17:32:28.921Z>\nSuccessfully implemented VS Code-style formatting and styling for the status bar count display! Key improvements:\n\n1. **Number formatting with thousands separators**: Added custom `format_number()` function that adds commas for numbers ≥1000 (e.g., \"1,500 files\", \"250 folders\")\n2. **Proper pluralization**: Maintains correct singular/plural forms (\"1 file\" vs \"2 files\", \"1 folder\" vs \"2 folders\") \n3. **VS Code-style format**: Displays exactly as \"X files, Y folders\" matching VS Code conventions\n4. **Consistent styling**: Leverages existing CSS that follows VS Code design with proper font size, colors, and spacing\n5. **Efficient implementation**: Uses custom formatting function that only applies comma separation when needed\n\nThe status bar now properly formats large file counts with thousands separators while maintaining VS Code's exact text formatting style. Code compiles successfully and is ready for testing with large directories.\n</info added on 2025-09-07T17:32:28.921Z>",
+            "status": "done",
+            "testStrategy": "Review the status bar visually and with various counts to ensure formatting and styling are consistent with VS Code's conventions."
+          },
+          {
+            "id": 5,
+            "title": "Add Context Awareness to Count Display",
+            "description": "Make the count display context-sensitive, showing totals for the current directory, filtered results during search, or selection counts when multiple items are selected.",
+            "dependencies": [
+              "26.3"
+            ],
+            "details": "Implement logic to detect the current view context (directory, search, selection) and update the count display accordingly, ensuring relevance and accuracy.\n<info added on 2025-09-07T17:34:38.886Z>\nSuccessfully implemented context-aware count display! The status bar now intelligently adapts to show different information based on current context:\n\n1. **Selection context**: When files are selected, displays \"X files, Y folders selected\" using selection metadata from SelectionState\n2. **Search/filter context**: When search is active with query, shows \"X files, Y folders (filtered)\" from search results\n3. **Directory context**: Default view shows current directory totals \"X files, Y folders\"\n\nImplementation details:\n- Uses Dioxus signal reactivity with app_state.selection and app_state.search_state\n- Priority order: selection → search → directory (most specific to most general)\n- Consistent formatting with thousands separators and proper pluralization across all contexts\n- Real-time updates as context changes (selecting files, starting/ending search, navigation)\n\nThe status bar count display now provides contextually relevant information that adapts seamlessly to user actions, matching VS Code's intelligent status bar behavior.\n</info added on 2025-09-07T17:34:38.886Z>",
+            "status": "done",
+            "testStrategy": "Test in different contexts (normal view, search/filter active, multiple selections) to verify the count display adapts and remains accurate."
+          }
+        ]
       },
       {
         "id": 27,
@@ -1143,7 +1197,7 @@
     ],
     "metadata": {
       "created": "2025-08-11T15:50:46.096Z",
-      "updated": "2025-09-07T17:11:44.404Z",
+      "updated": "2025-09-07T17:34:43.584Z",
       "description": "Tasks for master context"
     }
   }

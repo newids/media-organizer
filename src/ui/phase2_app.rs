@@ -958,7 +958,60 @@ pub fn phase2_app() -> Element {
                 
                 span { 
                     class: "status-bar-left", 
-                    {format!("🔄 Virtual File Tree Active - {} items loaded", file_entries.read().len())}
+                    {
+                        // Format counts with VS Code-style number formatting (thousands separators)
+                        fn format_number(n: usize) -> String {
+                            if n >= 1000 {
+                                let s = n.to_string();
+                                let mut result = String::new();
+                                for (i, c) in s.chars().rev().enumerate() {
+                                    if i > 0 && i % 3 == 0 {
+                                        result.insert(0, ',');
+                                    }
+                                    result.insert(0, c);
+                                }
+                                result
+                            } else {
+                                n.to_string()
+                            }
+                        }
+                        
+                        // Helper function for pluralization
+                        fn pluralize(count: usize, singular: &str, plural: &str) -> String {
+                            let text = if count == 1 { singular } else { plural };
+                            format!("{} {}", format_number(count), text)
+                        }
+                        
+                        let selection = app_state_for_status.selection.read();
+                        let search_state = app_state_for_status.search_state.read();
+                        
+                        // Context-aware count display
+                        if !selection.selected_files.is_empty() {
+                            // Show selection counts
+                            let sel_meta = &selection.selection_metadata;
+                            format!("{}, {} selected", 
+                                pluralize(sel_meta.file_count, "file", "files"),
+                                pluralize(sel_meta.directory_count, "folder", "folders")
+                            )
+                        } else if search_state.is_active && !search_state.query.is_empty() {
+                            // Show filtered results
+                            let file_count = search_state.results.iter().filter(|entry| !entry.is_directory).count();
+                            let folder_count = search_state.results.iter().filter(|entry| entry.is_directory).count();
+                            format!("{}, {} (filtered)", 
+                                pluralize(file_count, "file", "files"),
+                                pluralize(folder_count, "folder", "folders")
+                            )
+                        } else {
+                            // Show directory totals (default)
+                            let entries = file_entries.read();
+                            let file_count = entries.iter().filter(|entry| !entry.is_directory).count();
+                            let folder_count = entries.iter().filter(|entry| entry.is_directory).count();
+                            format!("{}, {}", 
+                                pluralize(file_count, "file", "files"),
+                                pluralize(folder_count, "folder", "folders")
+                            )
+                        }
+                    }
                 }
                 
                 // Show operation feedback if active
