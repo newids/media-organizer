@@ -335,6 +335,124 @@ impl FileTreeState {
         self.selected_path = path;
     }
     
+    /// Get all expanded directory paths for persistence
+    pub fn get_expanded_directories(&self) -> Vec<PathBuf> {
+        self.expanded_directories
+            .iter()
+            .filter(|(_, &is_expanded)| is_expanded)
+            .map(|(path, _)| path.clone())
+            .collect()
+    }
+    
+    /// Restore expanded directories from persistence
+    pub fn set_expanded_directories(&mut self, paths: Vec<PathBuf>) {
+        for path in paths {
+            self.expanded_directories.insert(path, true);
+        }
+    }
+    
+    /// Get visible entries in tree order for keyboard navigation
+    /// This method traverses the tree depth-first to return all visible items
+    pub fn get_visible_entries(&self) -> Vec<PathBuf> {
+        let mut visible_entries = Vec::new();
+        
+        if let Some(root) = &self.root_directory {
+            // Start with root directory children
+            if let Some(root_children) = self.directory_children.get(root) {
+                for child in root_children {
+                    self.collect_visible_entries_recursive(&child.path, &mut visible_entries);
+                }
+            }
+        }
+        
+        visible_entries
+    }
+    
+    /// Recursively collect visible entries for keyboard navigation
+    fn collect_visible_entries_recursive(&self, path: &PathBuf, visible_entries: &mut Vec<PathBuf>) {
+        // Add this entry
+        visible_entries.push(path.clone());
+        
+        // If this is an expanded directory, add its children recursively
+        if self.is_expanded(path) {
+            if let Some(children) = self.directory_children.get(path) {
+                for child in children {
+                    self.collect_visible_entries_recursive(&child.path, visible_entries);
+                }
+            }
+        }
+    }
+    
+    /// Find the next visible entry for keyboard navigation
+    pub fn get_next_entry(&self, current: &PathBuf) -> Option<PathBuf> {
+        let visible_entries = self.get_visible_entries();
+        if let Some(current_index) = visible_entries.iter().position(|p| p == current) {
+            visible_entries.get(current_index + 1).cloned()
+        } else {
+            visible_entries.first().cloned()
+        }
+    }
+    
+    /// Find the previous visible entry for keyboard navigation
+    pub fn get_previous_entry(&self, current: &PathBuf) -> Option<PathBuf> {
+        let visible_entries = self.get_visible_entries();
+        if let Some(current_index) = visible_entries.iter().position(|p| p == current) {
+            if current_index > 0 {
+                visible_entries.get(current_index - 1).cloned()
+            } else {
+                None
+            }
+        } else {
+            visible_entries.last().cloned()
+        }
+    }
+    
+    /// Calculate the nesting depth of a path relative to the root
+    pub fn get_nesting_depth(&self, path: &PathBuf) -> usize {
+        if let Some(root) = &self.root_directory {
+            if let Ok(relative_path) = path.strip_prefix(root) {
+                relative_path.components().count().saturating_sub(1)
+            } else {
+                0
+            }
+        } else {
+            0
+        }
+    }
+    
+    /// Collapse all directories recursively under a given path
+    pub fn collapse_all_under(&mut self, path: &PathBuf) {
+        let mut paths_to_collapse = Vec::new();
+        
+        // Find all expanded directories under this path
+        for (expanded_path, &is_expanded) in &self.expanded_directories {
+            if is_expanded && expanded_path.starts_with(path) && expanded_path != path {
+                paths_to_collapse.push(expanded_path.clone());
+            }
+        }
+        
+        // Collapse them all
+        for path in paths_to_collapse {
+            self.expanded_directories.insert(path, false);
+        }
+    }
+    
+    /// Check if a directory has any children loaded
+    pub fn has_children(&self, path: &PathBuf) -> bool {
+        self.directory_children
+            .get(path)
+            .map(|children| !children.is_empty())
+            .unwrap_or(false)
+    }
+    
+    /// Get the number of children for a directory
+    pub fn get_children_count(&self, path: &PathBuf) -> usize {
+        self.directory_children
+            .get(path)
+            .map(|children| children.len())
+            .unwrap_or(0)
+    }
+    
     /// Get the currently selected path
     pub fn get_selected_path(&self) -> Option<&PathBuf> {
         self.selected_path.as_ref()

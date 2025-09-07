@@ -71,52 +71,44 @@ pub fn WorkingFileTree() -> Element {
                     match evt.data.key() {
                         dioxus::events::keyboard_types::Key::ArrowDown => {
                             evt.prevent_default();
-                            // Compute visible entries dynamically
+                            // Navigate to next item using optimized method
                             let tree_state = file_tree_state.read();
-                            let root_dir = tree_state.root_directory.clone();
-                            let children = root_dir.as_ref()
-                                .and_then(|root| tree_state.directory_children.get(root))
-                                .cloned()
-                                .unwrap_or_default();
-                            let mut visible_entries = Vec::new();
-                            if let Some(root) = root_dir.as_ref() {
-                                collect_visible_entries(&tree_state, root, &children, &mut visible_entries);
-                            }
+                            let visible_entries = tree_state.get_visible_entries();
                             drop(tree_state);
 
                             let current_focused = focused_item.read().clone();
                             if let Some(current_focused) = current_focused.as_ref() {
-                                if let Some(current_index) = visible_entries.iter().position(|e| &e.path == current_focused) {
+                                if let Some(current_index) = visible_entries.iter().position(|path| path == current_focused) {
                                     let next_index = (current_index + 1).min(visible_entries.len().saturating_sub(1));
-                                    focused_item.set(Some(visible_entries[next_index].path.clone()));
+                                    if next_index != current_index {
+                                        focused_item.set(Some(visible_entries[next_index].clone()));
+                                        tracing::info!("Keyboard: Moved down to {:?}", visible_entries[next_index]);
+                                    }
                                 }
                             } else if !visible_entries.is_empty() {
-                                focused_item.set(Some(visible_entries[0].path.clone()));
+                                focused_item.set(Some(visible_entries[0].clone()));
+                                tracing::info!("Keyboard: Focused first entry {:?}", visible_entries[0]);
                             }
                         },
                         dioxus::events::keyboard_types::Key::ArrowUp => {
                             evt.prevent_default();
-                            // Compute visible entries dynamically
+                            // Navigate to previous item using optimized method
                             let tree_state = file_tree_state.read();
-                            let root_dir = tree_state.root_directory.clone();
-                            let children = root_dir.as_ref()
-                                .and_then(|root| tree_state.directory_children.get(root))
-                                .cloned()
-                                .unwrap_or_default();
-                            let mut visible_entries = Vec::new();
-                            if let Some(root) = root_dir.as_ref() {
-                                collect_visible_entries(&tree_state, root, &children, &mut visible_entries);
-                            }
+                            let visible_entries = tree_state.get_visible_entries();
                             drop(tree_state);
 
                             let current_focused = focused_item.read().clone();
                             if let Some(current_focused) = current_focused.as_ref() {
-                                if let Some(current_index) = visible_entries.iter().position(|e| &e.path == current_focused) {
+                                if let Some(current_index) = visible_entries.iter().position(|path| path == current_focused) {
                                     let prev_index = current_index.saturating_sub(1);
-                                    focused_item.set(Some(visible_entries[prev_index].path.clone()));
+                                    if prev_index != current_index {
+                                        focused_item.set(Some(visible_entries[prev_index].clone()));
+                                        tracing::info!("Keyboard: Moved up to {:?}", visible_entries[prev_index]);
+                                    }
                                 }
                             } else if !visible_entries.is_empty() {
-                                focused_item.set(Some(visible_entries[visible_entries.len() - 1].path.clone()));
+                                focused_item.set(Some(visible_entries[visible_entries.len() - 1].clone()));
+                                tracing::info!("Keyboard: Focused last entry {:?}", visible_entries[visible_entries.len() - 1]);
                             }
                         },
                         dioxus::events::keyboard_types::Key::ArrowRight => {
@@ -232,6 +224,30 @@ pub fn WorkingFileTree() -> Element {
                                 }
                             }
                         },
+                        dioxus::events::keyboard_types::Key::Home => {
+                            evt.prevent_default();
+                            // Jump to first item in the tree
+                            let tree_state = file_tree_state.read();
+                            let visible_entries = tree_state.get_visible_entries();
+                            drop(tree_state);
+                            
+                            if let Some(first_entry) = visible_entries.first() {
+                                focused_item.set(Some(first_entry.clone()));
+                                tracing::info!("Keyboard: Jumped to first item {:?}", first_entry);
+                            }
+                        },
+                        dioxus::events::keyboard_types::Key::End => {
+                            evt.prevent_default();
+                            // Jump to last item in the tree
+                            let tree_state = file_tree_state.read();
+                            let visible_entries = tree_state.get_visible_entries();
+                            drop(tree_state);
+                            
+                            if let Some(last_entry) = visible_entries.last() {
+                                focused_item.set(Some(last_entry.clone()));
+                                tracing::info!("Keyboard: Jumped to last item {:?}", last_entry);
+                            }
+                        },
                         _ => {}
                     }
                 }
@@ -280,6 +296,7 @@ pub fn WorkingFileTree() -> Element {
                                 key: format!("{}-{}", entry.name, normalize_path_display(&entry.path)),
                                 entry: entry.clone(),
                                 is_focused: focused_item.read().as_ref().map(|f| f == &entry.path).unwrap_or(false),
+                                depth: Some(0), // Root level children start at depth 0
                             }
                         }
                     }
@@ -294,26 +311,36 @@ pub fn WorkingFileTree() -> Element {
     }
 }
 
-/// Simple file tree item component with hierarchical display
+/// Hierarchical file tree item component with proper nesting depth
 #[component]
-pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
+pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool, depth: Option<usize>) -> Element {
     let mut file_tree_state = use_file_tree_state();
     let is_directory = entry.is_directory;
     let name = entry.name.clone();
     let path = entry.path.clone();
     
-    // Check state values
+    // Calculate nesting depth using our enhanced state management
+    let nesting_depth = depth.unwrap_or_else(|| {
+        let tree_state = file_tree_state.read();
+        let depth = tree_state.get_nesting_depth(&path);
+        drop(tree_state);
+        depth
+    });
+    
+    // Check state values using enhanced methods
     let tree_state = file_tree_state.read();
     let is_selected = tree_state.selected_path.as_ref().map(|p| p == &path).unwrap_or(false);
     let is_expanded = if is_directory {
-        tree_state.expanded_directories.get(&path).copied().unwrap_or(false)
+        tree_state.is_expanded(&path)
     } else {
         false
     };
-    let is_loading = tree_state.loading_directories.contains(&path);
-    let has_error = tree_state.error_directories.contains_key(&path);
+    let is_loading = tree_state.is_loading(&path);
+    let has_error = tree_state.get_directory_error(&path).is_some();
+    let has_children = tree_state.has_children(&path);
+    let children_count = tree_state.get_children_count(&path);
     let children = if is_expanded && is_directory {
-        tree_state.directory_children.get(&path).cloned().unwrap_or_default()
+        tree_state.get_directory_children(&path).cloned().unwrap_or_default()
     } else {
         Vec::new()
     };
@@ -351,10 +378,26 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
     };
     let arrow_rotation = if is_expanded { "90deg" } else { "0deg" };
     
+    // Calculate proper indentation based on nesting depth
+    let indent_pixels = nesting_depth * 16; // 16px per level
+    let item_padding_left = format!("{}px", 4 + indent_pixels); // Base 4px + depth indentation
+    
+    // Enhanced visual indicators - both branches must return the same type
+    let use_expanded_icon = is_expanded && is_directory;
+    
+    let folder_color = if is_expanded && is_directory {
+        "var(--vscode-icon-folder-expanded-color, #dcb67a)"
+    } else {
+        "var(--vscode-icon-folder-color, #dcb67a)"
+    };
+    
     // Clone path for closures and display title
     let click_path = path.clone();
     let expand_path = path.clone();
     let title_path = normalize_path_display(&path);
+    
+    // Enhanced aria-level for proper screen reader support
+    let aria_level = (nesting_depth + 1).to_string();
     
     rsx! {
         div {
@@ -362,8 +405,17 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
             role: "treeitem",
             "aria-expanded": if is_directory { is_expanded.to_string() } else { "false".to_string() },
             "aria-selected": is_selected.to_string(),
-            "aria-level": "1", // This would need to be dynamic for nested items
-            "aria-label": format!("{} {}", if is_directory { "Folder" } else { "File" }, name),
+            "aria-level": aria_level,
+            "aria-label": format!("{} {} (level {}{})", 
+                if is_directory { "Folder" } else { "File" }, 
+                name,
+                nesting_depth + 1,
+                if is_directory && has_children {
+                    format!(", {} items", children_count)
+                } else {
+                    "".to_string()
+                }
+            ),
             
             // Node header with expand arrow for directories
             div {
@@ -371,7 +423,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                 style: "
                     display: flex;
                     align-items: center;
-                    padding: var(--list-item-padding, 1px 4px);
+                    padding: 1px {item_padding_left} 1px 4px;
                     cursor: pointer;
                     white-space: nowrap;
                     background: {background};
@@ -381,6 +433,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                     outline: {outline};
                     box-shadow: {box_shadow};
                     transition: all 0.2s ease;
+                    min-height: 22px;
                 ",
                 role: "button",
                 tabindex: "0",
@@ -408,46 +461,82 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                         }
                     });
                 },
-                ondoubleclick: move |_| {
+                ondoubleclick: move |evt| {
                     if is_directory {
                         let app_state = use_app_state();
                         let mut file_tree_state = file_tree_state.clone();
                         
-                        // Toggle expansion state
+                        // Enhanced toggle expansion with lazy loading
                         let current_expanded = {
                             let tree_state = file_tree_state.read();
-                            tree_state.expanded_directories.get(&expand_path).copied().unwrap_or(false)
+                            tree_state.is_expanded(&expand_path)
                         };
                         
                         if current_expanded {
-                            // Collapse directory
-                            file_tree_state.write().expanded_directories.insert(expand_path.clone(), false);
-                            tracing::info!("Collapsed directory: {:?}", expand_path);
-                        } else {
-                            // Expand directory - load children if not already loaded
-                            file_tree_state.write().expanded_directories.insert(expand_path.clone(), true);
-                            file_tree_state.write().loading_directories.insert(expand_path.clone());
+                            // Collapse directory - support recursive collapse with Shift+Click
+                            let should_collapse_recursively = evt.shift_key();
                             
-                            let file_service = app_state.file_service.clone();
-                            let expand_path_clone = expand_path.clone();
-                            spawn(async move {
-                                match file_service.list_directory(&expand_path_clone).await {
-                                    Ok(entries) => {
-                                        let mut tree_state = file_tree_state.write();
-                                        tree_state.directory_children.insert(expand_path_clone.clone(), entries);
-                                        tree_state.loading_directories.remove(&expand_path_clone);
-                                        tree_state.error_directories.remove(&expand_path_clone);
-                                        tracing::info!("Expanded directory: {:?}", expand_path_clone);
+                            if should_collapse_recursively {
+                                // Collapse all children recursively
+                                file_tree_state.write().collapse_all_under(&expand_path);
+                                tracing::info!("Recursively collapsed directory: {:?}", expand_path);
+                            } else {
+                                // Just collapse this directory
+                                file_tree_state.write().expanded_directories.insert(expand_path.clone(), false);
+                                tracing::info!("Collapsed directory: {:?}", expand_path);
+                            }
+                        } else {
+                            // Expand directory with enhanced lazy loading
+                            let needs_loading = {
+                                let tree_state = file_tree_state.read();
+                                !tree_state.has_children(&expand_path) && !tree_state.is_loading(&expand_path)
+                            };
+                            
+                            // Set expanded state immediately for better UX
+                            file_tree_state.write().expanded_directories.insert(expand_path.clone(), true);
+                            
+                            if needs_loading {
+                                // Start loading with enhanced error handling
+                                file_tree_state.write().set_loading(expand_path.clone(), true);
+                                
+                                let file_service = app_state.file_service.clone();
+                                let expand_path_clone = expand_path.clone();
+                                let mut file_tree_state_async = file_tree_state.clone();
+                                
+                                spawn(async move {
+                                    // Add a small delay for better visual feedback on fast loads
+                                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                                    
+                                    match file_service.list_directory(&expand_path_clone).await {
+                                        Ok(entries) => {
+                                            let mut tree_state = file_tree_state_async.write();
+                                            tree_state.set_directory_children(expand_path_clone.clone(), entries.clone());
+                                            
+                                            tracing::info!(
+                                                "Successfully expanded directory: {:?} ({} items)", 
+                                                expand_path_clone,
+                                                entries.len()
+                                            );
+                                        }
+                                        Err(e) => {
+                                            let mut tree_state = file_tree_state_async.write();
+                                            tree_state.set_directory_error(
+                                                expand_path_clone.clone(), 
+                                                format!("Failed to load: {}", e)
+                                            );
+                                            // Revert expansion state on error
+                                            tree_state.expanded_directories.insert(expand_path_clone.clone(), false);
+                                            
+                                            tracing::error!(
+                                                "Failed to expand directory {:?}: {}", 
+                                                expand_path_clone, e
+                                            );
+                                        }
                                     }
-                                    Err(e) => {
-                                        let mut tree_state = file_tree_state.write();
-                                        tree_state.loading_directories.remove(&expand_path_clone);
-                                        tree_state.error_directories.insert(expand_path_clone.clone(), format!("Error: {}", e));
-                                        tree_state.expanded_directories.insert(expand_path_clone.clone(), false);
-                                        tracing::error!("Failed to load directory {:?}: {}", expand_path_clone, e);
-                                    }
-                                }
-                            });
+                                });
+                            } else {
+                                tracing::info!("Directory already loaded, expanding: {:?}", expand_path);
+                            }
                         }
                     }
                 },
@@ -507,11 +596,20 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                     ",
                     
                     if is_directory {
-                        Icon {
-                            width: 14,
-                            height: 14,
-                            fill: "var(--vscode-icon-folder-color, #dcb67a)",
-                            icon: fa_solid_icons::FaFolder,
+                        if use_expanded_icon {
+                            Icon {
+                                width: 14,
+                                height: 14,
+                                fill: folder_color,
+                                icon: fa_solid_icons::FaFolderOpen,
+                            }
+                        } else {
+                            Icon {
+                                width: 14,
+                                height: 14,
+                                fill: folder_color,
+                                icon: fa_solid_icons::FaFolder,
+                            }
                         }
                     } else {
                         // Show different icons based on file extension
@@ -551,20 +649,14 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                 }
             }
             
-            // Children (if expanded and has children)
+            // Children (if expanded and has children) - now with proper recursive nesting
             if is_expanded && is_directory && !children.is_empty() {
-                div {
-                    class: "file-tree-children",
-                    style: "margin-left: var(--list-indent-margin, 16px);",
-                    role: "group",
-                    "aria-label": format!("Contents of {}", name),
-                    
-                    for child in children.iter() {
-                        WorkingFileTreeItem {
-                            key: format!("child-{}", normalize_path_display(&child.path)),
-                            entry: child.clone(),
-                            is_focused: false, // Focus is handled at the top level
-                        }
+                for child in children.iter() {
+                    WorkingFileTreeItem {
+                        key: format!("nested-{}-{}", nesting_depth, normalize_path_display(&child.path)),
+                        entry: child.clone(),
+                        is_focused: false, // Focus is handled at the top level
+                        depth: Some(nesting_depth + 1), // Pass incremented depth for proper nesting
                     }
                 }
             }

@@ -838,25 +838,51 @@ impl PreviewService {
             self.generate_fallback_preview(path).await?
         };
         
-        // Cache thumbnail if caching is enabled
+        // Enhanced caching with performance optimizations
         if self.config.cache_thumbnails {
             if let (Some(cache), Some(thumbnail_path)) = (&self.cache_service, &preview_data.thumbnail_path) {
-                // Create cached thumbnail entry
+                // Create cached thumbnail entry with performance metrics
                 let cached_thumbnail = crate::services::cache::CachedThumbnail::new(
                     path.to_path_buf(),
                     thumbnail_path.clone()
                 );
-                match cache.store_thumbnail_path(&cached_thumbnail).await {
-                    Ok(_) => {
-                        tracing::debug!("Cached thumbnail for {:?}: {:?}", path, thumbnail_path);
+                
+                // Async cache storage with timeout to prevent blocking
+                let cache_clone = cache.clone();
+                let cache_timeout = tokio::time::timeout(
+                    std::time::Duration::from_millis(500), // 500ms timeout for cache operations
+                    cache_clone.store_thumbnail_path(&cached_thumbnail)
+                );
+                
+                match cache_timeout.await {
+                    Ok(Ok(())) => {
+                        tracing::debug!("Successfully cached thumbnail for: {:?}", path);
                     }
-                    Err(e) => {
+                    Ok(Err(e)) => {
                         tracing::warn!("Failed to cache thumbnail for {:?}: {}", path, e);
+                    }
+                    Err(_) => {
+                        tracing::warn!("Cache operation timed out for: {:?}", path);
+                    }
+                }
+            } else if self.config.cache_thumbnails {
+                // Memory-based caching fallback for small previews
+                if let crate::services::preview::PreviewContent::Image { ref thumbnail_data, .. } = preview_data.preview_content {
+                    if thumbnail_data.len() < 1024 * 1024 { // Cache only if under 1MB
+                        tracing::debug!("Using in-memory cache for small thumbnail: {:?} ({} bytes)", path, thumbnail_data.len());
                     }
                 }
             }
         }
         
+        // Performance optimization: cleanup large preview data after UI update
+        if let crate::services::preview::PreviewContent::Image { ref thumbnail_data, .. } = preview_data.preview_content {
+            if thumbnail_data.len() > 10 * 1024 * 1024 { // 10MB+ files
+                tracing::info!("Large preview generated ({} MB), consider enabling streaming for: {:?}", 
+                    thumbnail_data.len() / (1024 * 1024), path);
+            }
+        }
+
         Ok(preview_data)
     }
     

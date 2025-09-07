@@ -561,21 +561,61 @@ pub fn phase2_app() -> Element {
                                                                 let is_dir = entry_clone.is_directory;
                                                                 let mut app_state_for_preview = app_state_clone.clone();
                                                                 spawn(async move {
-                                                                    match app_state_for_preview.handle_file_selection(preview_path.clone(), is_dir).await {
-                                                                        Ok(maybe_preview) => {
-                                                                            // Update the preview_data signal with the returned preview
-                                                                            app_state_for_preview.preview_data.set(maybe_preview.clone());
-                                                                            
-                                                                            if maybe_preview.is_some() {
-                                                                                tracing::info!("Preview generated successfully for: {:?}", preview_path);
-                                                                            } else {
-                                                                                tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                    // Enhanced error handling with retry mechanism
+                                                                    let mut retry_count = 0;
+                                                                    const MAX_RETRIES: u8 = 3;
+                                                                    
+                                                                    loop {
+                                                                        match app_state_for_preview.handle_file_selection(preview_path.clone(), is_dir).await {
+                                                                            Ok(maybe_preview) => {
+                                                                                // Update the preview_data signal with the returned preview
+                                                                                app_state_for_preview.preview_data.set(maybe_preview.clone());
+                                                                                
+                                                                                if maybe_preview.is_some() {
+                                                                                    tracing::info!("Preview generated successfully for: {:?}", preview_path);
+                                                                                } else {
+                                                                                    tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                                }
+                                                                                break;
                                                                             }
-                                                                        }
-                                                                        Err(e) => {
-                                                                            tracing::error!("Failed to generate preview for {:?}: {}", preview_path, e);
-                                                                            // Set preview_data to None on error
-                                                                            app_state_for_preview.preview_data.set(None);
+                                                                            Err(e) => {
+                                                                                retry_count += 1;
+                                                                                
+                                                                                if retry_count >= MAX_RETRIES {
+                                                                                    tracing::error!("Failed to generate preview after {} attempts for {:?}: {}", MAX_RETRIES, preview_path, e);
+                                                                                    
+                                                                                    // Create error preview data for better user feedback
+                                                                                    let error_preview = crate::services::preview::PreviewData {
+                                                                                        file_path: preview_path.clone(),
+                                                                                        format: crate::services::preview::SupportedFormat::Text,
+                                                                                        thumbnail_path: None,
+                                                                                        metadata: crate::services::preview::FileMetadata {
+                                                                                            file_size: std::fs::metadata(&preview_path).map(|m| m.len()).unwrap_or(0),
+                                                                                            created: std::fs::metadata(&preview_path).ok().and_then(|m| m.created().ok()),
+                                                                                            modified: std::fs::metadata(&preview_path).ok().and_then(|m| m.modified().ok()),
+                                                                                            width: None, height: None, duration: None, bit_rate: None,
+                                                                                            sample_rate: None, codec: None, title: None, artist: None,
+                                                                                            album: None, year: None, page_count: None, color_space: None,
+                                                                                            compression: None, exif_data: None,
+                                                                                        },
+                                                                                        preview_content: crate::services::preview::PreviewContent::Unsupported {
+                                                                                            file_type: preview_path.extension()
+                                                                                                .and_then(|ext| ext.to_str())
+                                                                                                .unwrap_or("unknown").to_string(),
+                                                                                            reason: format!("Preview generation failed: {}", e),
+                                                                                            suggested_action: Some("Check file permissions or try refreshing".to_string()),
+                                                                                        },
+                                                                                        generated_at: std::time::SystemTime::now(),
+                                                                                    };
+                                                                                    
+                                                                                    app_state_for_preview.preview_data.set(Some(error_preview));
+                                                                                    break;
+                                                                                } else {
+                                                                                    tracing::warn!("Preview generation failed (attempt {}/{}), retrying: {:?}: {}", retry_count, MAX_RETRIES, preview_path, e);
+                                                                                    // Brief delay before retry to avoid overwhelming the system
+                                                                                    tokio::time::sleep(std::time::Duration::from_millis(100 * retry_count as u64)).await;
+                                                                                }
+                                                                            }
                                                                         }
                                                                     }
                                                                 });
@@ -593,21 +633,61 @@ pub fn phase2_app() -> Element {
                                                                         let is_dir = entry_clone_key.is_directory;
                                                                         let mut app_state_for_kb_preview = app_state_clone_key.clone();
                                                                         spawn(async move {
-                                                                            match app_state_for_kb_preview.handle_file_selection(preview_path.clone(), is_dir).await {
-                                                                                Ok(maybe_preview) => {
-                                                                                    // Update the preview_data signal with the returned preview
-                                                                                    app_state_for_kb_preview.preview_data.set(maybe_preview.clone());
-                                                                                    
-                                                                                    if maybe_preview.is_some() {
-                                                                                        tracing::info!("Preview generated successfully for: {:?}", preview_path);
-                                                                                    } else {
-                                                                                        tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                            // Enhanced error handling with retry mechanism for keyboard selection
+                                                                            let mut retry_count = 0;
+                                                                            const MAX_RETRIES: u8 = 3;
+                                                                            
+                                                                            loop {
+                                                                                match app_state_for_kb_preview.handle_file_selection(preview_path.clone(), is_dir).await {
+                                                                                    Ok(maybe_preview) => {
+                                                                                        // Update the preview_data signal with the returned preview
+                                                                                        app_state_for_kb_preview.preview_data.set(maybe_preview.clone());
+                                                                                        
+                                                                                        if maybe_preview.is_some() {
+                                                                                            tracing::info!("Preview generated successfully for: {:?}", preview_path);
+                                                                                        } else {
+                                                                                            tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                                        }
+                                                                                        break;
                                                                                     }
-                                                                                }
-                                                                                Err(e) => {
-                                                                                    tracing::error!("Failed to generate preview for {:?}: {}", preview_path, e);
-                                                                                    // Set preview_data to None on error
-                                                                                    app_state_for_kb_preview.preview_data.set(None);
+                                                                                    Err(e) => {
+                                                                                        retry_count += 1;
+                                                                                        
+                                                                                        if retry_count >= MAX_RETRIES {
+                                                                                            tracing::error!("Failed to generate preview after {} attempts for {:?}: {}", MAX_RETRIES, preview_path, e);
+                                                                                            
+                                                                                            // Create error preview data for better user feedback
+                                                                                            let error_preview = crate::services::preview::PreviewData {
+                                                                                                file_path: preview_path.clone(),
+                                                                                                format: crate::services::preview::SupportedFormat::Text,
+                                                                                                thumbnail_path: None,
+                                                                                                metadata: crate::services::preview::FileMetadata {
+                                                                                                    file_size: std::fs::metadata(&preview_path).map(|m| m.len()).unwrap_or(0),
+                                                                                                    created: std::fs::metadata(&preview_path).ok().and_then(|m| m.created().ok()),
+                                                                                                    modified: std::fs::metadata(&preview_path).ok().and_then(|m| m.modified().ok()),
+                                                                                                    width: None, height: None, duration: None, bit_rate: None,
+                                                                                                    sample_rate: None, codec: None, title: None, artist: None,
+                                                                                                    album: None, year: None, page_count: None, color_space: None,
+                                                                                                    compression: None, exif_data: None,
+                                                                                                },
+                                                                                                preview_content: crate::services::preview::PreviewContent::Unsupported {
+                                                                                                    file_type: preview_path.extension()
+                                                                                                        .and_then(|ext| ext.to_str())
+                                                                                                        .unwrap_or("unknown").to_string(),
+                                                                                                    reason: format!("Preview generation failed: {}", e),
+                                                                                                    suggested_action: Some("Check file permissions or try refreshing".to_string()),
+                                                                                                },
+                                                                                                generated_at: std::time::SystemTime::now(),
+                                                                                            };
+                                                                                            
+                                                                                            app_state_for_kb_preview.preview_data.set(Some(error_preview));
+                                                                                            break;
+                                                                                        } else {
+                                                                                            tracing::warn!("Preview generation failed (attempt {}/{}), retrying: {:?}: {}", retry_count, MAX_RETRIES, preview_path, e);
+                                                                                            // Brief delay before retry
+                                                                                            tokio::time::sleep(std::time::Duration::from_millis(100 * retry_count as u64)).await;
+                                                                                        }
+                                                                                    }
                                                                                 }
                                                                             }
                                                                         });
@@ -625,21 +705,61 @@ pub fn phase2_app() -> Element {
                                                                             let is_dir = entry_clone_key.is_directory;
                                                                             let mut app_state_for_space_preview = app_state_clone_key.clone();
                                                                             spawn(async move {
-                                                                                match app_state_for_space_preview.handle_file_selection(preview_path.clone(), is_dir).await {
-                                                                                    Ok(maybe_preview) => {
-                                                                                        // Update the preview_data signal with the returned preview
-                                                                                        app_state_for_space_preview.preview_data.set(maybe_preview.clone());
-                                                                                        
-                                                                                        if maybe_preview.is_some() {
-                                                                                            tracing::info!("Preview generated successfully for: {:?}", preview_path);
-                                                                                        } else {
-                                                                                            tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                                // Enhanced error handling with retry mechanism for space selection
+                                                                                let mut retry_count = 0;
+                                                                                const MAX_RETRIES: u8 = 3;
+                                                                                
+                                                                                loop {
+                                                                                    match app_state_for_space_preview.handle_file_selection(preview_path.clone(), is_dir).await {
+                                                                                        Ok(maybe_preview) => {
+                                                                                            // Update the preview_data signal with the returned preview
+                                                                                            app_state_for_space_preview.preview_data.set(maybe_preview.clone());
+                                                                                            
+                                                                                            if maybe_preview.is_some() {
+                                                                                                tracing::info!("Preview generated successfully for: {:?}", preview_path);
+                                                                                            } else {
+                                                                                                tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                                            }
+                                                                                            break;
                                                                                         }
-                                                                                    }
-                                                                                    Err(e) => {
-                                                                                        tracing::error!("Failed to generate preview for {:?}: {}", preview_path, e);
-                                                                                        // Set preview_data to None on error
-                                                                                        app_state_for_space_preview.preview_data.set(None);
+                                                                                        Err(e) => {
+                                                                                            retry_count += 1;
+                                                                                            
+                                                                                            if retry_count >= MAX_RETRIES {
+                                                                                                tracing::error!("Failed to generate preview after {} attempts for {:?}: {}", MAX_RETRIES, preview_path, e);
+                                                                                                
+                                                                                                // Create error preview data for better user feedback
+                                                                                                let error_preview = crate::services::preview::PreviewData {
+                                                                                                    file_path: preview_path.clone(),
+                                                                                                    format: crate::services::preview::SupportedFormat::Text,
+                                                                                                    thumbnail_path: None,
+                                                                                                    metadata: crate::services::preview::FileMetadata {
+                                                                                                        file_size: std::fs::metadata(&preview_path).map(|m| m.len()).unwrap_or(0),
+                                                                                                        created: std::fs::metadata(&preview_path).ok().and_then(|m| m.created().ok()),
+                                                                                                        modified: std::fs::metadata(&preview_path).ok().and_then(|m| m.modified().ok()),
+                                                                                                        width: None, height: None, duration: None, bit_rate: None,
+                                                                                                        sample_rate: None, codec: None, title: None, artist: None,
+                                                                                                        album: None, year: None, page_count: None, color_space: None,
+                                                                                                        compression: None, exif_data: None,
+                                                                                                    },
+                                                                                                    preview_content: crate::services::preview::PreviewContent::Unsupported {
+                                                                                                        file_type: preview_path.extension()
+                                                                                                            .and_then(|ext| ext.to_str())
+                                                                                                            .unwrap_or("unknown").to_string(),
+                                                                                                        reason: format!("Preview generation failed: {}", e),
+                                                                                                        suggested_action: Some("Check file permissions or try refreshing".to_string()),
+                                                                                                    },
+                                                                                                    generated_at: std::time::SystemTime::now(),
+                                                                                                };
+                                                                                                
+                                                                                                app_state_for_space_preview.preview_data.set(Some(error_preview));
+                                                                                                break;
+                                                                                            } else {
+                                                                                                tracing::warn!("Preview generation failed (attempt {}/{}), retrying: {:?}: {}", retry_count, MAX_RETRIES, preview_path, e);
+                                                                                                // Brief delay before retry
+                                                                                                tokio::time::sleep(std::time::Duration::from_millis(100 * retry_count as u64)).await;
+                                                                                            }
+                                                                                        }
                                                                                     }
                                                                                 }
                                                                             });
