@@ -1590,6 +1590,9 @@ impl AppState {
             Ok(None)
         }
     }
+    
+    // Editor tab management methods
+    
 }
 
 impl CommandRegistry {

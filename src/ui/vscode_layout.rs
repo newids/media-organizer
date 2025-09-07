@@ -1771,6 +1771,7 @@ pub fn EditorTabContentComponent(
     tab: crate::state::EditorTab,
     group_index: usize,
 ) -> Element {
+    let app_state = crate::state::use_app_state();
     rsx! {
         div {
             class: "editor-tab-content",
@@ -1836,7 +1837,7 @@ pub fn EditorTabContentComponent(
                                     }
                                 }
                             })),
-                            preview_data: Signal::new(None), // TODO: Connect to app_state.preview_data when context system is improved
+                            preview_data: app_state.preview_data, // Connected to real preview data from AppState
                         }
                     }
                 },

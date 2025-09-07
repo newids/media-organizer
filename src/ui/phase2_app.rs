@@ -10,8 +10,9 @@ use crate::ui::components::{
     DragPreview, DropZone, DragOperation,
     use_drag_drop, use_drop_zone,
     SettingsPanel, CommandPalette, ShortcutCheatSheet,
-    EmptyFileTree
+    EmptyFileTree, PreviewPanel
 };
+use crate::ui::components::preview_panel::FileSystemEntry;
 // use crate::ui::components::{VirtualFileTree};
 
 pub fn phase2_app() -> Element {
@@ -538,6 +539,7 @@ pub fn phase2_app() -> Element {
                                                     let entry_clone_drag = entry.clone();
                                                     let mut drag_state_clone = drag_state.clone();
                                                     let mut app_state_clone = app_state.clone();
+                                                    let mut app_state_clone_key = app_state.clone();
                                                     
                                                     rsx! {
                                                         div {
@@ -553,6 +555,30 @@ pub fn phase2_app() -> Element {
                                                                 tracing::info!("File clicked: {}", entry_clone.name);
                                                                 selected_item.set(Some(entry_clone.clone()));
                                                                 app_state_clone.set_file_tree_selection(Some(entry_clone.path.clone()));
+                                                                
+                                                                // Generate preview for clicked file
+                                                                let preview_path = entry_clone.path.clone();
+                                                                let is_dir = entry_clone.is_directory;
+                                                                let mut app_state_for_preview = app_state_clone.clone();
+                                                                spawn(async move {
+                                                                    match app_state_for_preview.handle_file_selection(preview_path.clone(), is_dir).await {
+                                                                        Ok(maybe_preview) => {
+                                                                            // Update the preview_data signal with the returned preview
+                                                                            app_state_for_preview.preview_data.set(maybe_preview.clone());
+                                                                            
+                                                                            if maybe_preview.is_some() {
+                                                                                tracing::info!("Preview generated successfully for: {:?}", preview_path);
+                                                                            } else {
+                                                                                tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                            }
+                                                                        }
+                                                                        Err(e) => {
+                                                                            tracing::error!("Failed to generate preview for {:?}: {}", preview_path, e);
+                                                                            // Set preview_data to None on error
+                                                                            app_state_for_preview.preview_data.set(None);
+                                                                        }
+                                                                    }
+                                                                });
                                                             },
                                                             
                                                             onkeydown: move |evt| {
@@ -561,6 +587,31 @@ pub fn phase2_app() -> Element {
                                                                     dioxus::events::Key::Enter => {
                                                                         tracing::info!("File selected via keyboard: {}", entry_clone_key.name);
                                                                         selected_item.set(Some(entry_clone_key.clone()));
+                                                                        
+                                                                        // Generate preview for keyboard-selected file
+                                                                        let preview_path = entry_clone_key.path.clone();
+                                                                        let is_dir = entry_clone_key.is_directory;
+                                                                        let mut app_state_for_kb_preview = app_state_clone_key.clone();
+                                                                        spawn(async move {
+                                                                            match app_state_for_kb_preview.handle_file_selection(preview_path.clone(), is_dir).await {
+                                                                                Ok(maybe_preview) => {
+                                                                                    // Update the preview_data signal with the returned preview
+                                                                                    app_state_for_kb_preview.preview_data.set(maybe_preview.clone());
+                                                                                    
+                                                                                    if maybe_preview.is_some() {
+                                                                                        tracing::info!("Preview generated successfully for: {:?}", preview_path);
+                                                                                    } else {
+                                                                                        tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                                    }
+                                                                                }
+                                                                                Err(e) => {
+                                                                                    tracing::error!("Failed to generate preview for {:?}: {}", preview_path, e);
+                                                                                    // Set preview_data to None on error
+                                                                                    app_state_for_kb_preview.preview_data.set(None);
+                                                                                }
+                                                                            }
+                                                                        });
+                                                                        
                                                                         evt.prevent_default();
                                                                     },
                                                                     _ => {
@@ -568,6 +619,31 @@ pub fn phase2_app() -> Element {
                                                                         if key_str == " " || key_str == "Space" {
                                                                             tracing::info!("File selected via keyboard: {}", entry_clone_key.name);
                                                                             selected_item.set(Some(entry_clone_key.clone()));
+                                                                            
+                                                                            // Generate preview for space-selected file
+                                                                            let preview_path = entry_clone_key.path.clone();
+                                                                            let is_dir = entry_clone_key.is_directory;
+                                                                            let mut app_state_for_space_preview = app_state_clone_key.clone();
+                                                                            spawn(async move {
+                                                                                match app_state_for_space_preview.handle_file_selection(preview_path.clone(), is_dir).await {
+                                                                                    Ok(maybe_preview) => {
+                                                                                        // Update the preview_data signal with the returned preview
+                                                                                        app_state_for_space_preview.preview_data.set(maybe_preview.clone());
+                                                                                        
+                                                                                        if maybe_preview.is_some() {
+                                                                                            tracing::info!("Preview generated successfully for: {:?}", preview_path);
+                                                                                        } else {
+                                                                                            tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                                                                        }
+                                                                                    }
+                                                                                    Err(e) => {
+                                                                                        tracing::error!("Failed to generate preview for {:?}: {}", preview_path, e);
+                                                                                        // Set preview_data to None on error
+                                                                                        app_state_for_space_preview.preview_data.set(None);
+                                                                                    }
+                                                                                }
+                                                                            });
+                                                                            
                                                                             evt.prevent_default();
                                                                         }
                                                                     }
@@ -720,78 +796,25 @@ pub fn phase2_app() -> Element {
                         // TODO: Handle file drop operation in content viewer
                     },
                     
-                    div {
-                        class: "content-viewer-panel",
-                    
-                    // Content area
-                    div {
-                        class: "content-area",
-                        
-                        div {
-                            class: "content-area-icon",
-                            "🎯"
-                        }
-                        
-                        h2 {
-                            class: "content-area-title",
-                            "Settings & Theme System Active!"
-                        }
-                        
-                        p {
-                            class: "content-area-text",
-                            "⚙️ Task 10.4: Settings Persistence and Theme Support"
-                        }
-                        
-                        p {
-                            class: "content-area-text",
-                            "✅ Settings data structure with persistence"
-                        }
-                        
-                        p {
-                            class: "content-area-text",
-                            "✅ Theme system with dark/light/auto modes"
-                        }
-                        
-                        p {
-                            class: "content-area-text",
-                            "✅ Real-time theme switching with CSS custom properties"
-                        }
-                        
-                        // Theme status removed - now shown via icon in title bar
-                        
-                        div {
-                            class: "content-area-badge",
-                            "Interactive: Change theme using selector in title bar or Ctrl+T to cycle"
-                        }
-                        
-                        div {
-                            class: "feature-cards",
-                            
-                            div {
-                                class: "feature-card",
-                                
-                                div { class: "feature-card-icon", "🌗" }
-                                h4 { class: "feature-card-title", "Theme System" }
-                                p { class: "feature-card-description", "Dark, Light, and Auto themes with real-time switching" }
+                    // Preview Panel
+                    PreviewPanel {
+                        selected_file: Signal::new(selected_item.read().as_ref().map(|entry| {
+                            FileSystemEntry {
+                                path: entry.path.clone(),
+                                name: entry.name.clone(),
+                                is_directory: entry.is_directory,
+                                size: entry.size,
+                                modified: entry.modified,
+                                file_type: match &entry.file_type {
+                                    crate::services::file_system::FileType::Image(_) => Some("image".to_string()),
+                                    crate::services::file_system::FileType::Video(_) => Some("video".to_string()),
+                                    crate::services::file_system::FileType::Audio(_) => Some("audio".to_string()),
+                                    crate::services::file_system::FileType::Document(_) => Some("document".to_string()),
+                                    _ => None,
+                                }
                             }
-                            
-                            div {
-                                class: "feature-card",
-                                
-                                div { class: "feature-card-icon", "⚙️" }
-                                h4 { class: "feature-card-title", "Settings" }
-                                p { class: "feature-card-description", "Persistent preferences with JSON serialization" }
-                            }
-                            
-                            div {
-                                class: "feature-card",
-                                
-                                div { class: "feature-card-icon", "💾" }
-                                h4 { class: "feature-card-title", "Persistence" }
-                                p { class: "feature-card-description", "Automatic save/load with debounced writes" }
-                            }
-                        }
-                    }
+                        })),
+                        preview_data: app_state.preview_data,
                     }
                 }
             }

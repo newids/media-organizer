@@ -1,0 +1,14 @@
+{
+  "name": "MediaOrganizer",
+  "version": "1.0.0",
+  "description": "A cross-platform media management application",
+  "features": [
+    "File preview",
+    "VS Code-style interface",
+    "Cross-platform support"
+  ],
+  "technologies": {
+    "frontend": "Dioxus",
+    "language": "Rust"
+  }
+}
