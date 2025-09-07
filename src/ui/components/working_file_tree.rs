@@ -388,6 +388,25 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                 onclick: move |_| {
                     file_tree_state.write().selected_path = Some(click_path.clone());
                     tracing::info!("Selected: {:?}", click_path);
+                    
+                    // Generate preview (works for both files and directories)
+                    let app_state = use_app_state();
+                    let preview_path = click_path.clone();
+                    let is_dir = is_directory;
+                    spawn(async move {
+                        match app_state.handle_file_selection(preview_path.clone(), is_dir).await {
+                            Ok(maybe_preview) => {
+                                if maybe_preview.is_some() {
+                                    tracing::info!("Preview generated successfully for: {:?}", preview_path);
+                                } else {
+                                    tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to handle file selection for {:?}: {}", preview_path, e);
+                            }
+                        }
+                    });
                 },
                 ondoubleclick: move |_| {
                     if is_directory {

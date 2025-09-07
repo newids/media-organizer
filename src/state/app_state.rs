@@ -1515,38 +1515,79 @@ impl AppState {
     
     // Preview system integration methods
     
-    /// Generate preview for a selected file
-    /// TODO: Implement full preview generation - currently placeholder
-    pub async fn generate_preview_for_file(&self, file_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-        // Placeholder implementation - the preview service integration needs
-        // to be implemented in a component context where signals work properly
-        tracing::info!("Preview generation requested for: {:?}", file_path);
-        Ok(())
-    }
-    
-    /// Clear current preview data
-    /// TODO: Implement when signal context issues are resolved
-    pub fn clear_preview(&self) {
-        tracing::debug!("Preview clear requested");
+    /// Generate preview for a selected file and return the preview data
+    /// UI components should handle setting the preview_data signal
+    pub async fn generate_preview_for_file(&self, file_path: PathBuf) -> Result<Option<PreviewData>, Box<dyn std::error::Error>> {
+        tracing::info!("Generating preview for: {:?}", file_path);
+        
+        // Generate preview using the preview service
+        match self.preview_service.get_preview(&file_path).await {
+            Ok(Some(cached_preview)) => {
+                // Convert cached preview data to PreviewData format
+                let preview_data = crate::services::preview::PreviewData {
+                    file_path: file_path.clone(),
+                    format: file_path.extension()
+                        .and_then(|ext| ext.to_str())
+                        .and_then(crate::services::preview::SupportedFormat::from_extension)
+                        .unwrap_or(crate::services::preview::SupportedFormat::Jpeg),
+                    thumbnail_path: None, // Cached preview uses in-memory data
+                    metadata: crate::services::preview::FileMetadata {
+                        file_size: cached_preview.original_size as u64,
+                        modified: Some(std::time::SystemTime::now()),
+                        created: Some(std::time::SystemTime::now()),
+                        width: None,
+                        height: None,
+                        duration: None,
+                        bit_rate: None,
+                        sample_rate: None,
+                        codec: None,
+                        title: None,
+                        artist: None,
+                        album: None,
+                        year: None,
+                        page_count: None,
+                        color_space: None,
+                        compression: None,
+                        exif_data: None,
+                    },
+                    preview_content: crate::services::preview::PreviewContent::Image {
+                        thumbnail_data: cached_preview.data,
+                        original_format: cached_preview.format,
+                    },
+                    generated_at: std::time::SystemTime::now(),
+                };
+                
+                tracing::info!("Successfully generated preview for: {:?}", file_path);
+                Ok(Some(preview_data))
+            }
+            Ok(None) => {
+                tracing::debug!("No preview available for: {:?}", file_path);
+                Ok(None)
+            }
+            Err(e) => {
+                tracing::warn!("Failed to generate preview for {:?}: {}", file_path, e);
+                Err(Box::new(e))
+            }
+        }
     }
     
     /// Get current preview data
-    /// TODO: Implement when signal context issues are resolved
+    /// UI components should use the preview_data signal directly
     pub fn get_current_preview(&self) -> Option<PreviewData> {
-        None
+        self.preview_data.read().clone()
     }
     
-    /// Handle file selection with automatic preview generation
-    /// TODO: Implement full file selection handling
-    pub async fn handle_file_selection(&self, file_path: PathBuf, is_directory: bool) {
-        // Placeholder implementation - file tree selection needs proper signal context
-        tracing::info!("File selection: {:?} (is_directory: {})", file_path, is_directory);
+    /// Handle file selection - returns preview data for UI components to handle
+    /// UI components should set the preview_data signal and file_tree selection
+    pub async fn handle_file_selection(&self, file_path: PathBuf, is_directory: bool) -> Result<Option<PreviewData>, Box<dyn std::error::Error>> {
+        tracing::info!("Handling file selection: {:?} (is_directory: {})", file_path, is_directory);
         
-        // Generate preview only for files, not directories
+        // Generate preview only for files, not directories  
         if !is_directory {
-            if let Err(e) = self.generate_preview_for_file(file_path.clone()).await {
-                tracing::warn!("Failed to generate preview during file selection: {}", e);
-            }
+            self.generate_preview_for_file(file_path).await
+        } else {
+            // No preview for directories
+            Ok(None)
         }
     }
 }
