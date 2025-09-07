@@ -8,9 +8,9 @@ use crate::utils::{normalize_path_display, path_to_element_id};
 /// Working file tree component for sidebar navigation
 #[component]
 pub fn WorkingFileTree() -> Element {
-    let mut file_tree_state = use_file_tree_state();
+    let file_tree_state = use_file_tree_state();
     let app_state = use_app_state();
-    let mut focused_item = use_signal(|| None::<std::path::PathBuf>); // Track focused item for keyboard nav
+    let focused_item = use_signal(|| None::<std::path::PathBuf>); // Track focused item for keyboard nav
     let file_service = app_state.file_service.clone(); // Clone early to avoid borrow issues
     
     // Initialize root directory if not set
@@ -393,7 +393,9 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool, depth: Option<usi
     
     // Clone path for closures and display title
     let click_path = path.clone();
+    let double_click_path = path.clone();
     let expand_path = path.clone();
+    let arrow_expand_path = path.clone();
     let title_path = normalize_path_display(&path);
     
     // Enhanced aria-level for proper screen reader support
@@ -461,83 +463,22 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool, depth: Option<usi
                         }
                     });
                 },
-                ondoubleclick: move |evt| {
+                ondoubleclick: move |_evt| {
                     if is_directory {
-                        let app_state = use_app_state();
-                        let mut file_tree_state = file_tree_state.clone();
+                        // Double-click on folder navigates to that folder (changes root)
+                        let mut app_state = use_app_state();
+                        let navigate_path = double_click_path.clone();
                         
-                        // Enhanced toggle expansion with lazy loading
-                        let current_expanded = {
-                            let tree_state = file_tree_state.read();
-                            tree_state.is_expanded(&expand_path)
-                        };
-                        
-                        if current_expanded {
-                            // Collapse directory - support recursive collapse with Shift+Click
-                            let should_collapse_recursively = evt.data.modifiers().shift();
-                            
-                            if should_collapse_recursively {
-                                // Collapse all children recursively
-                                file_tree_state.write().collapse_all_under(&expand_path);
-                                tracing::info!("Recursively collapsed directory: {:?}", expand_path);
-                            } else {
-                                // Just collapse this directory
-                                file_tree_state.write().expanded_directories.insert(expand_path.clone(), false);
-                                tracing::info!("Collapsed directory: {:?}", expand_path);
+                        spawn(async move {
+                            match app_state.handle_folder_change(navigate_path.clone()).await {
+                                Ok(()) => {
+                                    tracing::info!("Successfully navigated to folder: {:?}", navigate_path);
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to navigate to folder {:?}: {}", navigate_path, e);
+                                }
                             }
-                        } else {
-                            // Expand directory with enhanced lazy loading
-                            let needs_loading = {
-                                let tree_state = file_tree_state.read();
-                                !tree_state.has_children(&expand_path) && !tree_state.is_loading(&expand_path)
-                            };
-                            
-                            // Set expanded state immediately for better UX
-                            file_tree_state.write().expanded_directories.insert(expand_path.clone(), true);
-                            
-                            if needs_loading {
-                                // Start loading with enhanced error handling
-                                file_tree_state.write().set_loading(expand_path.clone(), true);
-                                
-                                let file_service = app_state.file_service.clone();
-                                let expand_path_clone = expand_path.clone();
-                                let mut file_tree_state_async = file_tree_state.clone();
-                                
-                                spawn(async move {
-                                    // Add a small delay for better visual feedback on fast loads
-                                    tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
-                                    
-                                    match file_service.list_directory(&expand_path_clone).await {
-                                        Ok(entries) => {
-                                            let mut tree_state = file_tree_state_async.write();
-                                            tree_state.set_directory_children(expand_path_clone.clone(), entries.clone());
-                                            
-                                            tracing::info!(
-                                                "Successfully expanded directory: {:?} ({} items)", 
-                                                expand_path_clone,
-                                                entries.len()
-                                            );
-                                        }
-                                        Err(e) => {
-                                            let mut tree_state = file_tree_state_async.write();
-                                            tree_state.set_directory_error(
-                                                expand_path_clone.clone(), 
-                                                format!("Failed to load: {}", e)
-                                            );
-                                            // Revert expansion state on error
-                                            tree_state.expanded_directories.insert(expand_path_clone.clone(), false);
-                                            
-                                            tracing::error!(
-                                                "Failed to expand directory {:?}: {}", 
-                                                expand_path_clone, e
-                                            );
-                                        }
-                                    }
-                                });
-                            } else {
-                                tracing::info!("Directory already loaded, expanding: {:?}", expand_path);
-                            }
-                        }
+                        });
                     }
                 },
                 
@@ -554,7 +495,89 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool, depth: Option<usi
                             margin-right: 1px;
                             transform: rotate({arrow_rotation});
                             transition: transform 0.15s ease;
+                            cursor: pointer;
                         ",
+                        onclick: move |evt| {
+                            // Prevent event bubbling to avoid triggering the file selection
+                            evt.stop_propagation();
+                            
+                            let app_state = use_app_state();
+                            let mut file_tree_state = file_tree_state.clone();
+                            let arrow_expand_path_local = arrow_expand_path.clone();
+                            
+                            // Enhanced toggle expansion with lazy loading
+                            let current_expanded = {
+                                let tree_state = file_tree_state.read();
+                                tree_state.is_expanded(&arrow_expand_path_local)
+                            };
+                            
+                            if current_expanded {
+                                // Collapse directory - support recursive collapse with Shift+Click
+                                let should_collapse_recursively = evt.data.modifiers().shift();
+                                
+                                if should_collapse_recursively {
+                                    // Collapse all children recursively
+                                    file_tree_state.write().collapse_all_under(&arrow_expand_path_local);
+                                    tracing::info!("Recursively collapsed directory: {:?}", arrow_expand_path_local);
+                                } else {
+                                    // Just collapse this directory
+                                    file_tree_state.write().expanded_directories.insert(arrow_expand_path_local.clone(), false);
+                                    tracing::info!("Collapsed directory: {:?}", arrow_expand_path_local);
+                                }
+                            } else {
+                                // Expand directory with enhanced lazy loading
+                                let needs_loading = {
+                                    let tree_state = file_tree_state.read();
+                                    !tree_state.has_children(&arrow_expand_path_local) && !tree_state.is_loading(&arrow_expand_path_local)
+                                };
+                                
+                                // Set expanded state immediately for better UX
+                                file_tree_state.write().expanded_directories.insert(arrow_expand_path_local.clone(), true);
+                                
+                                if needs_loading {
+                                    // Start loading with enhanced error handling
+                                    file_tree_state.write().set_loading(arrow_expand_path_local.clone(), true);
+                                    
+                                    let file_service = app_state.file_service.clone();
+                                    let expand_path_clone = arrow_expand_path_local.clone();
+                                    let mut file_tree_state_async = file_tree_state.clone();
+                                    
+                                    spawn(async move {
+                                        // Add a small delay for better visual feedback on fast loads
+                                        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+                                        
+                                        match file_service.list_directory(&expand_path_clone).await {
+                                            Ok(entries) => {
+                                                let mut tree_state = file_tree_state_async.write();
+                                                tree_state.set_directory_children(expand_path_clone.clone(), entries.clone());
+                                                
+                                                tracing::info!(
+                                                    "Successfully expanded directory: {:?} ({} items)", 
+                                                    expand_path_clone,
+                                                    entries.len()
+                                                );
+                                            }
+                                            Err(e) => {
+                                                let mut tree_state = file_tree_state_async.write();
+                                                tree_state.set_directory_error(
+                                                    expand_path_clone.clone(), 
+                                                    format!("Failed to load: {}", e)
+                                                );
+                                                // Revert expansion state on error
+                                                tree_state.expanded_directories.insert(expand_path_clone.clone(), false);
+                                                
+                                                tracing::error!(
+                                                    "Failed to expand directory {:?}: {}", 
+                                                    expand_path_clone, e
+                                                );
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    tracing::info!("Directory already loaded, expanding: {:?}", arrow_expand_path_local);
+                                }
+                            }
+                        },
                         
                         if is_loading {
                             // Loading spinner
@@ -752,7 +775,7 @@ fn get_file_icon(entry: &FileEntry) -> Element {
 /// Helper function to collect all visible entries in tree order for keyboard navigation
 fn collect_visible_entries(
     tree_state: &crate::state::FileTreeState,
-    root: &std::path::Path,
+    _root: &std::path::Path,
     children: &[FileEntry],
     visible_entries: &mut Vec<FileEntry>,
 ) {
