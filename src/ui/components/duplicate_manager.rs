@@ -12,6 +12,7 @@ use crate::ui::components::{
     ProgressDialog
 };
 use crate::ui::components::dialogs::{ConfirmationAction, ProgressDialogState};
+use crate::utils::normalize_path_display;
 
 /// State for the duplicate manager
 #[derive(Debug, Clone, PartialEq)]
@@ -201,13 +202,13 @@ pub fn DuplicateManager(mut props: DuplicateManagerProps) -> Element {
                         action: match &action {
                             DuplicateAction::Delete(files) => {
                                 crate::ui::components::dialogs::ConfirmationAction::Delete {
-                                    items: files.iter().map(|p| crate::utils::normalize_path_display(p.as_path())).collect(),
+                                    items: files.iter().map(|p| normalize_path_display(p.as_path())).collect(),
                                     total_size: 0, // TODO: Calculate actual size
                                 }
                             }
                             DuplicateAction::MoveToTrash(files) => {
                                 crate::ui::components::dialogs::ConfirmationAction::MoveToTrash {
-                                    items: files.iter().map(|p| crate::utils::normalize_path_display(p.as_path())).collect(),
+                                    items: files.iter().map(|p| normalize_path_display(p.as_path())).collect(),
                                 }
                             }
                             DuplicateAction::MoveTo(files, _) => {
@@ -1125,7 +1126,7 @@ fn FilePreviewPane(file_path: PathBuf) -> Element {
             div { style: "padding: 16px; border-bottom: 1px solid #e0e0e0;",
                 h4 { style: "margin: 0 0 8px 0; color: #333;", "File Preview" }
                 div { style: "font-size: 12px; color: #666; word-break: break-all;",
-                    "{crate::utils::normalize_path_display(&file_path)}"
+                    "{normalize_path_display(&file_path)}"
                 }
             }
 

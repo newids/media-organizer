@@ -1020,78 +1020,89 @@
       {
         "id": 28,
         "title": "Fix File Preview System: Debug and repair the file preview functionality that was supposedly completed earlier but is not working. When user selects a supported file type, display the preview properly. For unsupported file types, show file information and metadata instead.",
-        "description": "Debug and repair the existing file preview system to ensure proper preview display for supported file types and fallback metadata display for unsupported types.",
-        "details": "Investigate and fix the broken file preview functionality by: 1) **Debugging Preview Service Integration**: Examine the connection between the Preview Panel UI (Task 18) and Preview Service Architecture (Task 17). Check if preview providers are properly registered and accessible. Verify async preview generation is working and not timing out. Debug any threading issues with background preview generation. 2) **Fix Preview Display Logic**: Investigate the preview rendering pipeline to identify where it's failing. Check if preview data is being generated but not displayed, or if generation itself is broken. Verify the PreviewProvider trait implementations for images, text/code, PDF, video, audio, archives, 3D models, and office files. Test each provider individually to isolate the issue. 3) **Repair Fallback Mechanism**: Ensure unsupported file types properly trigger the fallback to display file information and metadata instead of preview content. Verify metadata extraction (EXIF, creation/modification dates) is working correctly. Check if the \"unsupported file type\" UI state is properly handled. 4) **Integration Testing**: Test the complete workflow from file selection to preview display. Verify thumbnail caching is working and not causing display issues. Check if lazy loading and progressive rendering are functioning properly. 5) **Error Handling**: Add proper error logging and user feedback for preview failures. Implement graceful degradation when preview generation fails.",
-        "testStrategy": "Systematic testing approach: 1) **Provider-by-Provider Testing**: Test each file type provider individually (images, text, PDF, video, audio, etc.) with sample files to identify which providers are broken. 2) **Integration Testing**: Test the complete file selection to preview display workflow with various file types. Verify supported files show previews and unsupported files show metadata. 3) **Performance Verification**: Confirm preview generation meets performance targets (<500ms for images, <1s for docs) and doesn't hang the UI. 4) **Error Scenario Testing**: Test with corrupted files, very large files, and files with unusual metadata to ensure graceful error handling. 5) **Cross-Platform Testing**: Verify preview functionality works across different operating systems. 6) **Memory and Resource Testing**: Monitor for memory leaks during preview generation and ensure proper resource cleanup.",
-        "status": "pending",
+        "description": "Complete the file preview system implementation by connecting the established integration architecture to functional preview generation and display.",
+        "status": "in-progress",
         "dependencies": [
           17,
           18
         ],
         "priority": "high",
+        "details": "Build upon the resolved architecture disconnect to complete the file preview functionality by: 1) **Complete Preview Provider Integration**: Connect the established preview service integration in AppState to actual preview generation calls. Implement proper Dioxus signal context handling for async preview methods. Wire up file selection events from the file tree to trigger preview generation through the established `handle_file_selection()` workflow. 2) **Test and Fix Preview Generation Pipeline**: Systematically test each PreviewProvider implementation (images, text/code, PDF, video, audio, archives, 3D models, office files) now that the service integration is established. Verify preview data flows correctly from service to UI through the preview_data signal. Debug any remaining issues with individual provider implementations. 3) **Complete UI Integration**: Replace placeholder preview data handling in PreviewPanel with real preview data consumption from AppState. Ensure preview updates correctly when files are selected in the file tree. Implement proper loading states and error handling in the UI. 4) **Repair Fallback Mechanism**: Complete the fallback system for unsupported file types using the established architecture. Ensure metadata extraction and display works correctly through the preview service. 5) **Performance and Error Handling**: Add comprehensive error handling, user feedback, and performance optimizations now that the core architecture is functional.",
+        "testStrategy": "Build upon the established architecture to test: 1) **Integration Testing**: Test the complete file selection to preview display workflow using the new AppState integration. Verify preview_data signal updates correctly trigger UI changes. 2) **Provider Testing**: Test each file type provider through the integrated service architecture with sample files. 3) **Performance Verification**: Confirm preview generation meets performance targets using the established async architecture. 4) **Error Scenario Testing**: Test error handling and fallback mechanisms through the integrated system. 5) **UI State Testing**: Verify loading states, error states, and preview display work correctly with real preview data.",
         "subtasks": [
+          {
+            "id": 2,
+            "title": "Complete Preview Provider Integration and Fix Dioxus Context Issues",
+            "description": "Connect the established AppState preview architecture to actual preview service calls. Implement proper Dioxus signal context handling for async preview methods and wire up file selection events to preview generation.",
+            "status": "pending",
+            "dependencies": [
+              1
+            ],
+            "details": "Build upon the established preview service integration in AppState to implement functional preview generation. Replace placeholder implementations in `generate_preview_for_file()` and `handle_file_selection()` with actual preview service calls. Resolve Dioxus signal context requirements for async methods - implement proper signal access patterns or refactor to use appropriate Dioxus async patterns. Connect file tree click events to the established `handle_file_selection()` workflow. Ensure preview_data signal updates correctly when preview generation completes. Test the complete flow from file selection to preview data availability in UI components.",
+            "testStrategy": "Integration testing of file selection to preview generation workflow. Verify preview_data signal updates correctly. Test async context handling and signal access patterns."
+          },
+          {
+            "id": 3,
+            "title": "Test Preview Rendering Pipeline and Fix Provider Implementations",
+            "description": "Systematically test each PreviewProvider implementation through the integrated service architecture. Fix any issues with individual providers now that the service integration is functional.",
+            "status": "pending",
+            "dependencies": [
+              2
+            ],
+            "details": "Test each PreviewProvider implementation (images, text/code, PDF, video, audio, archives, 3D models, office files) through the established AppState integration with sample files. Verify preview data is generated correctly and flows through the preview_data signal to UI components. Fix any issues with provider implementations that are revealed through the integrated testing. Ensure preview data formats are compatible with UI component expectations. Debug any remaining issues with image decoding, text rendering, PDF processing, or media file handling that weren't apparent during isolated testing.",
+            "testStrategy": "Provider-by-provider testing through integrated architecture with sample files. Verify preview data format compatibility with UI components. End-to-end testing from file selection to preview display."
+          },
+          {
+            "id": 4,
+            "title": "Complete UI Integration and Replace Mock Preview Data",
+            "description": "Replace placeholder preview data handling in PreviewPanel with real preview data consumption from AppState. Implement proper loading states and preview updates when files are selected.",
+            "status": "pending",
+            "dependencies": [
+              2
+            ],
+            "details": "Update PreviewPanel component to consume real preview data from AppState instead of mock data. Implement proper preview data signal subscription and UI updates when preview generation completes. Add loading states while previews are being generated. Ensure preview display updates correctly when different files are selected in the file tree. Implement proper cleanup of preview resources and memory management. Verify thumbnail caching integration works correctly with the UI components.",
+            "testStrategy": "UI component testing with real preview data. Verify loading states and preview updates. Test file selection changes and preview transitions. Memory usage profiling during preview operations."
+          },
+          {
+            "id": 5,
+            "title": "Complete Fallback Mechanism and Metadata Display",
+            "description": "Implement the complete fallback system for unsupported file types using the established preview service architecture. Ensure metadata extraction and display works correctly.",
+            "status": "pending",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Complete the fallback mechanism that displays file information and metadata for unsupported file types through the established preview service integration. Ensure the preview service correctly identifies unsupported file types and returns appropriate metadata instead of preview content. Verify metadata extraction functionality including EXIF data, file creation/modification dates, file size, and other relevant properties works through the integrated system. Test the UI properly switches to metadata display mode for unsupported files using the preview_data signal. Ensure consistent fallback behavior across various unsupported file types.",
+            "testStrategy": "Test fallback behavior with various unsupported file formats through integrated system. Verify metadata extraction accuracy and UI display. Test unsupported file type detection and appropriate signal updates."
+          },
+          {
+            "id": 6,
+            "title": "Implement Comprehensive Error Handling and Performance Optimization",
+            "description": "Add comprehensive error handling, logging, and user feedback for preview failures. Implement performance optimizations and graceful degradation using the established architecture.",
+            "status": "pending",
+            "dependencies": [
+              3,
+              4,
+              5
+            ],
+            "details": "Implement comprehensive error handling throughout the integrated preview system. Add proper error logging and user-friendly error messages in the UI when previews fail through the preview_data signal. Implement graceful degradation that falls back to metadata display when preview generation fails unexpectedly. Add retry mechanisms for transient failures. Ensure error states are properly communicated through the preview_data signal and displayed in the UI. Add performance monitoring and optimization for the integrated preview workflow. Implement proper resource cleanup and memory management across the complete system.",
+            "testStrategy": "Error injection testing through integrated system. User experience testing for error states and loading indicators. Performance profiling of complete preview workflow. Memory leak testing during extended preview operations."
+          },
           {
             "id": 1,
             "title": "Debug Preview Service Integration and Provider Registration",
             "description": "Investigate and fix the connection between the Preview Panel UI and Preview Service Architecture. Verify that preview providers are properly registered, accessible, and not experiencing threading or timeout issues.",
             "dependencies": [],
-            "details": "Examine the preview service initialization code to ensure all PreviewProvider implementations are properly registered in the service registry. Check async preview generation workflows for timeout issues and verify background thread management is working correctly. Add debug logging to trace provider lookup and registration. Verify the communication channel between UI components and the preview service is functioning. Test provider accessibility by attempting to retrieve each registered provider type.",
-            "status": "pending",
+            "details": "Examine the preview service initialization code to ensure all PreviewProvider implementations are properly registered in the service registry. Check async preview generation workflows for timeout issues and verify background thread management is working correctly. Add debug logging to trace provider lookup and registration. Verify the communication channel between UI components and the preview service is functioning. Test provider accessibility by attempting to retrieve each registered provider type.\n<info added on 2025-09-06T15:04:59.928Z>\n**CRITICAL ARCHITECTURE FIX IDENTIFIED**: The preview system is completely disconnected from the UI layer due to missing integration components in AppState.\n\n**Root Cause Confirmed:**\n- AppState lacks preview service instance (only has file_service)\n- No preview data signal exists for UI components to consume\n- PreviewPanel uses mock Signal::new(None) instead of real preview data\n- File selection events have no pathway to trigger preview generation\n\n**Implementation Requirements:**\n1. Add `preview_service: Arc<dyn PreviewService>` to AppState struct\n2. Add `preview_data: Signal<Option<PreviewData>>` to AppState\n3. Create file selection event handler that calls preview_service.generate_preview()\n4. Replace mock preview signal in vscode_layout.rs with AppState preview signal\n5. Establish proper async communication between file selection and preview generation\n\n**Architecture Bridge Needed:**\nThe existing preview service infrastructure and UI components are functional but completely isolated. Need to create the missing integration layer that connects file system events to preview generation and UI updates.\n</info added on 2025-09-06T15:04:59.928Z>",
+            "status": "done",
             "testStrategy": "Unit tests for provider registration. Integration tests for UI-service communication. Add debug logging to trace provider lookup failures and timeout issues."
-          },
-          {
-            "id": 2,
-            "title": "Fix Preview Rendering Pipeline and Provider Implementations",
-            "description": "Investigate and repair the preview rendering pipeline to identify where preview generation or display is failing. Test each PreviewProvider implementation individually to isolate broken providers.",
-            "dependencies": [
-              "28.1"
-            ],
-            "details": "Systematically test each PreviewProvider implementation (images, text/code, PDF, video, audio, archives, 3D models, office files) with sample files to identify which providers are broken. Check if preview data is being generated correctly but failing to display, or if generation itself is broken. Verify the PreviewProvider trait methods are implemented correctly and returning expected data formats. Fix any issues with image decoding, text rendering, PDF processing, or media file handling. Ensure preview data is properly formatted for the UI components.",
-            "status": "pending",
-            "testStrategy": "Provider-by-provider testing with sample files for each supported format. Unit tests for individual provider implementations. Verify preview data format and content correctness."
-          },
-          {
-            "id": 3,
-            "title": "Repair Fallback Mechanism for Unsupported File Types",
-            "description": "Fix the fallback system that should display file information and metadata for unsupported file types instead of preview content. Ensure metadata extraction is working correctly.",
-            "dependencies": [
-              "28.1"
-            ],
-            "details": "Verify the logic that determines when a file type is unsupported and should trigger fallback behavior. Fix metadata extraction functionality including EXIF data, file creation/modification dates, file size, and other relevant properties. Ensure the UI properly switches to metadata display mode for unsupported files. Test the fallback mechanism with various unsupported file types to ensure consistent behavior. Verify that the 'unsupported file type' UI state is properly rendered and styled.",
-            "status": "pending",
-            "testStrategy": "Test fallback behavior with various unsupported file formats. Verify metadata extraction accuracy for different file types. UI testing for unsupported file display state."
-          },
-          {
-            "id": 4,
-            "title": "Fix Preview Display Integration and Caching Issues",
-            "description": "Repair the complete workflow from file selection to preview display, focusing on thumbnail caching, lazy loading, and progressive rendering functionality.",
-            "dependencies": [
-              "28.2",
-              "28.3"
-            ],
-            "details": "Test and fix the complete file selection to preview display workflow. Investigate thumbnail caching issues that might be causing display problems - verify cache invalidation, storage, and retrieval mechanisms. Fix lazy loading implementation to ensure previews load efficiently without blocking the UI. Repair progressive rendering for large files to provide immediate feedback while full previews generate. Ensure proper cleanup of preview resources and memory management. Verify that preview updates correctly when different files are selected.",
-            "status": "pending",
-            "testStrategy": "End-to-end integration testing of file selection to preview display. Performance testing for lazy loading and caching. Memory usage profiling during preview operations."
-          },
-          {
-            "id": 5,
-            "title": "Implement Error Handling and User Feedback",
-            "description": "Add comprehensive error handling, logging, and user feedback for preview failures. Implement graceful degradation when preview generation fails.",
-            "dependencies": [
-              "28.2",
-              "28.3",
-              "28.4"
-            ],
-            "details": "Implement proper error logging throughout the preview system to help diagnose future issues. Add user-friendly error messages and loading states in the UI when previews fail or take time to generate. Implement graceful degradation that falls back to metadata display when preview generation fails unexpectedly. Add retry mechanisms for transient failures. Ensure error states are properly styled and provide helpful information to users. Add telemetry or logging to track preview success/failure rates for different file types.",
-            "status": "pending",
-            "testStrategy": "Error injection testing to verify graceful failure handling. User experience testing for error states and loading indicators. Log analysis to ensure proper error tracking."
           }
         ]
       }
     ],
     "metadata": {
       "created": "2025-08-11T15:50:46.096Z",
-      "updated": "2025-09-06T14:54:11.293Z",
+      "updated": "2025-09-06T15:27:17.763Z",
       "description": "Tasks for master context"
     }
   }

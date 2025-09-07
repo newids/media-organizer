@@ -3,6 +3,7 @@ use dioxus_free_icons::{Icon, icons::fa_solid_icons};
 use std::path::PathBuf;
 use crate::services::FileEntry;
 use crate::state::{use_file_tree_state, use_app_state};
+use crate::utils;
 
 /// File tree component for sidebar navigation
 #[component]
@@ -199,7 +200,7 @@ pub fn FileTreeNode(
                         text-overflow: ellipsis;
                         font-size: 13px;
                     ",
-                    title: crate::utils::normalize_path_display(path),
+                    title: utils::normalize_path_display(path),
                     "{name}"
                 }
             }

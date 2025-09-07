@@ -4,6 +4,7 @@ use crate::state::{save_panel_state_debounced, load_panel_state, use_app_state, 
 use crate::theme::{ThemeManager, ThemeSelector, EnhancedThemeSelector, use_theme_manager};
 use crate::services::file_system::{FileEntry};
 use crate::ui::{use_shortcut_handler};
+use crate::utils::normalize_path_display;
 use crate::ui::components::{
     ContextMenu, use_context_menu,
     DragPreview, DropZone, DragOperation,
@@ -401,7 +402,7 @@ pub fn phase2_app() -> Element {
                                                 }
                                             });
                                         },
-                                        title: format!("Navigate to {}", crate::utils::normalize_path_display(&path)),
+                                        title: format!("Navigate to {}", normalize_path_display(&path)),
                                         {name}
                                     }
                                 }
@@ -498,7 +499,7 @@ pub fn phase2_app() -> Element {
                                         }
                                         span {
                                             style: "color: var(--vscode-text-primary, #cccccc);",
-                                            {crate::utils::normalize_path_display(&root_path)}
+                                            {normalize_path_display(&root_path)}
                                         }
                                     }
                                     

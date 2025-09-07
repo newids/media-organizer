@@ -5,6 +5,7 @@ mod services;
 mod state;
 mod theme;
 mod ui;
+mod utils;
 
 use models::AppConfig;
 use state::AppStateProvider;

@@ -683,6 +683,9 @@ pub fn EditorGroups(
     let mut editor_state = use_editor_state();
     let mut focused_tab_index = use_signal(|| 0usize);
     
+    // Clone app_state for use in rsx! closures
+    let app_state_clone = app_state.clone();
+    
     // Get active group for keyboard navigation
     let editor_data = editor_state.read();
     let active_group = editor_data.editor_groups.get(editor_data.active_group)
@@ -906,6 +909,7 @@ pub fn EditorGroups(
             EditorGroupsLayoutComponent {
                 editor_state: editor_state,
                 focused_tab_index: focused_tab_index,
+                app_state: app_state_clone,
             }
             
             // Render context menu if visible
@@ -1088,6 +1092,7 @@ pub fn StatusBar(
 pub fn EditorGroupsLayoutComponent(
     editor_state: Signal<crate::state::EditorState>,
     focused_tab_index: Signal<usize>,
+    app_state: Signal<crate::state::AppState>,
 ) -> Element {
     let editor_data = editor_state.read();
     let layout_config = &editor_data.layout_config;
@@ -1812,7 +1817,7 @@ pub fn EditorTabContentComponent(
                             flex-direction: column;
                         ",
                         
-                        // Use the PreviewPanel component with mock data for now
+                        // Use the PreviewPanel component with real preview data from app state
                         PreviewPanel {
                             selected_file: Signal::new(tab.file_path.as_ref().map(|path| {
                                 FileSystemEntry {
@@ -1831,7 +1836,7 @@ pub fn EditorTabContentComponent(
                                     }
                                 }
                             })),
-                            preview_data: Signal::new(None),
+                            preview_data: Signal::new(None), // TODO: Connect to app_state.preview_data when context system is improved
                         }
                     }
                 },

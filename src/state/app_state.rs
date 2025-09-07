@@ -3,6 +3,8 @@ use std::sync::Arc;
 use std::collections::HashMap;
 use crate::services::{FileEntry};
 use crate::services::file_system::{FileSystemService, NativeFileSystemService};
+use crate::services::preview::{PreviewData};
+use crate::services::preview_service::{PreviewService, PreviewServiceConfig};
 use crate::state::navigation::{NavigationState, SelectionState};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -207,6 +209,10 @@ pub struct AppState {
     pub cheat_sheet_visible: Signal<bool>,
     /// File system service for operations
     pub file_service: Arc<dyn FileSystemService>,
+    /// Preview service for generating file previews and thumbnails
+    pub preview_service: Arc<PreviewService<NativeFileSystemService>>,
+    /// Current preview data for selected file
+    pub preview_data: Signal<Option<PreviewData>>,
 }
 
 /// View mode options for file display
@@ -978,6 +984,15 @@ impl AppState {
         // Use default home directory for normal operation
         let initial_path = dirs::home_dir();
         
+        // Create shared file service
+        let file_service = Arc::new(NativeFileSystemService::new());
+        
+        // Create preview service with the file service
+        let preview_service = Arc::new(PreviewService::new(
+            file_service.clone(),
+            PreviewServiceConfig::default()
+        ));
+        
         Self {
             layout_state: use_signal(LayoutState::default),
             navigation: use_signal(|| NavigationState::new(initial_path)),
@@ -994,7 +1009,9 @@ impl AppState {
             settings: use_signal(SettingsState::default),
             command_registry: use_signal(CommandRegistry::default),
             cheat_sheet_visible: use_signal(|| false),
-            file_service: Arc::new(NativeFileSystemService::new()),
+            file_service,
+            preview_service,
+            preview_data: use_signal(|| None),
         }
     }
     
@@ -1494,6 +1511,43 @@ impl AppState {
         }
         
         self.save_settings_to_persistence();
+    }
+    
+    // Preview system integration methods
+    
+    /// Generate preview for a selected file
+    /// TODO: Implement full preview generation - currently placeholder
+    pub async fn generate_preview_for_file(&self, file_path: PathBuf) -> Result<(), Box<dyn std::error::Error>> {
+        // Placeholder implementation - the preview service integration needs
+        // to be implemented in a component context where signals work properly
+        tracing::info!("Preview generation requested for: {:?}", file_path);
+        Ok(())
+    }
+    
+    /// Clear current preview data
+    /// TODO: Implement when signal context issues are resolved
+    pub fn clear_preview(&self) {
+        tracing::debug!("Preview clear requested");
+    }
+    
+    /// Get current preview data
+    /// TODO: Implement when signal context issues are resolved
+    pub fn get_current_preview(&self) -> Option<PreviewData> {
+        None
+    }
+    
+    /// Handle file selection with automatic preview generation
+    /// TODO: Implement full file selection handling
+    pub async fn handle_file_selection(&self, file_path: PathBuf, is_directory: bool) {
+        // Placeholder implementation - file tree selection needs proper signal context
+        tracing::info!("File selection: {:?} (is_directory: {})", file_path, is_directory);
+        
+        // Generate preview only for files, not directories
+        if !is_directory {
+            if let Err(e) = self.generate_preview_for_file(file_path.clone()).await {
+                tracing::warn!("Failed to generate preview during file selection: {}", e);
+            }
+        }
     }
 }
 

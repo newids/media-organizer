@@ -3,6 +3,7 @@ use dioxus_free_icons::{Icon, icons::fa_solid_icons};
 use std::path::PathBuf;
 use crate::services::FileEntry;
 use crate::state::{use_file_tree_state, use_app_state};
+use crate::utils::{normalize_path_display, path_to_element_id};
 
 /// Working file tree component for sidebar navigation
 #[component]
@@ -276,7 +277,7 @@ pub fn WorkingFileTree() -> Element {
                     } else {
                         for (_index, entry) in children.iter().enumerate() {
                             WorkingFileTreeItem {
-                                key: format!("{}-{}", entry.name, crate::utils::normalize_path_display(&entry.path)),
+                                key: format!("{}-{}", entry.name, normalize_path_display(&entry.path)),
                                 entry: entry.clone(),
                                 is_focused: focused_item.read().as_ref().map(|f| f == &entry.path).unwrap_or(false),
                             }
@@ -353,7 +354,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
     // Clone path for closures and display title
     let click_path = path.clone();
     let expand_path = path.clone();
-    let title_path = crate::utils::normalize_path_display(&path);
+    let title_path = normalize_path_display(&path);
     
     rsx! {
         div {
@@ -383,7 +384,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                 ",
                 role: "button",
                 tabindex: "0",
-                "aria-describedby": format!("file-item-{}", crate::utils::path_to_element_id(&path)),
+                "aria-describedby": format!("file-item-{}", path_to_element_id(&path)),
                 onclick: move |_| {
                     file_tree_state.write().selected_path = Some(click_path.clone());
                     tracing::info!("Selected: {:?}", click_path);
@@ -541,7 +542,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
                     
                     for child in children.iter() {
                         WorkingFileTreeItem {
-                            key: format!("child-{}", crate::utils::normalize_path_display(&child.path)),
+                            key: format!("child-{}", normalize_path_display(&child.path)),
                             entry: child.clone(),
                             is_focused: false, // Focus is handled at the top level
                         }
@@ -551,7 +552,7 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool) -> Element {
             
             // Hidden description for screen readers
             div {
-                id: format!("file-item-{}", crate::utils::path_to_element_id(&path)),
+                id: format!("file-item-{}", path_to_element_id(&path)),
                 style: "
                     position: absolute;
                     width: 1px;
