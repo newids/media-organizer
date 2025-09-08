@@ -1049,7 +1049,8 @@ pub fn phase2_app() -> Element {
                     current_settings.set(new_settings.clone());
                     
                     // Update theme manager with manual override tracking
-                    theme_manager.write().set_theme_with_override(new_settings.theme.clone(), &mut new_settings.clone(), true);
+                    let mut settings_clone = new_settings.clone();
+                    theme_manager.write().set_theme_with_override(new_settings.theme.clone(), &mut settings_clone, true);
                     
                     // Save to persistence
                     save_settings_debounced(new_settings.clone());
