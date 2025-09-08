@@ -17,6 +17,7 @@ pub mod preview_panel;
 pub mod info_panel;
 pub mod dynamic_content_panel;
 pub mod empty_file_tree;
+pub mod settings_dialog;
 
 // Re-export only actively used types to reduce warnings
 // pub use file_tree::{FileTree, FileTreeNode}; // Temporarily disabled
@@ -41,6 +42,7 @@ pub use preview_panel::{PreviewPanel, PreviewHeader, PreviewMetadata, LazyPrevie
 pub use info_panel::{InfoPanel};
 pub use dynamic_content_panel::{DynamicContentPanel, PanelTypeIndicator};
 pub use empty_file_tree::{EmptyFileTree};
+pub use settings_dialog::{SettingsDialog};
 // Note: duplicate_manager exports are only used internally by phase2_app
 // pub use duplicate_manager::{DuplicateManager};
 

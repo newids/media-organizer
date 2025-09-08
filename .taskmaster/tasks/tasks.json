@@ -1539,7 +1539,7 @@
         "dependencies": [
           30
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1547,7 +1547,7 @@
             "description": "Create a modal or popup settings page using a selected UI library (e.g., MUI v6, Chakra UI v3, or native Electron dialogs) to host theme selection controls.",
             "dependencies": [],
             "details": "Ensure the popup is visually distinct, accessible, and supports keyboard navigation. The page should be reusable for future settings expansion.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Manual UI tests for popup rendering, accessibility audit, and keyboard navigation checks."
           },
           {
@@ -1558,7 +1558,7 @@
               "34.1"
             ],
             "details": "Ensure the controls retain their functionality and are styled consistently within the settings page.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Manual UI tests to verify theme controls are only present in the settings page and function as expected."
           },
           {
@@ -1569,7 +1569,7 @@
               "34.1"
             ],
             "details": "Ensure the menu item is accessible via mouse and keyboard shortcuts, and triggers the popup reliably.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Manual tests for menu navigation, shortcut activation, and popup invocation."
           },
           {
@@ -1580,7 +1580,7 @@
               "34.2"
             ],
             "details": "Integrate Electron Store or localStorage for robust settings persistence, following best practices for Electron apps.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Unit and integration tests for settings persistence and retrieval after app restart."
           },
           {
@@ -1592,7 +1592,7 @@
               "34.4"
             ],
             "details": "Utilize context or state management to propagate theme changes throughout the app, ensuring a seamless user experience.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Integration tests for immediate theme switching, UI update verification, and regression tests for theme-related features."
           }
         ]
@@ -1741,7 +1741,7 @@
     ],
     "metadata": {
       "created": "2025-08-11T15:50:46.096Z",
-      "updated": "2025-09-08T09:00:54.182Z",
+      "updated": "2025-09-08T09:38:19.595Z",
       "description": "Tasks for master context"
     }
   }

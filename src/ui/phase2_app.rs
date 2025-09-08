@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
-use crate::state::{save_panel_state_debounced, load_panel_state, use_app_state, use_file_entries, load_settings, save_settings_debounced, Theme};
-use crate::theme::{ThemeManager, EnhancedThemeSelector, use_theme_manager};
+use crate::state::{save_panel_state_debounced, load_panel_state, use_app_state, use_file_entries, load_settings, save_settings_debounced, Theme, SettingsState};
+use crate::theme::{ThemeManager, use_theme_manager};
 use crate::services::file_system::{FileEntry};
 use crate::ui::{use_shortcut_handler};
 use crate::utils::normalize_path_display;
@@ -10,7 +10,7 @@ use crate::ui::components::{
     DragPreview, DropZone, DragOperation,
     use_drag_drop, use_drop_zone,
     SettingsPanel, CommandPalette, ShortcutCheatSheet,
-    EmptyFileTree, DynamicContentPanel
+    EmptyFileTree, DynamicContentPanel, SettingsDialog
 };
 // use crate::ui::components::preview_panel::FileSystemEntry; // No longer needed - using DynamicContentPanel
 // use crate::ui::components::{VirtualFileTree};
@@ -66,6 +66,9 @@ pub fn phase2_app() -> Element {
     // Initialize settings panel state
     let mut settings_panel_visible = use_signal(|| false);
     
+    // Initialize settings dialog state
+    let mut settings_dialog_visible = use_signal(|| false);
+    
     // Initialize folder selection state
     
     // Initialize theme system
@@ -120,9 +123,9 @@ pub fn phase2_app() -> Element {
             
             // Check for settings shortcut (Ctrl+,)
             if key_str == "," && ctrl && !shift && !alt && !meta {
-                settings_panel_visible.set(true);
+                settings_dialog_visible.set(true);
                 evt.prevent_default();
-                tracing::info!("Settings panel opened via keyboard shortcut");
+                tracing::info!("Settings dialog opened via keyboard shortcut");
                 return;
             }
             
@@ -273,31 +276,27 @@ pub fn phase2_app() -> Element {
                     ""
                 }
                 
-                // Enhanced Theme Selector in title bar
+                // Settings button in title bar
                 div {
-                    title: "Select application theme (Ctrl+T to cycle, Ctrl+, for settings)",
-                    EnhancedThemeSelector {
-                        current_theme: current_settings.read().theme.clone(),
-                        theme_manager_state: theme_manager,
-                        on_theme_change: move |new_theme: Theme| {
-                            // Update settings
-                            let mut settings = {
-                                let mut s = current_settings.write();
-                                s.theme = new_theme.clone();
-                                s.clone()
-                            };
-                            
-                            // Update theme manager with manual override tracking
-                            theme_manager.write().set_theme_with_override(new_theme.clone(), &mut settings, true);
-                            
-                            // Save to persistence
-                            save_settings_debounced(settings.clone());
-                            
-                            // Update current_settings signal to trigger re-render
-                            current_settings.set(settings);
-                            
-                            tracing::info!("Theme manually changed to: {:?}", new_theme);
-                        }
+                    button {
+                        title: "Open settings (Ctrl+,)",
+                        style: "
+                            background: transparent;
+                            border: none;
+                            color: var(--vscode-text-secondary);
+                            cursor: pointer;
+                            padding: 4px 8px;
+                            font-size: 14px;
+                            border-radius: 4px;
+                            display: flex;
+                            align-items: center;
+                            gap: 4px;
+                        ",
+                        onclick: move |_| {
+                            settings_dialog_visible.set(true);
+                        },
+                        span { style: "font-size: 16px;", "⚙️" }
+                        "Settings"
                     }
                 }
             }
@@ -1035,6 +1034,27 @@ pub fn phase2_app() -> Element {
                 settings: current_settings,
                 on_close: move |_| {
                     settings_panel_visible.set(false);
+                }
+            }
+            
+            // Settings Dialog (new)
+            SettingsDialog {
+                visible: *settings_dialog_visible.read(),
+                current_settings: current_settings,
+                on_close: move |_| {
+                    settings_dialog_visible.set(false);
+                },
+                on_settings_change: move |new_settings: crate::state::SettingsState| {
+                    // Update the current_settings signal
+                    current_settings.set(new_settings.clone());
+                    
+                    // Update theme manager with manual override tracking
+                    theme_manager.write().set_theme_with_override(new_settings.theme.clone(), &mut new_settings.clone(), true);
+                    
+                    // Save to persistence
+                    save_settings_debounced(new_settings.clone());
+                    
+                    tracing::info!("Settings changed from settings dialog: {:?}", new_settings);
                 }
             }
             
