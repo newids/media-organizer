@@ -814,12 +814,6 @@ pub fn phase2_app() -> Element {
                                                     }
                                                 })
                                             }
-                                            
-                                                    // Show count summary
-                                                    div {
-                                                        style: "padding: 10px; border-top: 1px solid var(--vscode-border, #464647); color: var(--vscode-text-muted, #6a6a6a); font-size: 0.9em; text-align: center;",
-                                                        {format!("{} items total", children_count)}
-                                                    }
                                                 }
                                             }
                                         }

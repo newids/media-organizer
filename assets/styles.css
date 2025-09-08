@@ -259,7 +259,7 @@
   --vscode-status-bar-height: 22px;
   --vscode-panel-min-width: 200px;
   --vscode-panel-max-width: 600px;
-  --vscode-resize-handle-width: 4px;
+  --vscode-resize-handle-width: 1px;
   
   /* VS Code Layout Exact Dimensions */
   --vscode-activity-bar-width: 48px;
@@ -560,7 +560,7 @@
   --vscode-status-bar-height: 22px;
   --vscode-panel-min-width: 200px;
   --vscode-panel-max-width: 600px;
-  --vscode-resize-handle-width: 4px;
+  --vscode-resize-handle-width: 1px;
   
   /* Transitions (inherited) */
   --vscode-transition-fast: 0.1s ease;
@@ -781,8 +781,8 @@ body {
 .main-content {
   flex: 1;
   display: grid;
-  grid-template-columns: var(--panel-width, 300px) 1fr;
-  grid-template-areas: "file-tree content-viewer";
+  grid-template-columns: var(--panel-width, 300px) var(--vscode-resize-handle-width) 1fr;
+  grid-template-areas: "file-tree resize-handle content-viewer";
   overflow: hidden;
   gap: 0;
 }
@@ -895,6 +895,7 @@ body {
 
 /* Resize Handle */
 .resize-handle {
+  grid-area: resize-handle;
   width: var(--vscode-resize-handle-width);
   background-color: var(--vscode-border);
   cursor: col-resize;
