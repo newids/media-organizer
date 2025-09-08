@@ -2,7 +2,6 @@
 //! 
 //! Cross-platform media/file management application built with Dioxus.
 
-use std::sync::Arc;
 
 pub mod models;
 pub mod services;

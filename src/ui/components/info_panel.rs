@@ -368,8 +368,9 @@ fn format_timestamp(timestamp: std::time::SystemTime) -> String {
     match timestamp.duration_since(UNIX_EPOCH) {
         Ok(duration) => {
             let secs = duration.as_secs();
-            let naive_datetime = chrono::NaiveDateTime::from_timestamp_opt(secs as i64, 0)
-                .unwrap_or_else(|| chrono::NaiveDateTime::from_timestamp_opt(0, 0).unwrap());
+            let naive_datetime = chrono::DateTime::from_timestamp(secs as i64, 0)
+                .map(|dt| dt.naive_utc())
+                .unwrap_or_else(|| chrono::DateTime::from_timestamp(0, 0).unwrap().naive_utc());
             naive_datetime.format("%Y-%m-%d %H:%M:%S").to_string()
         }
         Err(_) => "Unknown".to_string()

@@ -90,12 +90,15 @@ impl ThemeManager {
             // Enhanced desktop system theme detection
             let detected_theme = Self::detect_desktop_system_theme();
             tracing::info!("Desktop system theme detected: {}", if detected_theme { "dark" } else { "light" });
-            return detected_theme;
+            detected_theme
         }
         
-        // Default to dark theme if detection fails
-        tracing::debug!("System theme detection failed, defaulting to dark");
-        true
+        #[cfg(feature = "web")]
+        {
+            // Default to dark theme if detection fails on web
+            tracing::debug!("System theme detection failed, defaulting to dark");
+            true
+        }
     }
     
     /// Enhanced desktop system theme detection
@@ -173,11 +176,14 @@ impl ThemeManager {
             }
             
             tracing::debug!("Linux system theme detection failed, defaulting to dark");
-            return true; // Default to dark on Linux
+            true // Default to dark on Linux
         }
         
-        // Fallback for other platforms
-        true
+        #[cfg(not(any(target_os = "macos", target_os = "windows", unix)))]
+        {
+            // Fallback for other platforms
+            true
+        }
     }
 
     /// Get the effective theme (resolving Auto to the actual theme)

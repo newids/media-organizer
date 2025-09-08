@@ -1175,7 +1175,8 @@ fn format_timestamp(timestamp: std::time::SystemTime) -> String {
         .unwrap_or(Duration::from_secs(0));
     
     let secs = duration.as_secs();
-    let datetime = chrono::NaiveDateTime::from_timestamp_opt(secs as i64, 0)
+    let datetime = chrono::DateTime::from_timestamp(secs as i64, 0)
+        .map(|dt| dt.naive_utc())
         .unwrap_or_default();
     
     datetime.format("%Y-%m-%d %H:%M").to_string()

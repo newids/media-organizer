@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::task::JoinHandle;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use walkdir::WalkDir;
 
 /// Comprehensive preview service for multi-format file support
