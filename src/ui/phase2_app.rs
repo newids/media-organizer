@@ -942,25 +942,54 @@ pub fn phase2_app() -> Element {
                         // TODO: Handle file drop operation in content viewer
                     },
                     
-                    // Preview Panel
-                    PreviewPanel {
-                        selected_file: Signal::new(selected_item.read().as_ref().map(|entry| {
-                            FileSystemEntry {
-                                path: entry.path.clone(),
-                                name: entry.name.clone(),
-                                is_directory: entry.is_directory,
-                                size: entry.size,
-                                modified: entry.modified,
-                                file_type: match &entry.file_type {
-                                    crate::services::file_system::FileType::Image(_) => Some("image".to_string()),
-                                    crate::services::file_system::FileType::Video(_) => Some("video".to_string()),
-                                    crate::services::file_system::FileType::Audio(_) => Some("audio".to_string()),
-                                    crate::services::file_system::FileType::Document(_) => Some("document".to_string()),
-                                    _ => None,
+                    // Preview Panel - Create a derived signal for reactive updates
+                    {
+                        let mut selected_file_signal = use_signal(|| {
+                            selected_item.read().as_ref().map(|entry| {
+                                FileSystemEntry {
+                                    path: entry.path.clone(),
+                                    name: entry.name.clone(),
+                                    is_directory: entry.is_directory,
+                                    size: entry.size,
+                                    modified: entry.modified,
+                                    file_type: match &entry.file_type {
+                                        crate::services::file_system::FileType::Image(_) => Some("image".to_string()),
+                                        crate::services::file_system::FileType::Video(_) => Some("video".to_string()),
+                                        crate::services::file_system::FileType::Audio(_) => Some("audio".to_string()),
+                                        crate::services::file_system::FileType::Document(_) => Some("document".to_string()),
+                                        _ => None,
+                                    }
                                 }
+                            })
+                        });
+                        
+                        // Update the derived signal when selected_item changes
+                        use_effect(move || {
+                            let new_value = selected_item.read().as_ref().map(|entry| {
+                                FileSystemEntry {
+                                    path: entry.path.clone(),
+                                    name: entry.name.clone(),
+                                    is_directory: entry.is_directory,
+                                    size: entry.size,
+                                    modified: entry.modified,
+                                    file_type: match &entry.file_type {
+                                        crate::services::file_system::FileType::Image(_) => Some("image".to_string()),
+                                        crate::services::file_system::FileType::Video(_) => Some("video".to_string()),
+                                        crate::services::file_system::FileType::Audio(_) => Some("audio".to_string()),
+                                        crate::services::file_system::FileType::Document(_) => Some("document".to_string()),
+                                        _ => None,
+                                    }
+                                }
+                            });
+                            selected_file_signal.set(new_value);
+                        });
+                        
+                        rsx! {
+                            PreviewPanel {
+                                selected_file: selected_file_signal,
+                                preview_data: app_state.preview_data,
                             }
-                        })),
-                        preview_data: app_state.preview_data,
+                        }
                     }
                 }
             }
