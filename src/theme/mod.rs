@@ -524,7 +524,7 @@ pub fn EnhancedThemeSelector(
                     span {
                         style: "
                             color: var(--vscode-warning-foreground);
-                            font-size: 12px;
+                            font-size: var(--vscode-font-size-small);
                             margin-left: 4px;
                         ",
                         title: "Theme is manually overriding system preference",
@@ -536,7 +536,7 @@ pub fn EnhancedThemeSelector(
             div {
                 style: "
                     color: var(--vscode-text-secondary);
-                    font-size: 11px;
+                    font-size: var(--vscode-font-size-small);
                     font-family: var(--vscode-font-family);
                     font-style: italic;
                 ",

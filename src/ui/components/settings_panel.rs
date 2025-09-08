@@ -140,7 +140,7 @@ pub fn SettingsPanel(
                             font-size: 18px;
                             font-weight: 600;
                             margin: 0;
-                            font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                            font-family: var(--vscode-font-family);
                         ",
                         "Settings"
                     }
@@ -266,7 +266,7 @@ pub fn SettingsPanel(
                                 style: "
                                     color: var(--vscode-warning-foreground, #ffcc02);
                                     font-size: 14px;
-                                    font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                    font-family: var(--vscode-font-family);
                                 ",
                                 "● Unsaved changes"
                             }
@@ -285,7 +285,7 @@ pub fn SettingsPanel(
                                 padding: 8px 16px;
                                 border-radius: 4px;
                                 cursor: pointer;
-                                font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                font-family: var(--vscode-font-family);
                                 font-size: 14px;
                                 transition: all 0.2s ease;
                             ",
@@ -303,7 +303,7 @@ pub fn SettingsPanel(
                                 padding: 8px 16px;
                                 border-radius: 4px;
                                 cursor: pointer;
-                                font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                font-family: var(--vscode-font-family);
                                 font-size: 14px;
                                 font-weight: 500;
                                 transition: all 0.2s ease;
@@ -322,7 +322,7 @@ pub fn SettingsPanel(
                                 padding: 8px 16px;
                                 border-radius: 4px;
                                 cursor: pointer;
-                                font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                font-family: var(--vscode-font-family);
                                 font-size: 14px;
                                 transition: all 0.2s ease;
                             ",
@@ -399,7 +399,7 @@ fn SettingsTabButton(
                 color: {};
                 text-align: left;
                 cursor: pointer;
-                font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                font-family: var(--vscode-font-family);
                 font-size: 14px;
                 transition: all 0.2s ease;
                 border-left: 3px solid {};
@@ -435,7 +435,7 @@ fn GeneralSettingsTab(
                     font-size: 16px;
                     font-weight: 600;
                     margin: 0 0 16px 0;
-                    font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                    font-family: var(--vscode-font-family);
                 ",
                 "General Preferences"
             }
@@ -456,7 +456,7 @@ fn GeneralSettingsTab(
                                 border: 1px solid var(--vscode-input-border, #666);
                                 border-radius: 3px;
                                 padding: 6px 8px;
-                                font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                font-family: var(--vscode-font-family);
                                 font-size: 14px;
                             ",
                             onchange: move |evt| {
@@ -532,7 +532,7 @@ fn GeneralSettingsTab(
                                 border: 1px solid var(--vscode-input-border, #666);
                                 border-radius: 3px;
                                 padding: 6px 8px;
-                                font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                font-family: var(--vscode-font-family);
                                 font-size: 14px;
                                 width: 80px;
                             ",
@@ -566,7 +566,7 @@ fn AppearanceSettingsTab(
                     font-size: 16px;
                     font-weight: 600;
                     margin: 0 0 16px 0;
-                    font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                    font-family: var(--vscode-font-family);
                 ",
                 "Theme & Appearance"
             }
@@ -615,7 +615,7 @@ fn AppearanceSettingsTab(
                             style: "
                                 margin-left: 12px;
                                 color: var(--vscode-text-secondary, #999);
-                                font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                font-family: var(--vscode-font-family);
                                 font-size: 14px;
                             ",
                             "{settings.read().default_panel_width as i32}px"
@@ -662,7 +662,7 @@ fn KeyboardSettingsTab() -> Element {
                     font-size: 16px;
                     font-weight: 600;
                     margin: 0 0 16px 0;
-                    font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                    font-family: var(--vscode-font-family);
                 ",
                 "Keyboard Shortcuts"
             }
@@ -707,7 +707,7 @@ fn KeyboardSettingsTab() -> Element {
                             div {
                                 style: "
                                     color: var(--vscode-text-primary, #cccccc);
-                                    font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                    font-family: var(--vscode-font-family);
                                     font-size: 14px;
                                 ",
                                 "{action.description()}"
@@ -719,7 +719,7 @@ fn KeyboardSettingsTab() -> Element {
                                     color: var(--vscode-badge-foreground, #ffffff);
                                     padding: 4px 8px;
                                     border-radius: 3px;
-                                    font-family: var(--vscode-font-family-monospace, 'Cascadia Code', monospace);
+                                    font-family: var(--vscode-font-mono);
                                     font-size: 12px;
                                     font-weight: 500;
                                 ",
@@ -797,7 +797,7 @@ fn AdvancedSettingsTab(
                     font-size: 16px;
                     font-weight: 600;
                     margin: 0 0 16px 0;
-                    font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                    font-family: var(--vscode-font-family);
                 ",
                 "Advanced Settings"
             }
@@ -822,7 +822,7 @@ fn AdvancedSettingsTab(
                                     border: 1px solid var(--vscode-input-border, #666);
                                     border-radius: 3px;
                                     padding: 8px;
-                                    font-family: var(--vscode-font-family-monospace, 'Cascadia Code', monospace);
+                                    font-family: var(--vscode-font-mono);
                                     font-size: 12px;
                                     width: 100%;
                                     height: 120px;
@@ -847,7 +847,7 @@ fn AdvancedSettingsTab(
                                 style: "
                                     color: var(--vscode-text-secondary, #999);
                                     font-size: 12px;
-                                    font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                                    font-family: var(--vscode-font-family);
                                 ",
                                 "⚠️ Advanced users only. Invalid JSON will be ignored."
                             }
@@ -862,7 +862,7 @@ fn AdvancedSettingsTab(
                     font-size: 16px;
                     font-weight: 600;
                     margin: 32px 0 16px 0;
-                    font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                    font-family: var(--vscode-font-family);
                 ",
                 "Import/Export Settings"
             }
@@ -882,7 +882,7 @@ fn AdvancedSettingsTab(
                             padding: 8px 16px;
                             border-radius: 4px;
                             cursor: pointer;
-                            font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                            font-family: var(--vscode-font-family);
                             font-size: 14px;
                             font-weight: 500;
                         ",
@@ -898,7 +898,7 @@ fn AdvancedSettingsTab(
                             padding: 8px 16px;
                             border-radius: 4px;
                             cursor: pointer;
-                            font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                            font-family: var(--vscode-font-family);
                             font-size: 14px;
                             font-weight: 500;
                         ",
@@ -913,7 +913,7 @@ fn AdvancedSettingsTab(
                             padding: 8px 16px;
                             border-radius: 4px;
                             cursor: pointer;
-                            font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                            font-family: var(--vscode-font-family);
                             font-size: 14px;
                             font-weight: 500;
                         ",
@@ -931,7 +931,7 @@ fn AdvancedSettingsTab(
                             border-radius: 4px;
                             color: var(--vscode-text-primary, #cccccc);
                             font-size: 14px;
-                            font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                            font-family: var(--vscode-font-family);
                         ",
                         "{import_export_message.read()}"
                     }
@@ -964,7 +964,7 @@ fn SettingsRow(
                 div {
                     style: "
                         color: var(--vscode-text-primary, #cccccc);
-                        font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                        font-family: var(--vscode-font-family);
                         font-size: 14px;
                         font-weight: 500;
                         margin-bottom: 4px;
@@ -975,7 +975,7 @@ fn SettingsRow(
                 div {
                     style: "
                         color: var(--vscode-text-secondary, #999);
-                        font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+                        font-family: var(--vscode-font-family);
                         font-size: 13px;
                         line-height: 1.4;
                     ",

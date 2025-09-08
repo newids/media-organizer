@@ -1,0 +1,92 @@
+# MediaOrganizer UI Upgrade 003 - Product Requirements Document
+
+## Overview
+This upgrade focuses on modernizing the MediaOrganizer interface by implementing system-native design patterns, improving layout efficiency, and enhancing user experience through better space utilization and standardized UI components.
+
+## Core Requirements
+
+### Font System Standardization
+- Replace all application fonts with system default font
+- Ensure consistent typography across all UI components
+- Maintain readability and accessibility standards
+
+### Menu Bar Optimization
+- Remove the 'MediaOrganizer' label from under the menu bar to reduce visual clutter
+- Integrate 'File' menu into system menu bar alongside 'Edit' and 'Help'
+- Add 'Close' option as sub-menu item under 'File' menu
+- Update keyboard shortcuts: 'Open folder' to CMD-O (macOS) / CTRL-O (Windows)
+
+### Explorer Panel Removal
+- Remove the 'EXPLORER' panel header/label
+- Remove the current path display panel that appears under the explorer section
+- Eliminate all margins around the file tree panel to maximize space utilization
+
+### Preview Panel Enhancement
+- Resize preview panel to utilize full width of available right-side space
+- Implement dynamic panel switching logic:
+  - For supported preview file types: Display preview panel with file preview
+  - For unsupported file types: Display information panel with file metadata
+- Ensure only one panel (preview OR information) is shown at any time
+
+### Status Bar Improvements
+- Increase status bar height to match font size used in file tree panel
+- Update status bar background color to match other panel background colors
+- Ensure visual consistency across the interface
+
+### Settings Integration
+- Move Theme menu and theme selection box from main interface to dedicated settings page
+- Create settings popup page accessible from system submenu under 'Edit' menu
+- Ensure settings are properly persisted and applied
+
+## Technical Considerations
+
+### Cross-Platform Compatibility
+- Ensure keyboard shortcuts work correctly on both macOS (CMD) and Windows (CTRL)
+- Verify system menu integration functions properly across platforms
+- Test font rendering consistency across operating systems
+
+### Layout Responsiveness
+- Maintain proper layout proportions when panels are resized
+- Ensure preview panel scales appropriately with window size changes
+- Preserve functionality during window resize operations
+
+### Performance Requirements
+- Panel switching should be instantaneous without noticeable delay
+- Font changes should not impact application startup time
+- Settings changes should be applied immediately without requiring restart
+
+## User Experience Goals
+
+### Visual Consistency
+- Achieve uniform appearance across all interface elements
+- Eliminate visual inconsistencies in spacing, colors, and typography
+- Create a cleaner, more professional interface design
+
+### Space Efficiency
+- Maximize content display area by removing unnecessary UI elements
+- Improve information density while maintaining usability
+- Reduce visual clutter through strategic element removal
+
+### Native Integration
+- Provide OS-native menu behavior and appearance
+- Follow platform-specific UI conventions and standards
+- Ensure proper integration with system themes and preferences
+
+## Success Criteria
+
+### Functional Requirements
+- All specified UI elements are successfully removed or relocated
+- Dynamic preview/information panel switching works correctly
+- System menu integration functions properly on target platforms
+- Keyboard shortcuts respond correctly on respective operating systems
+
+### Visual Requirements
+- Interface achieves consistent system font usage throughout
+- Status bar height and color match design specifications
+- Preview panel utilizes full available width effectively
+- Overall interface appears cleaner and more streamlined
+
+### Performance Requirements
+- No degradation in application responsiveness
+- Settings changes apply immediately
+- Panel transitions occur smoothly without visual artifacts

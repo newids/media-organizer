@@ -599,7 +599,7 @@ pub fn Sidebar(
                         display: flex;
                         align-items: center;
                         border-bottom: 1px solid var(--vscode-border, #464647);
-                        font-size: 11px;
+                        font-size: var(--vscode-font-size-small);
                         font-weight: bold;
                         color: var(--vscode-foreground, #cccccc);
                     ",
@@ -1054,7 +1054,7 @@ pub fn StatusBar(
                 display: flex;
                 align-items: center;
                 padding: 0 8px;
-                font-size: 12px;
+                font-size: var(--vscode-font-size-small);
             ",
             role: "status",
             "aria-label": "Application status bar",
@@ -1525,7 +1525,7 @@ pub fn TabContextMenuComponent(
                     z-index: 1000;
                     min-width: 180px;
                     padding: 4px 0;
-                    font-size: 13px;
+                    font-size: var(--vscode-font-size-normal);
                     color: var(--vscode-foreground, #cccccc);
                 ", context_menu.x, context_menu.y),
                 role: "menu",
@@ -2049,7 +2049,7 @@ fn get_panel_content(active_tab: crate::state::PanelTab) -> Element {
                     pre {
                         style: "
                             font-family: var(--vscode-font-mono);
-                            font-size: 12px;
+                            font-size: var(--vscode-font-size-small);
                             line-height: 1.4;
                             margin: 0;
                         ",
@@ -2071,7 +2071,7 @@ fn get_panel_content(active_tab: crate::state::PanelTab) -> Element {
                             border-radius: 4px;
                             padding: 12px;
                             font-family: var(--vscode-font-mono);
-                            font-size: 13px;
+                            font-size: var(--vscode-font-size-normal);
                             color: var(--vscode-terminal-foreground, #ffffff);
                         ",
                         p { "Terminal integration coming soon..." }

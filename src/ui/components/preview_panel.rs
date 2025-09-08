@@ -1204,7 +1204,7 @@ pub fn VideoPreview(
                                 padding: 8px 12px;
                                 color: white;
                                 font-size: 12px;
-                                font-family: monospace;
+                                font-family: var(--vscode-font-mono);
                                 display: flex;
                                 justify-content: space-between;
                                 align-items: center;
@@ -1383,7 +1383,7 @@ pub fn VideoPreview(
                         class: "video-time",
                         style: "
                             color: var(--color-text-primary, #cccccc);
-                            font-family: monospace;
+                            font-family: var(--vscode-font-mono);
                             font-size: var(--font-size-small, 13px);
                         ",
                         "{format_time(*current_time.read())} / {format_time(total_duration)}"
@@ -1681,7 +1681,7 @@ pub fn AudioPreview(
                         justify-content: space-between;
                         color: var(--color-text-secondary, #999999);
                         font-size: 11px;
-                        font-family: monospace;
+                        font-family: var(--vscode-font-mono);
                     ",
                     
                     span { "{format_time(*current_time.read())}" }
@@ -1862,7 +1862,7 @@ pub fn TextPreview(
             
             pre {
                 style: "
-                    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                    font-family: var(--vscode-font-mono);
                     font-size: 12px;
                     line-height: 1.4;
                     color: var(--color-text-primary, #cccccc);
@@ -1944,7 +1944,7 @@ pub fn ArchivePreview(
                         style: "
                             padding: var(--spacing-extra-small, 4px) var(--spacing-small, 8px);
                             color: var(--color-text-primary, #cccccc);
-                            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+                            font-family: var(--vscode-font-mono);
                             font-size: 12px;
                         ",
                         "{file_name}"

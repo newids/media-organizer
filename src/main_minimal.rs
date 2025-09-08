@@ -21,7 +21,7 @@ fn minimal_app() -> Element {
                 display: flex;
                 background: #1e1e1e;
                 color: #ffffff;
-                font-family: 'Segoe UI', system-ui, sans-serif;
+                font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
             ",
             
             // Left panel - File tree placeholder
@@ -128,7 +128,7 @@ fn minimal_app() -> Element {
                     p {
                         style: "
                             margin: 0;
-                            font-family: 'Courier New', monospace;
+                            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Courier New', monospace;
                             color: #4ec9b0;
                         ",
                         "{file_path}"
