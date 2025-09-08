@@ -781,7 +781,7 @@ body {
 .main-content {
   flex: 1;
   display: grid;
-  grid-template-columns: var(--panel-width, 300px) var(--vscode-resize-handle-width) 1fr;
+  grid-template-columns: var(--panel-width, 300px) 1px 1fr;
   grid-template-areas: "file-tree resize-handle content-viewer";
   overflow: hidden;
   gap: 0;
@@ -896,41 +896,25 @@ body {
 /* Resize Handle */
 .resize-handle {
   grid-area: resize-handle;
-  width: var(--vscode-resize-handle-width);
+  width: 1px;
+  max-width: 1px;
+  min-width: 1px;
   background-color: var(--vscode-border);
   cursor: col-resize;
   flex-shrink: 0;
   position: relative;
   transition: background-color var(--vscode-transition-fast);
   user-select: none;
+  height: 100%;
 }
 
 .resize-handle:hover {
-  background-color: var(--vscode-border-light);
+  background-color: var(--vscode-accent-muted, var(--vscode-border-light));
 }
 
 .resize-handle.dragging {
   background-color: var(--vscode-accent);
   transition: none;
-}
-
-.resize-handle::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 2px;
-  height: 20px;
-  background-color: var(--vscode-accent);
-  opacity: 0;
-  transition: opacity var(--vscode-transition-fast);
-  border-radius: 1px;
-}
-
-.resize-handle:hover::after,
-.resize-handle.dragging::after {
-  opacity: 0.7;
 }
 
 /* Content Viewer Panel */
