@@ -50,7 +50,6 @@ pub fn WorkingFileTree() -> Element {
         div {
             class: "working-file-tree",
             style: "
-                padding: 4px 0;
                 font-size: 13px;
                 color: var(--vscode-foreground, #cccccc);
                 user-select: none;

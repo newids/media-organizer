@@ -438,13 +438,6 @@ pub fn phase2_app() -> Element {
                         style: "{panel_dynamic_style}",
                     
                     // File tree header
-                    div {
-                        class: "file-tree-header",
-                        role: "banner",
-                        "aria-label": "File Explorer",
-                        title: "File Explorer",
-                        "Explorer"
-                    }
                     
                     // Virtual file tree content
                     div {
@@ -490,20 +483,8 @@ pub fn phase2_app() -> Element {
                             // Show the loaded file tree
                             if let Some(root_path) = app_state.get_file_tree_root() {
                                 div {
-                                    style: "padding: 10px;",
+                                    style: "",
                                     
-                                    // Show current folder path
-                                    div {
-                                        style: "margin-bottom: 10px; padding: 5px; background: var(--vscode-background-secondary, #1e1e1e); border-radius: 4px; font-size: 0.9em;",
-                                        span {
-                                            style: "color: var(--vscode-text-muted, #6a6a6a);",
-                                            "📁 "
-                                        }
-                                        span {
-                                            style: "color: var(--vscode-text-primary, #cccccc);",
-                                            {normalize_path_display(&root_path)}
-                                        }
-                                    }
                                     
                                     // Show loading state
                                     if app_state.is_file_tree_directory_loading(&root_path) {

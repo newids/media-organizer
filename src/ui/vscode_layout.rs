@@ -585,37 +585,9 @@ pub fn Sidebar(
             ),
             role: "complementary",
             "aria-label": "File explorer sidebar",
-            "aria-labelledby": "sidebar-header",
             tabindex: "0",
             
             if !is_collapsed {
-                // Sidebar Header
-                header {
-                    id: "sidebar-header",
-                    class: "sidebar-header",
-                    style: "
-                        height: 35px;
-                        padding: 0 16px;
-                        display: flex;
-                        align-items: center;
-                        border-bottom: 1px solid var(--vscode-border, #464647);
-                        font-size: var(--vscode-font-size-small);
-                        font-weight: bold;
-                        color: var(--vscode-foreground, #cccccc);
-                    ",
-                    role: "banner",
-                    title: "File Explorer",
-                    // Icon-based navigation instead of text label
-                    span {
-                        style: "
-                            display: inline-block;
-                            width: 16px;
-                            height: 16px;
-                            opacity: 0.7;
-                        ",
-                        "📁"
-                    }
-                }
                 
                 // Sidebar Content
                 div {
@@ -623,6 +595,8 @@ pub fn Sidebar(
                     style: "
                         flex: 1;
                         overflow: hidden;
+                        display: flex;
+                        flex-direction: column;
                     ",
                     
                     // Render content based on active activity view
