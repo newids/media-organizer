@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
 use crate::state::{save_panel_state_debounced, load_panel_state, use_app_state, use_file_entries, load_settings, save_settings_debounced, Theme};
-use crate::theme::{ThemeManager, ThemeSelector, EnhancedThemeSelector, use_theme_manager};
+use crate::theme::{ThemeManager, EnhancedThemeSelector, use_theme_manager};
 use crate::services::file_system::{FileEntry};
 use crate::ui::{use_shortcut_handler};
 use crate::utils::normalize_path_display;
@@ -10,9 +10,9 @@ use crate::ui::components::{
     DragPreview, DropZone, DragOperation,
     use_drag_drop, use_drop_zone,
     SettingsPanel, CommandPalette, ShortcutCheatSheet,
-    EmptyFileTree, PreviewPanel
+    EmptyFileTree, DynamicContentPanel
 };
-use crate::ui::components::preview_panel::FileSystemEntry;
+// use crate::ui::components::preview_panel::FileSystemEntry; // No longer needed - using DynamicContentPanel
 // use crate::ui::components::{VirtualFileTree};
 
 pub fn phase2_app() -> Element {
@@ -211,8 +211,8 @@ pub fn phase2_app() -> Element {
         // Note: In a real app, you'd want to handle this in window.onbeforeunload
     });
 
-    // Dynamic width style for the panel (only property that changes)
-    let panel_dynamic_style = format!("width: {}px;", panel_width.read());
+    // Dynamic CSS custom property for the main content grid layout
+    let main_content_style = format!("--panel-width: {}px;", panel_width.read());
     
     // Dynamic class for resize handle state
     let resize_handle_class = if *is_dragging.read() { 
@@ -419,6 +419,7 @@ pub fn phase2_app() -> Element {
                 class: "main-content",
                 role: "main",
                 "aria-label": "Main content",
+                style: "{main_content_style}",
                 
                 // Left Panel (File Tree) with Drop Zone
                 DropZone {
@@ -435,7 +436,6 @@ pub fn phase2_app() -> Element {
                         class: "{panel_class}",
                         role: "navigation",
                         "aria-label": "File explorer",
-                        style: "{panel_dynamic_style}",
                     
                     // File tree header
                     
@@ -898,53 +898,15 @@ pub fn phase2_app() -> Element {
                         // TODO: Handle file drop operation in content viewer
                     },
                     
-                    // Preview Panel - Create a derived signal for reactive updates
-                    {
-                        let mut selected_file_signal = use_signal(|| {
-                            selected_item.read().as_ref().map(|entry| {
-                                FileSystemEntry {
-                                    path: entry.path.clone(),
-                                    name: entry.name.clone(),
-                                    is_directory: entry.is_directory,
-                                    size: entry.size,
-                                    modified: entry.modified,
-                                    file_type: match &entry.file_type {
-                                        crate::services::file_system::FileType::Image(_) => Some("image".to_string()),
-                                        crate::services::file_system::FileType::Video(_) => Some("video".to_string()),
-                                        crate::services::file_system::FileType::Audio(_) => Some("audio".to_string()),
-                                        crate::services::file_system::FileType::Document(_) => Some("document".to_string()),
-                                        _ => None,
-                                    }
-                                }
-                            })
-                        });
+                    div {
+                        class: "content-viewer-panel",
+                        role: "region",
+                        "aria-label": "Content viewer and preview panel",
                         
-                        // Update the derived signal when selected_item changes
-                        use_effect(move || {
-                            let new_value = selected_item.read().as_ref().map(|entry| {
-                                FileSystemEntry {
-                                    path: entry.path.clone(),
-                                    name: entry.name.clone(),
-                                    is_directory: entry.is_directory,
-                                    size: entry.size,
-                                    modified: entry.modified,
-                                    file_type: match &entry.file_type {
-                                        crate::services::file_system::FileType::Image(_) => Some("image".to_string()),
-                                        crate::services::file_system::FileType::Video(_) => Some("video".to_string()),
-                                        crate::services::file_system::FileType::Audio(_) => Some("audio".to_string()),
-                                        crate::services::file_system::FileType::Document(_) => Some("document".to_string()),
-                                        _ => None,
-                                    }
-                                }
-                            });
-                            selected_file_signal.set(new_value);
-                        });
-                        
-                        rsx! {
-                            PreviewPanel {
-                                selected_file: selected_file_signal,
-                                preview_data: app_state.preview_data,
-                            }
+                        // Dynamic Content Panel - switches between Preview and Info panels based on file type
+                        DynamicContentPanel {
+                            selected_file: selected_item,
+                            preview_data: app_state.preview_data,
                         }
                     }
                 }

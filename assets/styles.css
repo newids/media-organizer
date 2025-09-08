@@ -780,18 +780,21 @@ body {
 /* Main Content Area */
 .main-content {
   flex: 1;
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--panel-width, 300px) 1fr;
+  grid-template-areas: "file-tree content-viewer";
   overflow: hidden;
+  gap: 0;
 }
 
 /* File Tree Panel */
 .file-tree-panel {
+  grid-area: file-tree;
   min-width: var(--vscode-panel-min-width);
   height: 100%;
   background-color: var(--vscode-secondary-background);
   border-right: 1px solid var(--vscode-border);
   overflow: auto;
-  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   transition: width var(--vscode-transition-normal);
@@ -800,6 +803,18 @@ body {
 
 .file-tree-panel.dragging {
   transition: none;
+}
+
+/* Content Viewer Panel (Right Panel) */
+.content-viewer-panel {
+  grid-area: content-viewer;
+  height: 100%;
+  background-color: var(--vscode-background);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0; /* Allow shrinking below content width */
 }
 
 /* File Tree Header */

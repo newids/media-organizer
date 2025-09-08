@@ -14,6 +14,8 @@ pub mod duplicate_manager;
 pub mod command_palette;
 pub mod shortcut_cheat_sheet;
 pub mod preview_panel;
+pub mod info_panel;
+pub mod dynamic_content_panel;
 pub mod empty_file_tree;
 
 // Re-export only actively used types to reduce warnings
@@ -36,6 +38,8 @@ pub use settings_panel::{SettingsPanel};
 pub use command_palette::{CommandPalette};
 pub use shortcut_cheat_sheet::{ShortcutCheatSheet};
 pub use preview_panel::{PreviewPanel, PreviewHeader, PreviewMetadata, LazyPreviewContentArea};
+pub use info_panel::{InfoPanel};
+pub use dynamic_content_panel::{DynamicContentPanel, PanelTypeIndicator};
 pub use empty_file_tree::{EmptyFileTree};
 // Note: duplicate_manager exports are only used internally by phase2_app
 // pub use duplicate_manager::{DuplicateManager};
