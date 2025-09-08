@@ -1024,11 +1024,12 @@ pub fn StatusBar(
                 grid-area: status;
                 background: var(--vscode-status-bar-background, #007acc);
                 color: var(--vscode-status-bar-foreground, #ffffff);
-                height: 22px;
+                height: var(--vscode-status-bar-height);
                 display: flex;
                 align-items: center;
-                padding: 0 8px;
-                font-size: var(--vscode-font-size-small);
+                padding: 0 var(--vscode-spacing-md);
+                font-family: var(--vscode-font-mono);
+                font-size: var(--vscode-font-size-normal);
             ",
             role: "status",
             "aria-label": "Application status bar",

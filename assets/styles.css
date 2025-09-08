@@ -1038,13 +1038,14 @@ body {
 /* Status Bar */
 .status-bar {
   height: var(--vscode-status-bar-height);
-  background-color: var(--vscode-tertiary-background);
+  background-color: var(--vscode-status-bar-background);
   border-top: 1px solid var(--vscode-border);
   display: flex;
   align-items: center;
   padding: 0 var(--vscode-spacing-md);
-  font-size: var(--vscode-font-size-small);
-  color: var(--vscode-text-secondary);
+  font-family: var(--vscode-font-mono);
+  font-size: var(--vscode-font-size-normal);
+  color: var(--vscode-status-bar-foreground);
   flex-shrink: 0;
   user-select: none;
 }
@@ -2040,8 +2041,9 @@ body {
   max-height: var(--vscode-status-bar-height);
   display: flex;
   align-items: center;
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 var(--vscode-spacing-md);
+  font-family: var(--vscode-font-mono);
+  font-size: var(--vscode-font-size-normal);
   border-top: 1px solid var(--vscode-border, #464647);
   flex-shrink: 0;
   overflow: hidden;

@@ -1471,7 +1471,7 @@
           29,
           31
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
@@ -1479,7 +1479,7 @@
             "description": "Review the existing status bar and file tree panel styles to identify discrepancies in font size, font family, background color, spacing, and alignment.",
             "dependencies": [],
             "details": "Document all style differences between the status bar and file tree panel, including typography, color, and spacing. Note any inconsistencies with other panels for reference.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Manual inspection and comparison of UI components. Capture screenshots for reference."
           },
           {
@@ -1490,7 +1490,7 @@
               "33.1"
             ],
             "details": "Apply design tokens for font size and family to the status bar styles. Ensure changes are scoped to the status bar and do not affect other components.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Visual regression and snapshot tests. Manual checks for font consistency."
           },
           {
@@ -1501,7 +1501,7 @@
               "33.1"
             ],
             "details": "Update the status bar background color to use the appropriate theme variable. Apply design tokens for color and spacing as needed.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Manual checks for color consistency. Automated visual regression tests."
           },
           {
@@ -1513,7 +1513,7 @@
               "33.3"
             ],
             "details": "Use design tokens for spacing. Adjust margins and padding as needed to achieve visual alignment with adjacent panels.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Manual visual validation. Automated snapshot tests for layout consistency."
           },
           {
@@ -1524,7 +1524,7 @@
               "33.4"
             ],
             "details": "Test the status bar on various devices and screen sizes. Run accessibility audits for color contrast and ARIA attributes.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "Responsive layout tests. Automated accessibility scans using tools like axe-core. Manual screen reader checks."
           }
         ]
@@ -1741,7 +1741,7 @@
     ],
     "metadata": {
       "created": "2025-08-11T15:50:46.096Z",
-      "updated": "2025-09-08T08:27:40.890Z",
+      "updated": "2025-09-08T09:00:54.182Z",
       "description": "Tasks for master context"
     }
   }
