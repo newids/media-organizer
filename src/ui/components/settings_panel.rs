@@ -218,7 +218,7 @@ pub fn SettingsPanel(
                             id: "settings-description",
                             class: "sr-only",
                             style: "position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;",
-                            "Configure application preferences and customize your MediaOrganizer experience"
+                            "Configure application preferences and customize your file manager experience"
                         }
                         
                         match *active_tab.read() {

@@ -83,7 +83,7 @@ pub fn VSCodeLayout(
                 width: 100vw;
             ", panel_height),
             role: "application",
-            "aria-label": "MediaOrganizer - VS Code style interface",
+            "aria-label": "File Manager - VS Code style interface",
             "aria-describedby": "app-instructions",
             tabindex: "0",
             onkeydown: move |evt| {
@@ -258,7 +258,7 @@ pub fn VSCodeLayout(
                     white-space: nowrap;
                     border: 0;
                 ",
-                "This is MediaOrganizer, a file management application with VS Code-style interface. 
+                "This is a file management application with VS Code-style interface. 
                 Use Tab to navigate between regions. Press Ctrl+1 through Ctrl+5 for direct activity bar access. 
                 Press Ctrl+Shift+P for command palette. Use Escape to return focus to main content area."
             }
@@ -1067,7 +1067,7 @@ pub fn StatusBar(
                 style: "display: flex; align-items: center; gap: 8px;",
                 
                 span { "Ready" }
-                span { "MediaOrganizer v0.1.0" }
+                span { "v0.1.0" }
             }
             
             // Spacer
@@ -1792,7 +1792,7 @@ pub fn EditorTabContentComponent(
                     div {
                         class: "welcome-content",
                         style: "text-align: center; margin-top: 40px;",
-                        h1 { style: "margin-bottom: 16px;", "Welcome to MediaOrganizer" }
+                        h1 { style: "margin-bottom: 16px;", "Welcome to File Manager" }
                         p { style: "margin-bottom: 8px;", "A VS Code-style media and file management application" }
                         p { "Select files from the explorer to open them in tabs" }
                     }
@@ -2053,7 +2053,7 @@ fn get_panel_content(active_tab: crate::state::PanelTab) -> Element {
                             line-height: 1.4;
                             margin: 0;
                         ",
-                        "MediaOrganizer v0.1.0\n"
+                        "File Manager v0.1.0\n"
                         "Initialized VS Code-style interface\n"
                         "Ready for file operations...\n"
                     }

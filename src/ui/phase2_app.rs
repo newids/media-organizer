@@ -10,7 +10,7 @@ use crate::ui::components::{
     DragPreview, DropZone, DragOperation,
     use_drag_drop, use_drop_zone,
     SettingsPanel, CommandPalette, ShortcutCheatSheet,
-    EmptyFileTree, PreviewPanel, MenuBar
+    EmptyFileTree, PreviewPanel
 };
 use crate::ui::components::preview_panel::FileSystemEntry;
 // use crate::ui::components::{VirtualFileTree};
@@ -260,31 +260,6 @@ pub fn phase2_app() -> Element {
                 drag_state.write().end_drag();
             },
             
-            // Menu bar
-            MenuBar {
-                on_open_folder: {
-                    let app_state_menu = app_state.clone();
-                    move |_| {
-                    let mut app_state_for_folder_select = app_state_menu.clone();
-                    // Open folder selection dialog
-                    spawn(async move {
-                        // Use the async folder selection dialog
-                        if let Some(folder) = rfd::AsyncFileDialog::new()
-                            .set_title("Select Folder to Open")
-                            .pick_folder()
-                            .await
-                        {
-                            let path = folder.path().to_path_buf();
-                            if let Err(e) = app_state_for_folder_select.handle_folder_change(path.clone()).await {
-                                tracing::error!("Failed to set root folder: {}", e);
-                            } else {
-                                tracing::info!("Root folder changed to: {:?}", path);
-                            }
-                        }
-                    });
-                }
-                }
-            }
             
             // Title bar
             div {
@@ -295,7 +270,7 @@ pub fn phase2_app() -> Element {
                 
                 h1 {
                     style: "margin: 0; font-size: inherit; font-weight: inherit;",
-                    "MediaOrganizer"
+                    ""
                 }
                 
                 // Enhanced Theme Selector in title bar

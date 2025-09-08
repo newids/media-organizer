@@ -15,7 +15,6 @@ pub mod command_palette;
 pub mod shortcut_cheat_sheet;
 pub mod preview_panel;
 pub mod empty_file_tree;
-pub mod menu_bar;
 
 // Re-export only actively used types to reduce warnings
 // pub use file_tree::{FileTree, FileTreeNode}; // Temporarily disabled
@@ -38,7 +37,6 @@ pub use command_palette::{CommandPalette};
 pub use shortcut_cheat_sheet::{ShortcutCheatSheet};
 pub use preview_panel::{PreviewPanel, PreviewHeader, PreviewMetadata, LazyPreviewContentArea};
 pub use empty_file_tree::{EmptyFileTree};
-pub use menu_bar::{MenuBar};
 // Note: duplicate_manager exports are only used internally by phase2_app
 // pub use duplicate_manager::{DuplicateManager};
 

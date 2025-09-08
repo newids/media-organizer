@@ -103,7 +103,7 @@ fn minimal_app() -> Element {
                         -webkit-background-clip: text;
                         -webkit-text-fill-color: transparent;
                     ",
-                    "🎯 MediaOrganizer"
+                    "🎯 File Manager"
                 }
                 p {
                     style: "
