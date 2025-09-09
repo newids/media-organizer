@@ -21,12 +21,14 @@ fn main() {
     // Load configuration
     let _config = AppConfig::default();
 
-    // Launch Dioxus desktop application with state provider
-    // Note: Custom MenuBar component has been removed as per UPGRADE-003
-    // Native menu bar integration is planned but requires direct tao/wry integration
-    // which is not currently implemented due to API limitations in Dioxus 0.6.3
+    // Launch Dioxus desktop application
+    // Note: Native system menu integration is not currently implemented
+    // due to API limitations in Dioxus 0.6.3. The current approach with
+    // muda/tao integration requires deeper integration that may need
+    // a custom desktop backend or waiting for future Dioxus releases.
     dioxus::launch(app);
 }
+
 
 // Root app component with state provider
 fn app() -> dioxus::prelude::Element {
