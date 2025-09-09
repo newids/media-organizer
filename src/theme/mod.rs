@@ -1,11 +1,20 @@
 use crate::state::{Theme, SettingsState, save_settings_debounced};
+use crate::performance::rendering_optimizations::{ThemeOptimizer, RenderingProfiler};
 use dioxus::prelude::*;
 
 #[cfg(feature = "web")]
 use wasm_bindgen::prelude::*;
 
 /// Theme management utilities for the MediaOrganizer application
-pub struct ThemeManager;
+pub struct ThemeManager {
+    optimizer: Option<ThemeOptimizer>,
+}
+
+impl Default for ThemeManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl ThemeManager {
     /// Apply a theme to the document root element
@@ -71,8 +80,42 @@ impl ThemeManager {
         }
     }
 
+    /// Create a new ThemeManager instance with optimizer
+    pub fn new() -> Self {
+        use std::sync::{Arc, Mutex};
+        
+        let profiler = Arc::new(Mutex::new(RenderingProfiler::new()));
+        Self {
+            optimizer: Some(ThemeOptimizer::new(profiler)),
+        }
+    }
+
     /// Detect system theme preference (true = dark, false = light)
+    /// Uses cached result if available to reduce system calls
     pub fn detect_system_theme() -> bool {
+        // Static optimizer for global theme detection
+        use std::sync::{Arc, Mutex};
+        use std::sync::OnceLock;
+        
+        static GLOBAL_THEME_OPTIMIZER: OnceLock<Arc<Mutex<ThemeOptimizer>>> = OnceLock::new();
+        let optimizer = GLOBAL_THEME_OPTIMIZER.get_or_init(|| {
+                let profiler = Arc::new(Mutex::new(RenderingProfiler::new()));
+            Arc::new(Mutex::new(ThemeOptimizer::new(profiler)))
+        });
+
+        if let Ok(mut opt) = optimizer.lock() {
+            if let Some(cached_theme) = opt.get_optimized_theme() {
+                tracing::debug!("Using cached theme detection: {}", if cached_theme == "dark" { "dark" } else { "light" });
+                return cached_theme == "dark";
+            }
+        }
+
+        // Fall back to actual detection if cache miss
+        Self::detect_system_theme_raw()
+    }
+
+    /// Raw system theme detection without caching
+    fn detect_system_theme_raw() -> bool {
         #[cfg(feature = "web")]
         {
             if let Some(window) = web_sys::window() {
@@ -366,9 +409,33 @@ impl ThemeManagerState {
     }
     
     /// Check if system theme has changed and update if in Auto mode
+    /// Uses throttled checking to improve performance
     pub fn check_system_theme_change(&mut self, settings: &mut SettingsState) -> bool {
         if !matches!(self.current_theme, Theme::Auto) {
             return false; // Not in Auto mode, no need to check
+        }
+        
+        // Use throttled theme detection with caching
+        use std::sync::{Arc, Mutex};
+        use std::sync::OnceLock;
+        
+        static GLOBAL_THEME_OPTIMIZER: OnceLock<Arc<Mutex<ThemeOptimizer>>> = OnceLock::new();
+        let optimizer = GLOBAL_THEME_OPTIMIZER.get_or_init(|| {
+                let profiler = Arc::new(Mutex::new(RenderingProfiler::new()));
+            Arc::new(Mutex::new(ThemeOptimizer::new(profiler)))
+        });
+
+        // For now, we'll check every few seconds but use throttling
+        let should_check = if let Ok(mut opt) = optimizer.lock() {
+            // Check if we have a cached result that's not too old
+            opt.get_optimized_theme().is_none()
+        } else {
+            true // Default to checking if lock fails
+        };
+
+        if !should_check {
+            tracing::debug!("Theme check throttled, using cached result");
+            return false;
         }
         
         let current_system_theme = ThemeManager::detect_system_theme();

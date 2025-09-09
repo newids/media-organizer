@@ -486,17 +486,16 @@ impl PerformanceStatus {
     }
 }
 
-/// Global performance profiler instance
-static mut GLOBAL_PROFILER: Option<PerformanceProfiler> = None;
-static PROFILER_INIT: std::sync::Once = std::sync::Once::new();
+use std::sync::{Mutex, OnceLock};
+
+/// Global performance profiler instance using thread-safe OnceLock
+static GLOBAL_PROFILER: OnceLock<Mutex<PerformanceProfiler>> = OnceLock::new();
 
 /// Initialize the global performance profiler
 pub fn init_profiler() {
-    PROFILER_INIT.call_once(|| {
-        unsafe {
-            GLOBAL_PROFILER = Some(PerformanceProfiler::new());
-        }
+    GLOBAL_PROFILER.get_or_init(|| {
         info!("Performance profiler initialized");
+        Mutex::new(PerformanceProfiler::new())
     });
 }
 
@@ -505,9 +504,10 @@ pub fn with_profiler<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PerformanceProfiler) -> R,
 {
-    unsafe {
-        GLOBAL_PROFILER.as_mut().map(f)
-    }
+    GLOBAL_PROFILER
+        .get()
+        .and_then(|profiler| profiler.lock().ok())
+        .map(|mut profiler| f(&mut *profiler))
 }
 
 /// Convenience macro for measuring operation performance
@@ -612,7 +612,7 @@ mod tests {
         for i in 0..5 {
             let timer = profiler.start_operation(&format!("operation_{}", i));
             thread::sleep(Duration::from_millis(i * 10));
-            profiler.record_operation(timer, i, i % 2 == 0);
+            profiler.record_operation(timer, i as usize, i % 2 == 0);
         }
         
         let report = profiler.generate_report();

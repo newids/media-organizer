@@ -475,18 +475,17 @@ impl PersistenceService {
     }
 }
 
-/// Global persistence service instance
-static mut PERSISTENCE_SERVICE: Option<PersistenceService> = None;
-static mut INIT_ONCE: std::sync::Once = std::sync::Once::new();
+use std::sync::{Mutex, OnceLock};
+
+/// Global persistence service instance using thread-safe OnceLock
+static PERSISTENCE_SERVICE: OnceLock<Mutex<PersistenceService>> = OnceLock::new();
 
 /// Get the global persistence service instance
-pub fn get_persistence_service() -> &'static mut PersistenceService {
-    unsafe {
-        INIT_ONCE.call_once(|| {
-            PERSISTENCE_SERVICE = Some(PersistenceService::new());
-        });
-        PERSISTENCE_SERVICE.as_mut().unwrap()
-    }
+pub fn get_persistence_service() -> std::sync::MutexGuard<'static, PersistenceService> {
+    PERSISTENCE_SERVICE
+        .get_or_init(|| Mutex::new(PersistenceService::new()))
+        .lock()
+        .unwrap()
 }
 
 /// Convenience function to save panel state with debouncing

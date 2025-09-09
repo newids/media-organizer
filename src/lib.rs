@@ -4,6 +4,7 @@
 
 
 pub mod models;
+pub mod performance;
 pub mod services;
 pub mod state;
 pub mod theme;
@@ -19,6 +20,7 @@ pub use state::{LayoutState, Theme, ActivityBarPosition, SidebarPosition, PanelP
 // #[cfg(feature = "gpu-acceleration")]
 // pub use services::gpu_preview::{GpuPreviewRenderer, GpuPreviewConfig};
 pub use state::performance::{PerformanceProfiler, PerformanceReport, init_profiler, with_profiler};
+pub use performance::rendering_optimizations::{RenderingOptimizationSuite, ThemeOptimizer, DragOptimizer, VirtualScrollOptimizer, DOMBatchOptimizer, RenderingProfiler};
 
 // Temporarily disabled - performance profiling infrastructure
 /*

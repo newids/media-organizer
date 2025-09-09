@@ -1,5 +1,5 @@
 use std::time::{Duration, Instant};
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use crate::state::{LayoutState, Theme, ActivityBarView, SidebarContent, EditorLayoutConfig, PanelTab};
 
 /// Advanced batch update system for optimizing layout state changes

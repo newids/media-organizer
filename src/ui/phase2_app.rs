@@ -1,6 +1,6 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
-use crate::state::{save_panel_state_debounced, load_panel_state, use_app_state, use_file_entries, load_settings, save_settings_debounced, Theme, SettingsState};
+use crate::state::{save_panel_state_debounced, load_panel_state, use_app_state, use_file_entries, load_settings, save_settings_debounced};
 use crate::theme::{ThemeManager, use_theme_manager};
 use crate::services::file_system::{FileEntry};
 use crate::ui::{use_shortcut_handler};

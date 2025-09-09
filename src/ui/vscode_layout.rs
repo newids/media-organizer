@@ -1,14 +1,15 @@
 use dioxus::prelude::*;
-use dioxus::events::{KeyboardEvent, MouseEvent, DragData, MouseData, DragEvent};
+use dioxus::events::{MouseEvent, DragData, MouseData};
 use dioxus_free_icons::{Icon, icons::fa_solid_icons};
-use crate::state::{ActivityBarView, use_activity_bar_view, use_sidebar_state, use_editor_state, use_panel_state, EditorGroup, EditorTab, TabType, EditorLayoutConfig, TabDragOperation, TabContextMenu, PanelTab};
-use crate::services::preview::{PreviewData, PreviewContent};
+use crate::state::{ActivityBarView, use_activity_bar_view, use_sidebar_state, use_editor_state, use_panel_state, TabDragOperation, TabContextMenu};
+// Removed unused preview imports
 use crate::ui::components::{WorkingFileTree, PreviewPanel};
 use crate::ui::components::preview_panel::FileSystemEntry;
 
-/// Global resize state for tracking active resize operations
-static mut GLOBAL_RESIZE_STATE: Option<GlobalResizeState> = None;
-static mut RESIZE_STATE_INIT: std::sync::Once = std::sync::Once::new();
+use std::sync::{Mutex, OnceLock};
+
+/// Global resize state for tracking active resize operations using thread-safe OnceLock
+static GLOBAL_RESIZE_STATE: OnceLock<Mutex<GlobalResizeState>> = OnceLock::new();
 
 #[derive(Debug, Clone)]
 struct GlobalResizeState {
@@ -28,13 +29,11 @@ impl Default for GlobalResizeState {
 }
 
 /// Get or initialize the global resize state
-fn get_global_resize_state() -> &'static mut GlobalResizeState {
-    unsafe {
-        RESIZE_STATE_INIT.call_once(|| {
-            GLOBAL_RESIZE_STATE = Some(GlobalResizeState::default());
-        });
-        GLOBAL_RESIZE_STATE.as_mut().unwrap()
-    }
+fn get_global_resize_state() -> std::sync::MutexGuard<'static, GlobalResizeState> {
+    GLOBAL_RESIZE_STATE
+        .get_or_init(|| Mutex::new(GlobalResizeState::default()))
+        .lock()
+        .unwrap()
 }
 
 /// Main VS Code-like layout component
@@ -957,7 +956,7 @@ pub fn Panel(
                     let mut resize_start_height = resize_start_height.clone();
                     let panel_state = panel_state.clone();
                     move |evt: Event<MouseData>| {
-                        let resize_state = get_global_resize_state();
+                        let mut resize_state = get_global_resize_state();
                         
                         // Set local component state
                         is_resizing.set(true);
@@ -2165,7 +2164,7 @@ fn handle_global_mouse_move(evt: Event<MouseData>, mut panel_state: Signal<crate
 
 /// Global mouse up handler to end panel resizing
 fn handle_global_mouse_up(panel_state: Signal<crate::state::PanelState>) {
-    let resize_state = get_global_resize_state();
+    let mut resize_state = get_global_resize_state();
     
     // Only process if we were actually resizing
     if resize_state.is_panel_resizing {
