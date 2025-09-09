@@ -203,26 +203,37 @@ impl TextPreviewHandler {
 
     /// Extract preview text with intelligent truncation
     fn extract_preview_text(content: &str, max_length: usize) -> String {
-        if content.len() <= max_length {
+        if content.chars().count() <= max_length {
+            return content.to_string();
+        }
+        
+        // Convert to chars for safe indexing
+        let chars: Vec<char> = content.chars().collect();
+        if chars.len() <= max_length {
             return content.to_string();
         }
         
         // Try to break at a natural point (line ending)
-        if let Some(pos) = content[..max_length].rfind('\n') {
+        let substring: String = chars[..max_length].iter().collect();
+        if let Some(pos) = substring.rfind('\n') {
             if pos > max_length / 2 { // Don't break too early
-                return format!("{}...", content[..pos].trim_end());
+                let truncated: String = chars[..pos].iter().collect();
+                return format!("{}...", truncated.trim_end());
             }
         }
         
         // Try to break at word boundary
-        if let Some(pos) = content[..max_length].rfind(' ') {
+        if let Some(pos) = substring.rfind(' ') {
             if pos > max_length / 2 {
-                return format!("{}...", content[..pos].trim_end());
+                let truncated: String = chars[..pos].iter().collect();
+                return format!("{}...", truncated.trim_end());
             }
         }
         
-        // Hard truncation as last resort
-        format!("{}...", &content[..max_length.saturating_sub(3)])
+        // Hard truncation as last resort - safe char boundary
+        let safe_length = max_length.saturating_sub(3);
+        let truncated: String = chars[..safe_length].iter().collect();
+        format!("{}...", truncated)
     }
 
     /// Extract text metadata
