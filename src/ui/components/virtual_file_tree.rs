@@ -243,7 +243,7 @@ pub fn VirtualFileTree(props: VirtualFileTreeProps) -> Element {
     rsx! {
         div {
             class: "virtual-file-tree",
-            style: format!("height: {}px; overflow-y: auto; position: relative;", props.container_height),
+            style: format!("height: {}px; overflow-y: auto; position: relative;", props.container_height).as_str(),
             tabindex: "0", // Make container focusable for keyboard events
             onfocus: move |_| {
                 container_focused.set(true);

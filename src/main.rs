@@ -1,6 +1,7 @@
 use tracing::info;
 
 mod models;
+mod performance;
 mod services;
 mod state;
 mod theme;

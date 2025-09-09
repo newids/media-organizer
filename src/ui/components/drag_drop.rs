@@ -2,6 +2,19 @@ use dioxus::prelude::*;
 use std::path::PathBuf;
 use crate::services::FileEntry;
 use crate::state::{use_app_state};
+use crate::performance::rendering_optimizations::{DragOptimizer, RenderingProfiler};
+use std::sync::{Arc, Mutex};
+use std::sync::OnceLock;
+
+/// Global drag optimizer instance
+static GLOBAL_DRAG_OPTIMIZER: OnceLock<Arc<Mutex<DragOptimizer>>> = OnceLock::new();
+
+fn get_drag_optimizer() -> &'static Arc<Mutex<DragOptimizer>> {
+    GLOBAL_DRAG_OPTIMIZER.get_or_init(|| {
+        let profiler = Arc::new(Mutex::new(RenderingProfiler::new()));
+        Arc::new(Mutex::new(DragOptimizer::new(profiler)))
+    })
+}
 
 /// Drag and drop operation types
 #[derive(Debug, Clone, PartialEq)]
@@ -80,12 +93,25 @@ impl DragState {
         self.current_position = (start_x, start_y);
         self.drag_preview_visible = true;
         
-        tracing::info!("Started drag operation: {:?} with {} files", operation, self.drag_files.len());
+        // Use DragOptimizer to debounce excessive logging
+        if let Ok(mut optimizer) = get_drag_optimizer().try_lock() {
+            if optimizer.process_drag_event(format!("start:{:?}", operation)) {
+                tracing::info!("Started drag operation: {:?} with {} files", operation, self.drag_files.len());
+            }
+        }
     }
 
     pub fn update_position(&mut self, x: f64, y: f64) {
         if self.is_dragging {
-            self.current_position = (x, y);
+            // Use DragOptimizer to batch position updates
+            if let Ok(mut optimizer) = get_drag_optimizer().try_lock() {
+                if optimizer.process_drag_event(format!("position:{:.1},{:.1}", x, y)) {
+                    self.current_position = (x, y);
+                }
+            } else {
+                // Fallback if optimizer is locked
+                self.current_position = (x, y);
+            }
         }
     }
 
@@ -100,7 +126,12 @@ impl DragState {
         self.drag_files.clear();
         self.drag_preview_visible = false;
         
-        tracing::info!("Ended drag operation");
+        // Use DragOptimizer to debounce excessive logging
+        if let Ok(mut optimizer) = get_drag_optimizer().try_lock() {
+            if optimizer.process_drag_event("end".to_string()) {
+                tracing::info!("Ended drag operation");
+            }
+        }
     }
 
     pub fn get_drag_distance(&self) -> f64 {

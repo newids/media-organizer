@@ -779,8 +779,7 @@ pub fn phase2_app() -> Element {
                                                                     client_y,
                                                                     operation
                                                                 );
-                                                                
-                                                                tracing::info!("Started dragging: {}", entry_clone_drag.name);
+                                                                // Removed redundant logging - already logged optimally in DragState::start_drag
                                                             },
                                                             
                                                             // Hidden details for screen readers

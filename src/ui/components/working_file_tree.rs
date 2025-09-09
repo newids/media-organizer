@@ -4,6 +4,19 @@ use std::path::PathBuf;
 use crate::services::FileEntry;
 use crate::state::{use_file_tree_state, use_app_state};
 use crate::utils::{normalize_path_display, path_to_element_id};
+use crate::ui::components::virtual_scroll::VirtualScrollCalculator;
+use crate::performance::rendering_optimizations::{VirtualScrollOptimizer, RenderingProfiler};
+use std::sync::{Arc, Mutex, OnceLock};
+
+/// Global virtual scroll optimizer for file tree
+static GLOBAL_FILE_TREE_VIRTUAL_SCROLL_OPTIMIZER: OnceLock<Arc<Mutex<VirtualScrollOptimizer>>> = OnceLock::new();
+
+fn get_file_tree_virtual_scroll_optimizer() -> &'static Arc<Mutex<VirtualScrollOptimizer>> {
+    GLOBAL_FILE_TREE_VIRTUAL_SCROLL_OPTIMIZER.get_or_init(|| {
+        let profiler = Arc::new(Mutex::new(RenderingProfiler::new()));
+        Arc::new(Mutex::new(VirtualScrollOptimizer::new(profiler)))
+    })
+}
 
 /// Working file tree component for sidebar navigation
 #[component]
@@ -12,6 +25,10 @@ pub fn WorkingFileTree() -> Element {
     let app_state = use_app_state();
     let focused_item = use_signal(|| None::<std::path::PathBuf>); // Track focused item for keyboard nav
     let file_service = app_state.file_service.clone(); // Clone early to avoid borrow issues
+    
+    // Virtual scrolling optimization signals
+    let mut use_virtual_scrolling = use_signal(|| false);
+    let mut virtual_scroll_stats = use_signal(|| std::collections::HashMap::<String, f64>::new());
     
     // Initialize root directory if not set
     use_effect({
@@ -45,6 +62,36 @@ pub fn WorkingFileTree() -> Element {
         .cloned()
         .unwrap_or_default();
     drop(tree_state);
+    
+    // Virtual scrolling optimization check using VirtualScrollOptimizer
+    if children.len() > 100 {
+        let calculator = VirtualScrollCalculator::new(24.0, 400.0, 10, children.len());
+        let config = calculator.get_optimized_config();
+        
+        // Use VirtualScrollOptimizer to enhance decision-making
+        if let Ok(mut optimizer) = get_file_tree_virtual_scroll_optimizer().try_lock() {
+            optimizer.update_viewport(400.0, 0.0); // Container height, current scroll
+            optimizer.set_total_items(children.len());
+            
+            let should_use_virtual = optimizer.should_use_virtual_scrolling();
+            let stats = optimizer.get_virtual_scroll_stats();
+            
+            use_virtual_scrolling.set(should_use_virtual);
+            virtual_scroll_stats.set(stats);
+            
+            if should_use_virtual {
+                tracing::debug!("WorkingFileTree: Using optimized virtual scrolling for {} items", children.len());
+            }
+        } else {
+            // Fallback to basic calculator
+            use_virtual_scrolling.set(config.should_use_virtual_scroll);
+            virtual_scroll_stats.set(config.stats);
+            
+            if config.should_use_virtual_scroll {
+                tracing::debug!("WorkingFileTree: Using basic virtual scrolling for {} items", children.len());
+            }
+        }
+    }
     
     rsx! {
         div {

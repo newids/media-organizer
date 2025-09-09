@@ -1,4 +1,16 @@
 use std::cmp;
+use crate::performance::rendering_optimizations::{VirtualScrollOptimizer, RenderingProfiler};
+use std::sync::{Arc, Mutex, OnceLock};
+
+/// Global virtual scroll optimizer instance
+static GLOBAL_VIRTUAL_SCROLL_OPTIMIZER: OnceLock<Arc<Mutex<VirtualScrollOptimizer>>> = OnceLock::new();
+
+fn get_virtual_scroll_optimizer() -> &'static Arc<Mutex<VirtualScrollOptimizer>> {
+    GLOBAL_VIRTUAL_SCROLL_OPTIMIZER.get_or_init(|| {
+        let profiler = Arc::new(Mutex::new(RenderingProfiler::new()));
+        Arc::new(Mutex::new(VirtualScrollOptimizer::new(profiler)))
+    })
+}
 
 /// Core virtual scrolling calculation engine for handling large lists efficiently
 /// Designed to handle 10,000+ items with constant memory usage and optimal performance
@@ -12,6 +24,14 @@ pub struct VirtualScrollCalculator {
     pub buffer_size: usize,
     /// Total number of items in the dataset
     pub total_items: usize,
+}
+
+/// Configuration for optimized virtual scrolling performance
+#[derive(Debug, Clone)]
+pub struct OptimizedVirtualScrollConfig {
+    pub should_use_virtual_scroll: bool,
+    pub recommended_buffer_size: usize,
+    pub stats: std::collections::HashMap<String, f64>,
 }
 
 /// Represents the calculated range of items that should be rendered
@@ -103,6 +123,28 @@ impl VirtualScrollCalculator {
         let viewport_bottom = scroll_top + self.container_height;
 
         item_bottom > scroll_top && item_top < viewport_bottom
+    }
+
+    /// Get optimized virtual scrolling configuration using performance analytics
+    pub fn get_optimized_config(&self) -> OptimizedVirtualScrollConfig {
+        if let Ok(mut optimizer) = get_virtual_scroll_optimizer().try_lock() {
+            // Update optimizer with current parameters
+            optimizer.update_viewport(self.container_height, 0.0); // scroll position will be updated by caller
+            optimizer.set_total_items(self.total_items);
+            
+            OptimizedVirtualScrollConfig {
+                should_use_virtual_scroll: optimizer.should_use_virtual_scrolling(),
+                recommended_buffer_size: if self.total_items > 1000 { 20 } else { self.buffer_size },
+                stats: optimizer.get_virtual_scroll_stats(),
+            }
+        } else {
+            // Fallback configuration
+            OptimizedVirtualScrollConfig {
+                should_use_virtual_scroll: self.total_items > 100,
+                recommended_buffer_size: self.buffer_size,
+                stats: std::collections::HashMap::new(),
+            }
+        }
     }
 
     /// Calculate scroll position needed to bring a specific item into view

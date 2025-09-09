@@ -2,7 +2,7 @@
 // Contains reusable UI components for the MediaOrganizer application
 
 pub mod virtual_scroll;
-// pub mod virtual_file_tree;
+// pub mod virtual_file_tree; // Has type annotation issues - will fix later
 // pub mod file_tree; // Temporarily disabled due to syntax error
 // pub mod file_tree_simple; // Temporarily disabled due to syntax error
 pub mod working_file_tree;
