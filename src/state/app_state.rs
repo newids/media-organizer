@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::services::{FileEntry};
 use crate::services::file_system::{FileSystemService, NativeFileSystemService};
 use crate::services::preview::{PreviewData};
-use crate::services::preview_service::{PreviewService, PreviewServiceConfig};
+use crate::services::preview::PreviewService;
 use crate::state::navigation::{NavigationState, SelectionState};
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -210,7 +210,7 @@ pub struct AppState {
     /// File system service for operations
     pub file_service: Arc<dyn FileSystemService>,
     /// Preview service for generating file previews and thumbnails
-    pub preview_service: Arc<PreviewService<NativeFileSystemService>>,
+    pub preview_service: Arc<PreviewService>,
     /// Current preview data for selected file
     pub preview_data: Signal<Option<PreviewData>>,
 }
@@ -1105,11 +1105,8 @@ impl AppState {
         // Create shared file service
         let file_service = Arc::new(NativeFileSystemService::new());
         
-        // Create preview service with the file service
-        let preview_service = Arc::new(PreviewService::new(
-            file_service.clone(),
-            PreviewServiceConfig::default()
-        ));
+        // Create preview service and register default providers  
+        let preview_service = Arc::new(PreviewService::new().with_default_providers());
         
         Self {
             layout_state: use_signal(LayoutState::default),
@@ -1639,46 +1636,12 @@ impl AppState {
         tracing::info!("Generating preview for: {:?}", file_path);
         
         // Generate preview using the preview service
-        match self.preview_service.get_preview(&file_path).await {
-            Ok(Some(cached_preview)) => {
-                // Convert cached preview data to PreviewData format
-                let preview_data = crate::services::preview::PreviewData {
-                    file_path: file_path.clone(),
-                    format: file_path.extension()
-                        .and_then(|ext| ext.to_str())
-                        .and_then(crate::services::preview::SupportedFormat::from_extension)
-                        .unwrap_or(crate::services::preview::SupportedFormat::Jpeg),
-                    thumbnail_path: None, // Cached preview uses in-memory data
-                    metadata: crate::services::preview::FileMetadata {
-                        file_size: cached_preview.original_size as u64,
-                        modified: Some(std::time::SystemTime::now()),
-                        created: Some(std::time::SystemTime::now()),
-                        width: None,
-                        height: None,
-                        duration: None,
-                        bit_rate: None,
-                        sample_rate: None,
-                        codec: None,
-                        title: None,
-                        artist: None,
-                        album: None,
-                        year: None,
-                        page_count: None,
-                        color_space: None,
-                        compression: None,
-                        exif_data: None,
-                    },
-                    preview_content: crate::services::preview::PreviewContent::Image {
-                        thumbnail_data: cached_preview.data,
-                        original_format: cached_preview.format,
-                    },
-                    generated_at: std::time::SystemTime::now(),
-                };
-                
+        match self.preview_service.generate_preview(&file_path).await {
+            Ok(preview_data) => {
                 tracing::info!("Successfully generated preview for: {:?}", file_path);
                 Ok(Some(preview_data))
             }
-            Ok(None) => {
+            Err(err) if matches!(err, crate::services::preview::PreviewError::UnsupportedFormat(..)) => {
                 tracing::debug!("No preview available for: {:?}", file_path);
                 Ok(None)
             }
