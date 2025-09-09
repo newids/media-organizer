@@ -1031,24 +1031,29 @@ pub fn phase2_app() -> Element {
             }
             
             // Settings Dialog (new)
-            SettingsDialog {
-                visible: *settings_dialog_visible.read(),
-                current_settings: current_settings,
-                on_close: move |_| {
-                    settings_dialog_visible.set(false);
-                },
-                on_settings_change: move |new_settings: crate::state::SettingsState| {
-                    // Update the current_settings signal
-                    current_settings.set(new_settings.clone());
-                    
-                    // Update theme manager with manual override tracking
-                    let mut settings_clone = new_settings.clone();
-                    theme_manager.write().set_theme_with_override(new_settings.theme.clone(), &mut settings_clone, true);
-                    
-                    // Save to persistence
-                    save_settings_debounced(new_settings.clone());
-                    
-                    tracing::info!("Settings changed from settings dialog: {:?}", new_settings);
+            {
+                let mut theme_manager_for_dialog = theme_manager.clone();
+                rsx! {
+                    SettingsDialog {
+                        visible: *settings_dialog_visible.read(),
+                        current_settings: current_settings,
+                        on_close: move |_| {
+                            settings_dialog_visible.set(false);
+                        },
+                        on_settings_change: move |new_settings: crate::state::SettingsState| {
+                            // Update the current_settings signal
+                            current_settings.set(new_settings.clone());
+                            
+                            // Update theme manager with manual override tracking
+                            let mut settings_clone = new_settings.clone();
+                            theme_manager_for_dialog.write().set_theme_with_override(new_settings.theme.clone(), &mut settings_clone, true);
+                            
+                            // Save to persistence
+                            save_settings_debounced(new_settings.clone());
+                            
+                            tracing::info!("Settings changed from settings dialog: {:?}", new_settings);
+                        }
+                    }
                 }
             }
             
