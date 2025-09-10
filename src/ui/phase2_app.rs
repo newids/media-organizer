@@ -26,10 +26,10 @@ pub fn phase2_app() -> Element {
     let mut drag_start_width = use_signal(|| 300.0f64);
     
     // Get shared application state
-    let app_state = use_app_state();
+    let mut app_state = use_app_state();
     let app_state_for_load = app_state.clone();
     let app_state_for_status = app_state.clone();
-    let app_state_for_folder_select = app_state.clone();
+    let mut app_state_for_folder_select = app_state.clone();
     let mut app_state_for_startup = app_state.clone();
     let file_entries = use_file_entries();
     
@@ -66,8 +66,8 @@ pub fn phase2_app() -> Element {
     // Initialize settings panel state
     let mut settings_panel_visible = use_signal(|| false);
     
-    // Initialize settings dialog state
-    let mut settings_dialog_visible = use_signal(|| false);
+    // Use settings dialog state from AppState (replaces local signal)
+    // let mut settings_dialog_visible = use_signal(|| false); // Removed - now using app_state.settings_dialog_visible
     
     // Initialize folder selection state
     
@@ -123,7 +123,7 @@ pub fn phase2_app() -> Element {
             
             // Check for settings shortcut (Ctrl+,)
             if key_str == "," && ctrl && !shift && !alt && !meta {
-                settings_dialog_visible.set(true);
+                app_state_for_shortcuts.settings_dialog_visible.set(true);
                 evt.prevent_default();
                 tracing::info!("Settings dialog opened via keyboard shortcut");
                 return;
@@ -292,8 +292,11 @@ pub fn phase2_app() -> Element {
                             align-items: center;
                             gap: 4px;
                         ",
-                        onclick: move |_| {
-                            settings_dialog_visible.set(true);
+                        onclick: {
+                            let mut app_state_clone = app_state.clone();
+                            move |_| {
+                                app_state_clone.settings_dialog_visible.set(true);
+                            }
                         },
                         span { style: "font-size: 16px;", "⚙️" }
                         "Settings"
@@ -1033,26 +1036,35 @@ pub fn phase2_app() -> Element {
             // Settings Dialog (new)
             {
                 let mut theme_manager_for_dialog = theme_manager.clone();
+                let is_settings_visible = *app_state.settings_dialog_visible.read();
                 rsx! {
                     SettingsDialog {
-                        visible: *settings_dialog_visible.read(),
+                        visible: is_settings_visible,
                         current_settings: current_settings,
                         on_close: move |_| {
-                            settings_dialog_visible.set(false);
+                            app_state.settings_dialog_visible.set(false);
                         },
-                        on_settings_change: move |new_settings: crate::state::SettingsState| {
-                            // Update the current_settings signal
-                            current_settings.set(new_settings.clone());
-                            
-                            // Update theme manager with manual override tracking
-                            let mut settings_clone = new_settings.clone();
-                            theme_manager_for_dialog.write().set_theme_with_override(new_settings.theme.clone(), &mut settings_clone, true);
-                            
-                            // Save to persistence
-                            save_settings_debounced(new_settings.clone());
-                            
-                            tracing::info!("Settings changed from settings dialog: {:?}", new_settings);
-                        }
+                        on_settings_change: {
+                            let mut current_settings_clone = current_settings.clone();
+                            move |new_settings: crate::state::SettingsState| {
+                                // Clone settings for async task
+                                let settings_for_async = new_settings.clone();
+                                
+                                // Update the current_settings signal in a separate task to avoid borrow conflicts
+                                spawn(async move {
+                                    current_settings_clone.set(settings_for_async);
+                                });
+                                
+                                // Update theme manager with manual override tracking
+                                let mut settings_clone = new_settings.clone();
+                                theme_manager_for_dialog.write().set_theme_with_override(new_settings.theme.clone(), &mut settings_clone, true);
+                                
+                                // Save to persistence
+                                save_settings_debounced(new_settings.clone());
+                                
+                                tracing::info!("Settings changed from settings dialog: {:?}", new_settings);
+                            }
+                        },
                     }
                 }
             }

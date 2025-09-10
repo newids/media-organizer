@@ -14,6 +14,7 @@ pub mod tests;
 // Centralized state management - only export actively used types
 pub use app_state::{
     AppState, ViewMode, ActivityBarView, SidebarState, FileTreeState, SearchState, OperationState, Theme, SettingsState,
+    FontFamily, FontSize,
     EditorState, EditorGroup, EditorTab, TabType, PreviewType, EditorLayoutConfig, EditorGroupPosition, TabDragOperation,
     TabContextMenu, PanelTab, PanelState,
     // New unified layout state types

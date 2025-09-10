@@ -1,3 +1,10 @@
+pub mod color_theme;
+pub mod theme_implementations;
+pub mod theme_manager;
+
+pub use color_theme::{ColorTheme, ThemeColors, TokenColor, TokenSettings, SemanticColors, SemanticColorRule};
+pub use theme_manager::{VsCodeThemeManager, VsCodeThemeSelector, use_vscode_theme_manager};
+
 use crate::state::{Theme, SettingsState, save_settings_debounced};
 use crate::performance::rendering_optimizations::{ThemeOptimizer, RenderingProfiler};
 use dioxus::prelude::*;
@@ -5,9 +12,11 @@ use dioxus::prelude::*;
 #[cfg(feature = "web")]
 use wasm_bindgen::prelude::*;
 
-/// Theme management utilities for the MediaOrganizer application
+/// Legacy theme management utilities for backwards compatibility
+/// For new development, use VsCodeThemeManager instead
 pub struct ThemeManager {
     optimizer: Option<ThemeOptimizer>,
+    vscode_manager: VsCodeThemeManager,
 }
 
 impl Default for ThemeManager {
@@ -18,7 +27,22 @@ impl Default for ThemeManager {
 
 impl ThemeManager {
     /// Apply a theme to the document root element
+    /// This method now integrates with the VSCode theme system
     pub fn apply_theme(theme: &Theme) {
+        // Create a temporary VSCode theme manager for the application
+        let mut vscode_manager = VsCodeThemeManager::new();
+        
+        // Apply theme through VSCode manager for enhanced styling
+        if let Err(e) = vscode_manager.set_theme_from_simple(theme) {
+            tracing::warn!("Failed to apply VSCode theme: {}", e);
+            
+            // Fallback to legacy theme application
+            Self::apply_legacy_theme(theme);
+        }
+    }
+    
+    /// Legacy theme application for backwards compatibility
+    fn apply_legacy_theme(theme: &Theme) {
         #[cfg(feature = "web")]
         {
             if let Some(window) = web_sys::window() {
@@ -87,6 +111,7 @@ impl ThemeManager {
         let profiler = Arc::new(Mutex::new(RenderingProfiler::new()));
         Self {
             optimizer: Some(ThemeOptimizer::new(profiler)),
+            vscode_manager: VsCodeThemeManager::new(),
         }
     }
 
@@ -314,6 +339,16 @@ impl ThemeManager {
         if !settings.custom_css_variables.is_empty() {
             Self::apply_custom_css_variables(&settings.custom_css_variables);
         }
+    }
+    
+    /// Get access to the VSCode theme manager
+    pub fn vscode_manager(&mut self) -> &mut VsCodeThemeManager {
+        &mut self.vscode_manager
+    }
+    
+    /// Get read-only access to the VSCode theme manager
+    pub fn vscode_manager_ref(&self) -> &VsCodeThemeManager {
+        &self.vscode_manager
     }
 }
 

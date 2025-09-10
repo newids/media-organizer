@@ -10,6 +10,7 @@ pub mod dialogs;
 pub mod context_menu;
 pub mod drag_drop;
 pub mod settings_panel;
+pub mod vscode_settings_dialog;
 pub mod duplicate_manager;
 pub mod command_palette;
 pub mod shortcut_cheat_sheet;
@@ -36,6 +37,7 @@ pub use drag_drop::{
     use_drag_drop, use_drop_zone
 };
 pub use settings_panel::{SettingsPanel};
+pub use vscode_settings_dialog::{VsCodeSettingsDialog};
 pub use command_palette::{CommandPalette};
 pub use shortcut_cheat_sheet::{ShortcutCheatSheet};
 pub use preview_panel::{PreviewPanel, PreviewHeader, PreviewMetadata, LazyPreviewContentArea};

@@ -207,6 +207,8 @@ pub struct AppState {
     pub command_registry: Signal<CommandRegistry>,
     /// Shortcut cheat sheet state (visibility)
     pub cheat_sheet_visible: Signal<bool>,
+    /// Settings dialog state (visibility)
+    pub settings_dialog_visible: Signal<bool>,
     /// File system service for operations
     pub file_service: Arc<dyn FileSystemService>,
     /// Preview service for generating file previews and thumbnails
@@ -620,11 +622,165 @@ impl Theme {
     }
 }
 
+/// Font family options for the application
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FontFamily {
+    System,
+    SegoeUI,
+    Roboto,
+    Inter,
+    SFPro,
+    Helvetica,
+    MonoCode,
+    MonoSpace,
+}
+
+impl Default for FontFamily {
+    fn default() -> Self {
+        FontFamily::System
+    }
+}
+
+impl FontFamily {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FontFamily::System => "system",
+            FontFamily::SegoeUI => "segoe-ui", 
+            FontFamily::Roboto => "roboto",
+            FontFamily::Inter => "inter",
+            FontFamily::SFPro => "sf-pro",
+            FontFamily::Helvetica => "helvetica",
+            FontFamily::MonoCode => "mono-code",
+            FontFamily::MonoSpace => "mono-space",
+        }
+    }
+    
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "system" => FontFamily::System,
+            "segoe-ui" => FontFamily::SegoeUI,
+            "roboto" => FontFamily::Roboto,
+            "inter" => FontFamily::Inter,
+            "sf-pro" => FontFamily::SFPro,
+            "helvetica" => FontFamily::Helvetica,
+            "mono-code" => FontFamily::MonoCode,
+            "mono-space" => FontFamily::MonoSpace,
+            _ => FontFamily::System,
+        }
+    }
+    
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            FontFamily::System => "System Default",
+            FontFamily::SegoeUI => "Segoe UI",
+            FontFamily::Roboto => "Roboto",
+            FontFamily::Inter => "Inter",
+            FontFamily::SFPro => "SF Pro",
+            FontFamily::Helvetica => "Helvetica",
+            FontFamily::MonoCode => "Monaco/Cascadia Code",
+            FontFamily::MonoSpace => "Monospace",
+        }
+    }
+    
+    pub fn css_value(&self) -> &'static str {
+        match self {
+            FontFamily::System => "system-ui, -apple-system, BlinkMacSystemFont, sans-serif",
+            FontFamily::SegoeUI => "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+            FontFamily::Roboto => "'Roboto', Arial, sans-serif",
+            FontFamily::Inter => "'Inter', Arial, sans-serif", 
+            FontFamily::SFPro => "'SF Pro Display', -apple-system, sans-serif",
+            FontFamily::Helvetica => "'Helvetica Neue', Helvetica, Arial, sans-serif",
+            FontFamily::MonoCode => "'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace",
+            FontFamily::MonoSpace => "'Courier New', Courier, monospace",
+        }
+    }
+    
+    pub fn get_all() -> Vec<FontFamily> {
+        vec![
+            FontFamily::System,
+            FontFamily::SegoeUI,
+            FontFamily::Roboto,
+            FontFamily::Inter,
+            FontFamily::SFPro,
+            FontFamily::Helvetica,
+            FontFamily::MonoCode,
+            FontFamily::MonoSpace,
+        ]
+    }
+}
+
+/// Font size options for the application
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum FontSize {
+    Small,   // 11px
+    Medium,  // 13px
+    Large,   // 15px
+    XLarge,  // 17px
+}
+
+impl Default for FontSize {
+    fn default() -> Self {
+        FontSize::Medium
+    }
+}
+
+impl FontSize {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            FontSize::Small => "small",
+            FontSize::Medium => "medium",
+            FontSize::Large => "large", 
+            FontSize::XLarge => "xlarge",
+        }
+    }
+    
+    pub fn from_str(s: &str) -> Self {
+        match s {
+            "small" => FontSize::Small,
+            "medium" => FontSize::Medium,
+            "large" => FontSize::Large,
+            "xlarge" => FontSize::XLarge,
+            _ => FontSize::Medium,
+        }
+    }
+    
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            FontSize::Small => "Small (11px)",
+            FontSize::Medium => "Medium (13px)",
+            FontSize::Large => "Large (15px)",
+            FontSize::XLarge => "Extra Large (17px)",
+        }
+    }
+    
+    pub fn css_value(&self) -> &'static str {
+        match self {
+            FontSize::Small => "11px",
+            FontSize::Medium => "13px",
+            FontSize::Large => "15px",
+            FontSize::XLarge => "17px",
+        }
+    }
+    
+    pub fn get_all() -> Vec<FontSize> {
+        vec![
+            FontSize::Small,
+            FontSize::Medium,
+            FontSize::Large,
+            FontSize::XLarge,
+        ]
+    }
+}
+
 /// Application settings and preferences
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SettingsState {
     /// Current theme selection
     pub theme: Theme,
+    /// Font family selection
+    pub font_family: FontFamily,
+    /// Font size selection
+    pub font_size: FontSize,
     /// Panel width preferences
     pub default_panel_width: f64,
     /// Default view mode for new directories
@@ -647,6 +803,8 @@ impl Default for SettingsState {
     fn default() -> Self {
         Self {
             theme: Theme::default(),
+            font_family: FontFamily::default(),
+            font_size: FontSize::default(),
             default_panel_width: 300.0,
             default_view_mode: ViewMode::default(),
             show_hidden_files: false,
@@ -1124,6 +1282,7 @@ impl AppState {
             settings: use_signal(SettingsState::default),
             command_registry: use_signal(CommandRegistry::default),
             cheat_sheet_visible: use_signal(|| false),
+            settings_dialog_visible: use_signal(|| false),
             file_service,
             preview_service,
             preview_data: use_signal(|| None),

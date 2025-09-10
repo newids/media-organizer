@@ -213,11 +213,35 @@ fn AppWithMenuHandlers() -> Element {
             },
             "refresh" => {
                 info!("Refreshing file view...");
-                // TODO: Implement refresh functionality  
+                let mut app_state_clone = app_state.clone();
+                spawn(async move {
+                    let current_path = app_state_clone.navigation.read().current_path.clone();
+                    if let Err(e) = app_state_clone.navigate_to(current_path.clone()).await {
+                        info!("Error refreshing directory: {}", e);
+                    } else {
+                        info!("Successfully refreshed directory: {:?}", current_path);
+                    }
+                });
             },
             "show_hidden" => {
                 info!("Toggling hidden files visibility...");
-                // TODO: Implement hidden files toggle
+                let mut app_state_clone = app_state.clone();
+                spawn(async move {
+                    let show_hidden_files = {
+                        let mut settings = app_state_clone.settings.write();
+                        settings.show_hidden_files = !settings.show_hidden_files;
+                        crate::state::save_settings_debounced(settings.clone());
+                        settings.show_hidden_files
+                    }; // settings write lock is dropped here
+                    
+                    info!("Hidden files visibility toggled to: {}", show_hidden_files);
+                    
+                    // Refresh the current directory to show/hide hidden files
+                    let current_path = app_state_clone.navigation.read().current_path.clone();
+                    if let Err(e) = app_state_clone.navigate_to(current_path).await {
+                        info!("Error refreshing directory after hidden files toggle: {}", e);
+                    }
+                });
             },
             "open_with" => {
                 info!("Opening with external application...");
@@ -231,7 +255,9 @@ fn AppWithMenuHandlers() -> Element {
             // Edit menu items
             "clear_selection" => {
                 info!("Clearing file selection...");
-                // TODO: Implement clear selection
+                let mut app_state_clone = app_state.clone();
+                app_state_clone.selection.write().clear_selection();
+                info!("File selection cleared");
             },
             "copy_to" => {
                 info!("Copying files to location...");
@@ -255,7 +281,9 @@ fn AppWithMenuHandlers() -> Element {
             },
             "settings" => {
                 info!("Opening settings dialog...");
-                // TODO: The settings dialog opening will be handled by the UI state
+                let mut app_state_clone = app_state.clone();
+                app_state_clone.settings_dialog_visible.set(true);
+                info!("Settings dialog opened via menu");
             },
             
             // View menu items
@@ -269,21 +297,44 @@ fn AppWithMenuHandlers() -> Element {
             },
             "theme_light" => {
                 info!("Switching to light theme...");
-                // TODO: Implement theme switching
+                let mut app_state_clone = app_state.clone();
+                spawn(async move {
+                    let mut settings = app_state_clone.settings.write();
+                    settings.theme = crate::state::Theme::Light;
+                    crate::theme::ThemeManager::apply_theme(&settings.theme);
+                    crate::state::save_settings_debounced(settings.clone());
+                    info!("Successfully switched to light theme");
+                });
             },
             "theme_dark" => {
                 info!("Switching to dark theme...");
-                // TODO: Implement theme switching
+                let mut app_state_clone = app_state.clone();
+                spawn(async move {
+                    let mut settings = app_state_clone.settings.write();
+                    settings.theme = crate::state::Theme::Dark;
+                    crate::theme::ThemeManager::apply_theme(&settings.theme);
+                    crate::state::save_settings_debounced(settings.clone());
+                    info!("Successfully switched to dark theme");
+                });
             },
             "theme_auto" => {
                 info!("Switching to auto theme...");
-                // TODO: Implement theme switching
+                let mut app_state_clone = app_state.clone();
+                spawn(async move {
+                    let mut settings = app_state_clone.settings.write();
+                    settings.theme = crate::state::Theme::Auto;
+                    crate::theme::ThemeManager::apply_theme(&settings.theme);
+                    crate::state::save_settings_debounced(settings.clone());
+                    info!("Successfully switched to auto theme");
+                });
             },
             
             // Help menu items
             "keyboard_shortcuts" => {
                 info!("Showing keyboard shortcuts...");
-                // TODO: Implement keyboard shortcuts dialog
+                let mut app_state_clone = app_state.clone();
+                app_state_clone.cheat_sheet_visible.set(true);
+                info!("Keyboard shortcuts dialog opened via menu");
             },
             "help_documentation" => {
                 info!("Opening help documentation...");
