@@ -40,6 +40,14 @@ pub fn phase2_app() -> Element {
             // Load settings from persistence
             app_state_for_startup.load_settings_from_persistence();
             
+            // Apply current settings to theme system with font variables
+            let settings = app_state_for_startup.settings.read().clone();
+            let mut css_vars = std::collections::HashMap::new();
+            css_vars.insert("--vscode-font-family".to_string(), settings.font_family.css_value().to_string());
+            css_vars.insert("--vscode-font-size-normal".to_string(), settings.font_size.css_value().to_string());
+            css_vars.insert("--vscode-font-size".to_string(), settings.font_size.css_value().to_string());
+            crate::theme::ThemeManager::apply_custom_css_variables(&css_vars);
+            
             // Try to restore last opened folder if enabled
             if let Err(e) = app_state_for_startup.restore_last_opened_folder().await {
                 tracing::warn!("Failed to restore last opened folder: {}", e);
@@ -233,6 +241,11 @@ pub fn phase2_app() -> Element {
 
     rsx! {
         style { {include_str!("../../assets/styles.css")} }
+        
+        // Dynamic style for immediate font changes
+        DynamicFontStyles {
+            settings: current_settings,
+        }
         
         div {
             class: "media-organizer-app",
@@ -1025,11 +1038,37 @@ pub fn phase2_app() -> Element {
             }
             
             // Settings Panel
-            SettingsPanel {
-                is_visible: settings_panel_visible,
-                settings: current_settings,
-                on_close: move |_| {
-                    settings_panel_visible.set(false);
+            {
+                let mut theme_manager_for_panel = theme_manager.clone();
+                rsx! {
+                    SettingsPanel {
+                        is_visible: settings_panel_visible,
+                        settings: current_settings,
+                        on_close: move |_| {
+                            settings_panel_visible.set(false);
+                        },
+                        on_settings_change: {
+                            let mut current_settings_clone = current_settings.clone();
+                            move |new_settings: crate::state::SettingsState| {
+                                // Clone settings for async task
+                                let settings_for_async = new_settings.clone();
+                                
+                                // Update the current_settings signal in a separate task to avoid borrow conflicts
+                                spawn(async move {
+                                    current_settings_clone.set(settings_for_async);
+                                });
+                                
+                                // Update theme manager with manual override tracking
+                                let mut settings_clone = new_settings.clone();
+                                theme_manager_for_panel.write().set_theme_with_override(new_settings.theme.clone(), &mut settings_clone, true);
+                                
+                                // Save to persistence
+                                save_settings_debounced(new_settings.clone());
+                                
+                                tracing::info!("Settings changed from settings panel: {:?}", new_settings);
+                            }
+                        },
+                    }
                 }
             }
             
@@ -1059,6 +1098,9 @@ pub fn phase2_app() -> Element {
                                 let mut settings_clone = new_settings.clone();
                                 theme_manager_for_dialog.write().set_theme_with_override(new_settings.theme.clone(), &mut settings_clone, true);
                                 
+                                // Apply custom CSS variables (font changes)
+                                crate::theme::ThemeManager::apply_custom_css_variables(&new_settings.custom_css_variables);
+                                
                                 // Save to persistence
                                 save_settings_debounced(new_settings.clone());
                                 
@@ -1083,6 +1125,34 @@ pub fn phase2_app() -> Element {
                     }
                 }
             }
+        }
+    }
+}
+
+/// Dynamic font styles component that updates CSS variables in real-time
+#[component]
+fn DynamicFontStyles(settings: Signal<crate::state::SettingsState>) -> Element {
+    let font_family = settings.read().font_family.css_value();
+    let font_size = settings.read().font_size.css_value();
+    
+    tracing::info!("DynamicFontStyles rendering - Font Family: {}, Font Size: {}", font_family, font_size);
+    
+    let css_content = format!(
+        r#"
+        :root {{
+            --vscode-font-family: {} !important;
+            --vscode-font-size: {} !important;
+            --vscode-font-size-normal: {} !important;
+        }}
+        "#,
+        font_family, font_size, font_size
+    );
+    
+    tracing::info!("Generated CSS: {}", css_content);
+    
+    rsx! {
+        style {
+            "{css_content}"
         }
     }
 }

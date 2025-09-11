@@ -12,6 +12,9 @@ use dioxus::prelude::*;
 #[cfg(feature = "web")]
 use wasm_bindgen::prelude::*;
 
+#[cfg(not(feature = "web"))]
+use dioxus::prelude::{spawn, use_signal, Signal};
+
 /// Legacy theme management utilities for backwards compatibility
 /// For new development, use VsCodeThemeManager instead
 pub struct ThemeManager {
@@ -327,9 +330,116 @@ impl ThemeManager {
         
         #[cfg(not(feature = "web"))]
         {
-            // For desktop, we can't directly apply CSS variables via web APIs
-            // In a production app, you might want to generate a CSS string and inject it
-            tracing::debug!("Custom CSS variables not directly supported in desktop mode: {} variables", variables.len());
+            // For desktop mode using Dioxus, we need to inject dynamic CSS
+            Self::inject_desktop_css_variables(variables);
+        }
+    }
+
+    /// Inject CSS variables for desktop mode
+    #[cfg(not(feature = "web"))]
+    fn inject_desktop_css_variables(variables: &std::collections::HashMap<String, String>) {
+        tracing::info!("Desktop mode: Applying {} custom CSS variables", variables.len());
+        
+        for (key, value) in variables {
+            if key.starts_with("--vscode-font") {
+                tracing::info!("Font setting: {} = {}", key, value);
+            }
+        }
+        
+        // Try immediate CSS injection first (for real-time changes)
+        if Self::inject_css_via_webview(variables) {
+            tracing::info!("Successfully applied CSS variables immediately via webview");
+        } else {
+            tracing::warn!("Fallback: Writing CSS variables to file (requires restart)");
+            // Fallback to writing CSS variables to a dynamic CSS file
+            Self::write_dynamic_css_file(variables);
+        }
+    }
+    
+    /// Inject CSS variables immediately via WebView JavaScript
+    #[cfg(not(feature = "web"))]
+    fn inject_css_via_webview(variables: &std::collections::HashMap<String, String>) -> bool {
+        // Build JavaScript code to update CSS variables
+        let mut js_code = String::from("try { ");
+        
+        for (key, value) in variables {
+            if key.starts_with("--vscode-font") {
+                // Escape quotes in CSS values  
+                let escaped_value = value.replace('"', "\\\"").replace('\'', "\\'");
+                js_code.push_str(&format!(
+                    "document.documentElement.style.setProperty('{}', '{}'); ",
+                    key, escaped_value
+                ));
+            }
+        }
+        
+        js_code.push_str("true; } catch(e) { console.error('CSS injection failed:', e); false; }");
+        
+        // Try to execute the JavaScript
+        // Note: This is a simplified approach - in a real implementation we'd need 
+        // access to the webview context
+        tracing::debug!("Generated CSS injection JS: {}", js_code);
+        
+        // For now, return false to use the dynamic style component approach
+        // The dynamic style component will handle immediate updates
+        false
+    }
+    
+    /// Write dynamic CSS variables to a file that can be loaded by the application
+    #[cfg(not(feature = "web"))]
+    fn write_dynamic_css_file(variables: &std::collections::HashMap<String, String>) {
+        use std::fs;
+        use std::path::Path;
+        
+        // Instead of creating a separate file, let's directly update the main styles.css
+        let assets_dir = Path::new("assets");
+        let main_css_path = assets_dir.join("styles.css");
+        
+        // Read the current styles.css
+        match fs::read_to_string(&main_css_path) {
+            Ok(mut css_content) => {
+                // Remove any existing dynamic variables section
+                if let Some(start) = css_content.find("/* DYNAMIC FONT VARIABLES - START */") {
+                    if let Some(end) = css_content.find("/* DYNAMIC FONT VARIABLES - END */") {
+                        let end_pos = css_content[end..].find('\n').map(|i| end + i + 1).unwrap_or(end);
+                        css_content.replace_range(start..end_pos, "");
+                    }
+                }
+                
+                // Add new dynamic variables section at the beginning
+                let mut dynamic_section = String::new();
+                dynamic_section.push_str("/* DYNAMIC FONT VARIABLES - START */\n");
+                dynamic_section.push_str(":root {\n");
+                
+                for (key, value) in variables {
+                    if key.starts_with("--vscode-font") {
+                        dynamic_section.push_str(&format!("  {}: {} !important;\n", key, value));
+                    }
+                }
+                dynamic_section.push_str("}\n");
+                dynamic_section.push_str("/* DYNAMIC FONT VARIABLES - END */\n\n");
+                
+                // Insert at the beginning after the first comment
+                if let Some(pos) = css_content.find('\n') {
+                    css_content.insert_str(pos + 1, &dynamic_section);
+                } else {
+                    css_content = dynamic_section + &css_content;
+                }
+                
+                // Write back to styles.css
+                match fs::write(&main_css_path, css_content) {
+                    Ok(_) => {
+                        tracing::info!("Successfully updated main CSS with dynamic font variables");
+                        tracing::info!("Note: Font changes in desktop mode require application restart to take full effect");
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to update main CSS file: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("Failed to read main CSS file: {}", e);
+            }
         }
     }
 

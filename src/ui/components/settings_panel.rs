@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use crate::state::{SettingsState, Theme, ViewMode, save_settings_debounced};
+use crate::state::{SettingsState, Theme, ViewMode, FontFamily, FontSize, save_settings_debounced};
 use crate::theme::{ThemeManager, ThemeSelector, EnhancedThemeSelector};
 use crate::ui::shortcuts::ShortcutRegistry;
 use std::collections::HashMap;
@@ -10,76 +10,19 @@ pub fn SettingsPanel(
     is_visible: Signal<bool>,
     mut settings: Signal<SettingsState>,
     on_close: EventHandler<()>,
+    on_settings_change: EventHandler<SettingsState>,
 ) -> Element {
     // Local state for the settings panel
     let active_tab = use_signal(|| SettingsTab::General);
-    let temp_settings = use_signal(|| settings.read().clone());
-    let is_modified = use_signal(|| false);
     let import_export_message = use_signal(|| String::new());
 
-    // Update temp settings when main settings change
-    use_effect({
-        let mut temp_settings = temp_settings;
-        let settings = settings;
-        move || {
-            let current_settings = settings.read();
-            temp_settings.set(current_settings.clone());
-        }
-    });
+    // Clone handlers for use in closures
+    let on_settings_change_clone = on_settings_change.clone();
 
     if !*is_visible.read() {
         return rsx! { div { display: "none" } };
     }
 
-    // Apply settings changes
-    let mut apply_settings = {
-        let mut settings = settings;
-        let mut is_modified = is_modified;
-        let temp_settings = temp_settings;
-        
-        move || {
-            let new_settings = temp_settings.read().clone();
-            settings.set(new_settings.clone());
-            save_settings_debounced(new_settings);
-            is_modified.set(false);
-            tracing::info!("Settings applied and saved");
-        }
-    };
-
-    // Reset settings to current saved state
-    let mut reset_settings = {
-        let mut temp_settings = temp_settings;
-        let settings = settings;
-        let mut is_modified = is_modified;
-        
-        move || {
-            temp_settings.set(settings.read().clone());
-            is_modified.set(false);
-        }
-    };
-
-    // Check if current temp settings differ from saved
-    let mut check_modifications = {
-        let temp_settings = temp_settings;
-        let settings = settings;
-        let mut is_modified = is_modified;
-        
-        move || {
-            let current = settings.read();
-            let temp = temp_settings.read();
-            
-            let modified = current.theme != temp.theme ||
-                          current.default_panel_width != temp.default_panel_width ||
-                          current.default_view_mode != temp.default_view_mode ||
-                          current.show_hidden_files != temp.show_hidden_files ||
-                          current.remember_last_directory != temp.remember_last_directory ||
-                          current.auto_save_interval != temp.auto_save_interval ||
-                          current.enable_animations != temp.enable_animations ||
-                          current.custom_css_variables != temp.custom_css_variables;
-            
-            is_modified.set(modified);
-        }
-    };
 
     rsx! {
         div {
@@ -224,14 +167,13 @@ pub fn SettingsPanel(
                         match *active_tab.read() {
                             SettingsTab::General => rsx! {
                                 GeneralSettingsTab {
-                                    settings: temp_settings,
-                                    on_change: move |_| check_modifications(),
+                                    settings: settings,
                                 }
                             },
                             SettingsTab::Appearance => rsx! {
                                 AppearanceSettingsTab {
-                                    settings: temp_settings,
-                                    on_change: move |_| check_modifications(),
+                                    settings: settings,
+                                    on_settings_change: on_settings_change_clone.clone(),
                                 }
                             },
                             SettingsTab::Keyboard => rsx! {
@@ -239,8 +181,7 @@ pub fn SettingsPanel(
                             },
                             SettingsTab::Advanced => rsx! {
                                 AdvancedSettingsTab {
-                                    settings: temp_settings,
-                                    on_change: move |_| check_modifications(),
+                                    settings: settings,
                                     import_export_message: import_export_message,
                                 }
                             },
@@ -248,89 +189,6 @@ pub fn SettingsPanel(
                     }
                 }
                 
-                // Footer with action buttons
-                div {
-                    class: "settings-footer",
-                    style: "
-                        padding: 16px 20px;
-                        border-top: 1px solid var(--vscode-panel-border, #333);
-                        display: flex;
-                        justify-content: space-between;
-                        align-items: center;
-                        background: var(--vscode-secondary-background, #2d2d30);
-                    ",
-                    
-                    div {
-                        if *is_modified.read() {
-                            span {
-                                style: "
-                                    color: var(--vscode-warning-foreground, #ffcc02);
-                                    font-size: 14px;
-                                    font-family: var(--vscode-font-family);
-                                ",
-                                "● Unsaved changes"
-                            }
-                        }
-                    }
-                    
-                    div {
-                        style: "display: flex; gap: 12px;",
-                        
-                        button {
-                            class: "settings-button secondary",
-                            style: "
-                                background: transparent;
-                                border: 1px solid var(--vscode-button-border, #666);
-                                color: var(--vscode-text-primary, #cccccc);
-                                padding: 8px 16px;
-                                border-radius: 4px;
-                                cursor: pointer;
-                                font-family: var(--vscode-font-family);
-                                font-size: 14px;
-                                transition: all 0.2s ease;
-                            ",
-                            disabled: !*is_modified.read(),
-                            onclick: move |_| reset_settings(),
-                            "Reset"
-                        }
-                        
-                        button {
-                            class: "settings-button primary",
-                            style: "
-                                background: var(--vscode-button-background, #0e639c);
-                                border: 1px solid var(--vscode-button-border, #0e639c);
-                                color: var(--vscode-button-foreground, #ffffff);
-                                padding: 8px 16px;
-                                border-radius: 4px;
-                                cursor: pointer;
-                                font-family: var(--vscode-font-family);
-                                font-size: 14px;
-                                font-weight: 500;
-                                transition: all 0.2s ease;
-                            ",
-                            disabled: !*is_modified.read(),
-                            onclick: move |_| apply_settings(),
-                            "Apply"
-                        }
-                        
-                        button {
-                            class: "settings-button secondary",
-                            style: "
-                                background: transparent;
-                                border: 1px solid var(--vscode-button-border, #666);
-                                color: var(--vscode-text-primary, #cccccc);
-                                padding: 8px 16px;
-                                border-radius: 4px;
-                                cursor: pointer;
-                                font-family: var(--vscode-font-family);
-                                font-size: 14px;
-                                transition: all 0.2s ease;
-                            ",
-                            onclick: move |_| on_close.call(()),
-                            "Close"
-                        }
-                    }
-                }
             }
         }
     }
@@ -423,7 +281,6 @@ fn SettingsTabButton(
 #[component]
 fn GeneralSettingsTab(
     mut settings: Signal<SettingsState>,
-    on_change: EventHandler<()>,
 ) -> Element {
     rsx! {
         div {
@@ -466,7 +323,7 @@ fn GeneralSettingsTab(
                                     _ => ViewMode::Grid,
                                 };
                                 settings.write().default_view_mode = view_mode;
-                                on_change.call(());
+                                save_settings_debounced(settings.read().clone());
                             },
                             
                             option { value: "grid", "Grid View" }
@@ -490,7 +347,7 @@ fn GeneralSettingsTab(
                             ",
                             onchange: move |evt| {
                                 settings.write().show_hidden_files = evt.value() == "true";
-                                on_change.call(());
+                                save_settings_debounced(settings.read().clone());
                             }
                         }
                     }
@@ -510,7 +367,7 @@ fn GeneralSettingsTab(
                             ",
                             onchange: move |evt| {
                                 settings.write().remember_last_directory = evt.value() == "true";
-                                on_change.call(());
+                                save_settings_debounced(settings.read().clone());
                             }
                         }
                     }
@@ -539,7 +396,7 @@ fn GeneralSettingsTab(
                             onchange: move |evt| {
                                 if let Ok(interval) = evt.value().parse::<u64>() {
                                     settings.write().auto_save_interval = interval.max(10).min(3600);
-                                    on_change.call(());
+                                    save_settings_debounced(settings.read().clone());
                                 }
                             }
                         }
@@ -554,7 +411,7 @@ fn GeneralSettingsTab(
 #[component]
 fn AppearanceSettingsTab(
     mut settings: Signal<SettingsState>,
-    on_change: EventHandler<()>,
+    on_settings_change: EventHandler<SettingsState>,
 ) -> Element {
     rsx! {
         div {
@@ -584,7 +441,91 @@ fn AppearanceSettingsTab(
                             on_theme_change: move |new_theme: Theme| {
                                 settings.write().theme = new_theme.clone();
                                 ThemeManager::apply_theme(&new_theme);
-                                on_change.call(());
+                                save_settings_debounced(settings.read().clone());
+                            }
+                        }
+                    }
+                }
+                
+                SettingsRow {
+                    label: "Font Family",
+                    description: "Choose the font family for the interface",
+                    content: rsx! {
+                        select {
+                            value: "{settings.read().font_family.as_str()}",
+                            style: "
+                                background: var(--vscode-input-background, #3c3c3c);
+                                color: var(--vscode-input-foreground, #cccccc);
+                                border: 1px solid var(--vscode-input-border, #666);
+                                border-radius: 3px;
+                                padding: 6px 8px;
+                                font-family: var(--vscode-font-family);
+                                font-size: 14px;
+                            ",
+                            onchange: {
+                                let handler = on_settings_change.clone();
+                                move |evt: Event<FormData>| {
+                                    let font_family = FontFamily::from_str(&evt.value());
+                                    tracing::info!("Settings panel: Font family changing from {:?} to {:?}", settings.read().font_family, font_family);
+                                    
+                                    settings.write().font_family = font_family.clone();
+                                    
+                                    // Apply font changes immediately by triggering the settings change handler
+                                    // This will update the current_settings signal and trigger DynamicFontStyles re-render
+                                    handler.call(settings.read().clone());
+                                    
+                                    tracing::info!("Font family changed to: {:?}, settings change handler called", font_family);
+                                }
+                            },
+                            
+                            for font in FontFamily::get_all() {
+                                option {
+                                    value: "{font.as_str()}",
+                                    selected: settings.read().font_family == font,
+                                    "{font.display_name()}"
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                SettingsRow {
+                    label: "Font Size",
+                    description: "Choose the font size for the interface",
+                    content: rsx! {
+                        select {
+                            value: "{settings.read().font_size.as_str()}",
+                            style: "
+                                background: var(--vscode-input-background, #3c3c3c);
+                                color: var(--vscode-input-foreground, #cccccc);
+                                border: 1px solid var(--vscode-input-border, #666);
+                                border-radius: 3px;
+                                padding: 6px 8px;
+                                font-family: var(--vscode-font-family);
+                                font-size: 14px;
+                            ",
+                            onchange: {
+                                let handler = on_settings_change.clone();
+                                move |evt: Event<FormData>| {
+                                    let font_size = FontSize::from_str(&evt.value());
+                                    tracing::info!("Settings panel: Font size changing from {:?} to {:?}", settings.read().font_size, font_size);
+                                    
+                                    settings.write().font_size = font_size.clone();
+                                    
+                                    // Apply font size changes immediately by triggering the settings change handler
+                                    // This will update the current_settings signal and trigger DynamicFontStyles re-render
+                                    handler.call(settings.read().clone());
+                                    
+                                    tracing::info!("Font size changed to: {:?}, settings change handler called", font_size);
+                                }
+                            },
+                            
+                            for size in FontSize::get_all() {
+                                option {
+                                    value: "{size.as_str()}",
+                                    selected: settings.read().font_size == size,
+                                    "{size.display_name()}"
+                                }
                             }
                         }
                     }
@@ -607,7 +548,7 @@ fn AppearanceSettingsTab(
                             onchange: move |evt| {
                                 if let Ok(width) = evt.value().parse::<f64>() {
                                     settings.write().default_panel_width = width.max(200.0).min(600.0);
-                                    on_change.call(());
+                                    save_settings_debounced(settings.read().clone());
                                 }
                             }
                         }
@@ -637,7 +578,7 @@ fn AppearanceSettingsTab(
                             ",
                             onchange: move |evt| {
                                 settings.write().enable_animations = evt.value() == "true";
-                                on_change.call(());
+                                save_settings_debounced(settings.read().clone());
                             }
                         }
                     }
@@ -737,7 +678,6 @@ fn KeyboardSettingsTab() -> Element {
 #[component]
 fn AdvancedSettingsTab(
     mut settings: Signal<SettingsState>,
-    on_change: EventHandler<()>,
     mut import_export_message: Signal<String>,
 ) -> Element {
     // Import/export functionality
@@ -770,12 +710,11 @@ fn AdvancedSettingsTab(
 
     let mut reset_to_defaults = {
         let mut settings = settings;
-        let on_change = on_change;
         let mut import_export_message = import_export_message;
         
         move || {
             settings.set(SettingsState::default());
-            on_change.call(());
+            save_settings_debounced(settings.read().clone());
             import_export_message.set("Settings reset to defaults".to_string());
             
             // Clear message after 3 seconds
@@ -833,7 +772,7 @@ fn AdvancedSettingsTab(
                                     match serde_json::from_str::<HashMap<String, String>>(&evt.value()) {
                                         Ok(variables) => {
                                             settings.write().custom_css_variables = variables;
-                                            on_change.call(());
+                                            save_settings_debounced(settings.read().clone());
                                         }
                                         Err(_) => {
                                             // Invalid JSON, but don't prevent typing

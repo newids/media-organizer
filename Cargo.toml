@@ -30,6 +30,7 @@ walkdir = "2.4"
 notify = "6.1"
 dirs = "5.0"
 rfd = "0.14"
+trash = "3.0"
 
 # Media Processing
 image = { version = "0.24", features = ["jpeg", "png", "gif", "webp", "tiff", "bmp"] }

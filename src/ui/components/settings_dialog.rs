@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use crate::state::{SettingsState, Theme};
+use crate::state::{SettingsState, Theme, FontFamily, FontSize};
 use crate::theme::{ThemeManager, EnhancedThemeSelector};
 
 /// Props for settings dialog
@@ -187,6 +187,153 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                                     line-height: 1.4;
                                 ",
                                 "Select your preferred color theme. Auto mode follows your system preference."
+                            }
+                        }
+
+                        // Font Family Setting
+                        div {
+                            class: "setting-item",
+                            style: "
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                padding: 12px 0;
+                                border-top: 1px solid var(--vscode-border-light);
+                                margin-top: 16px;
+                                padding-top: 16px;
+                            ",
+                            
+                            label {
+                                style: "
+                                    color: var(--vscode-text-primary);
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                ",
+                                "Font Family"
+                            }
+                            
+                            select {
+                                value: "{local_settings.read().font_family.as_str()}",
+                                style: "
+                                    width: 100%;
+                                    background-color: var(--vscode-input-background);
+                                    color: var(--vscode-input-foreground);
+                                    border: 1px solid var(--vscode-input-border);
+                                    border-radius: 4px;
+                                    padding: 8px 12px;
+                                    font-size: 13px;
+                                    font-family: var(--vscode-font-family);
+                                    outline: none;
+                                    cursor: pointer;
+                                ",
+                                onchange: move |evt| {
+                                    let font_family = FontFamily::from_str(&evt.value());
+                                    tracing::info!("Font family changed to: {:?}", font_family);
+                                    
+                                    let mut settings = local_settings.write();
+                                    settings.font_family = font_family.clone();
+                                    
+                                    // Update the custom CSS variables in settings
+                                    settings.custom_css_variables.insert("--vscode-font-family".to_string(), font_family.css_value().to_string());
+                                    
+                                    // Apply font family changes immediately by updating CSS variables
+                                    tracing::info!("Font family will be applied on next theme refresh");
+                                    
+                                    // Apply changes immediately for preview
+                                    props.on_settings_change.call(settings.clone());
+                                },
+                                
+                                for font in FontFamily::get_all() {
+                                    option {
+                                        value: "{font.as_str()}",
+                                        selected: local_settings.read().font_family == font,
+                                        "{font.display_name()}"
+                                    }
+                                }
+                            }
+                            
+                            p {
+                                style: "
+                                    margin: 4px 0 0 0;
+                                    color: var(--vscode-text-secondary);
+                                    font-size: 12px;
+                                    line-height: 1.4;
+                                ",
+                                "Choose the font family used throughout the interface."
+                            }
+                        }
+
+                        // Font Size Setting
+                        div {
+                            class: "setting-item",
+                            style: "
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                padding: 12px 0;
+                                border-top: 1px solid var(--vscode-border-light);
+                                margin-top: 16px;
+                                padding-top: 16px;
+                            ",
+                            
+                            label {
+                                style: "
+                                    color: var(--vscode-text-primary);
+                                    font-size: 14px;
+                                    font-weight: 500;
+                                ",
+                                "Font Size"
+                            }
+                            
+                            select {
+                                value: "{local_settings.read().font_size.as_str()}",
+                                style: "
+                                    width: 100%;
+                                    background-color: var(--vscode-input-background);
+                                    color: var(--vscode-input-foreground);
+                                    border: 1px solid var(--vscode-input-border);
+                                    border-radius: 4px;
+                                    padding: 8px 12px;
+                                    font-size: 13px;
+                                    font-family: var(--vscode-font-family);
+                                    outline: none;
+                                    cursor: pointer;
+                                ",
+                                onchange: move |evt| {
+                                    let font_size = FontSize::from_str(&evt.value());
+                                    tracing::info!("Font size changed to: {:?}", font_size);
+                                    
+                                    let mut settings = local_settings.write();
+                                    settings.font_size = font_size.clone();
+                                    
+                                    // Update the custom CSS variables in settings
+                                    settings.custom_css_variables.insert("--vscode-font-size-normal".to_string(), font_size.css_value().to_string());
+                                    settings.custom_css_variables.insert("--vscode-font-size".to_string(), font_size.css_value().to_string());
+                                    
+                                    // Apply font size changes immediately by updating CSS variables  
+                                    tracing::info!("Font size will be applied on next theme refresh");
+                                    
+                                    // Apply changes immediately for preview
+                                    props.on_settings_change.call(settings.clone());
+                                },
+                                
+                                for size in FontSize::get_all() {
+                                    option {
+                                        value: "{size.as_str()}",
+                                        selected: local_settings.read().font_size == size,
+                                        "{size.display_name()}"
+                                    }
+                                }
+                            }
+                            
+                            p {
+                                style: "
+                                    margin: 4px 0 0 0;
+                                    color: var(--vscode-text-secondary);
+                                    font-size: 12px;
+                                    line-height: 1.4;
+                                ",
+                                "Adjust the size of text displayed in the interface."
                             }
                         }
                     }
