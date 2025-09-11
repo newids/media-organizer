@@ -1,0 +1,1 @@
+cargo build --release ; cargo run --bin media-organizer

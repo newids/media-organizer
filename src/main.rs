@@ -52,6 +52,8 @@ fn create_menu_bar() -> dioxus::desktop::muda::Menu {
         &MenuItem::with_id("about_app", "About Media Organizer", true, None),
         &MenuItem::with_id("check_updates", "Check for Updates...", true, None),
         &PredefinedMenuItem::separator(),
+        &MenuItem::with_id("preferences", "Preferences...", true, Some(Accelerator::new(Some(Modifiers::SUPER), Code::Comma))),
+        &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::services(None),
         &PredefinedMenuItem::separator(),
         &PredefinedMenuItem::hide(None),
@@ -74,7 +76,8 @@ fn create_menu_bar() -> dioxus::desktop::muda::Menu {
         &MenuItem::with_id("refresh", "Refresh", true, Some(Accelerator::new(Some(Modifiers::SUPER), Code::KeyR))),
         &MenuItem::with_id("show_hidden", "Show Hidden Files", true, Some(Accelerator::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Period))),
         &PredefinedMenuItem::separator(),
-        &MenuItem::with_id("open_with", "Open With...", true, None),
+        &MenuItem::with_id("open", "Open", true, Some(Accelerator::new(Some(Modifiers::SUPER), Code::Enter))),
+        &MenuItem::with_id("open_with", "Open With...", true, Some(Accelerator::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::Enter))),
         &MenuItem::with_id("show_in_finder", "Show in Finder", true, Some(Accelerator::new(Some(Modifiers::SUPER | Modifiers::ALT), Code::KeyR))),
     ]).unwrap();
     menu.append(&file_menu).unwrap();
@@ -92,8 +95,8 @@ fn create_menu_bar() -> dioxus::desktop::muda::Menu {
         &PredefinedMenuItem::select_all(None),
         &MenuItem::with_id("clear_selection", "Clear Selection", true, None),
         &PredefinedMenuItem::separator(),
-        &MenuItem::with_id("copy_to", "Copy to...", true, None),
-        &MenuItem::with_id("move_to", "Move to...", true, None),
+        &MenuItem::with_id("copy_to", "Copy to...", true, Some(Accelerator::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyC))),
+        &MenuItem::with_id("move_to", "Move to...", true, Some(Accelerator::new(Some(Modifiers::SUPER | Modifiers::SHIFT), Code::KeyM))),
         &PredefinedMenuItem::separator(),
         &MenuItem::with_id("delete", "Delete", true, Some(Accelerator::new(None, Code::Delete))),
         &MenuItem::with_id("rename", "Rename", true, Some(Accelerator::new(None, Code::Enter))),
@@ -126,6 +129,24 @@ fn create_menu_bar() -> dioxus::desktop::muda::Menu {
     menu
 }
 
+/// Create a new application window
+async fn create_new_window() -> Result<(), String> {
+    use std::process::Command;
+    
+    // Get current executable path
+    let current_exe = std::env::current_exe()
+        .map_err(|e| format!("Failed to get current executable path: {}", e))?;
+    
+    // Launch a new instance of the application
+    let result = Command::new(current_exe)
+        .spawn();
+    
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Failed to create new window: {}", e))
+    }
+}
+
 /// Show a native folder picker dialog
 async fn open_folder_dialog() -> Option<PathBuf> {
     use rfd::AsyncFileDialog;
@@ -137,6 +158,36 @@ async fn open_folder_dialog() -> Option<PathBuf> {
         .await;
     
     folder.map(|handle| handle.path().to_path_buf())
+}
+
+/// Create a new file with user input dialog
+async fn create_new_file_dialog(parent_path: &PathBuf) -> Result<PathBuf, String> {
+    use std::fs;
+    
+    // Show input dialog for file name
+    let file_name = show_input_dialog("New File", "Enter file name:", "New File.txt").await?;
+    
+    if file_name.trim().is_empty() {
+        return Err("File name cannot be empty".to_string());
+    }
+    
+    // Validate file name (no invalid characters)
+    if file_name.contains(['/', '\\', ':', '*', '?', '"', '<', '>', '|']) {
+        return Err("File name contains invalid characters".to_string());
+    }
+    
+    let new_file_path = parent_path.join(&file_name);
+    
+    // Check if file already exists
+    if new_file_path.exists() {
+        return Err(format!("File '{}' already exists", file_name));
+    }
+    
+    // Create the file
+    match fs::File::create(&new_file_path) {
+        Ok(_) => Ok(new_file_path),
+        Err(e) => Err(format!("Failed to create file: {}", e))
+    }
 }
 
 /// Create a new folder with user input dialog
@@ -173,14 +224,25 @@ async fn create_new_folder_dialog(parent_path: &PathBuf) -> Result<PathBuf, Stri
 /// Show a simple input dialog (using message dialog as fallback)
 async fn show_input_dialog(title: &str, message: &str, default_value: &str) -> Result<String, String> {
     // For now, we'll use a simple approach - in a full implementation, you'd want a proper input dialog
-    // This is a simplified version that creates a folder with a default name
+    // This is a simplified version that creates files/folders with default names
     let timestamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
     
-    // For now, return a default name with timestamp to ensure uniqueness
-    Ok(format!("New Folder {}", timestamp % 1000))
+    // Return a default name with timestamp to ensure uniqueness
+    if default_value.contains('.') {
+        // It's a file with extension
+        if let Some(dot_pos) = default_value.rfind('.') {
+            let (name_part, ext_part) = default_value.split_at(dot_pos);
+            Ok(format!("{} {}{}", name_part, timestamp % 1000, ext_part))
+        } else {
+            Ok(format!("{} {}", default_value, timestamp % 1000))
+        }
+    } else {
+        // It's a folder or file without extension
+        Ok(format!("{} {}", default_value, timestamp % 1000))
+    }
 }
 
 /// Show a confirmation dialog
@@ -341,6 +403,342 @@ async fn show_rename_dialog(current_name: &str) -> Result<String, String> {
     }
 }
 
+/// Show a folder picker dialog for selecting destination
+async fn show_destination_folder_dialog(title: &str) -> Result<Option<PathBuf>, String> {
+    use rfd::AsyncFileDialog;
+    
+    let folder = AsyncFileDialog::new()
+        .set_title(title)
+        .pick_folder()
+        .await;
+    
+    Ok(folder.map(|handle| handle.path().to_path_buf()))
+}
+
+/// Copy files to destination folder
+async fn copy_files_to_destination(files: &[FileEntry], destination: &PathBuf) -> Result<usize, String> {
+    use std::fs;
+    
+    let mut copied_count = 0;
+    let mut errors = Vec::new();
+    
+    for file_entry in files {
+        let source_path = &file_entry.path;
+        let file_name = source_path.file_name()
+            .ok_or_else(|| format!("Invalid file name for: {:?}", source_path))?;
+        let destination_path = destination.join(file_name);
+        
+        // Check if destination already exists
+        if destination_path.exists() {
+            errors.push(format!("File already exists at destination: {:?}", destination_path));
+            continue;
+        }
+        
+        // Copy file or directory
+        let copy_result = if source_path.is_dir() {
+            copy_directory_recursive(source_path, &destination_path)
+        } else {
+            fs::copy(source_path, &destination_path).map(|_| ())
+        };
+        
+        match copy_result {
+            Ok(_) => {
+                copied_count += 1;
+                info!("Copied: {:?} -> {:?}", source_path, destination_path);
+            },
+            Err(e) => {
+                errors.push(format!("Failed to copy '{}': {}", file_entry.name, e));
+            }
+        }
+    }
+    
+    if !errors.is_empty() {
+        return Err(format!("Some files could not be copied: {}", errors.join("; ")));
+    }
+    
+    Ok(copied_count)
+}
+
+/// Copy directory recursively
+fn copy_directory_recursive(source: &PathBuf, destination: &PathBuf) -> Result<(), std::io::Error> {
+    use std::fs;
+    
+    fs::create_dir_all(destination)?;
+    
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let source_path = entry.path();
+        let dest_path = destination.join(entry.file_name());
+        
+        if source_path.is_dir() {
+            copy_directory_recursive(&source_path, &dest_path)?;
+        } else {
+            fs::copy(&source_path, &dest_path)?;
+        }
+    }
+    
+    Ok(())
+}
+
+/// Move files to destination folder
+async fn move_files_to_destination(files: &[FileEntry], destination: &PathBuf) -> Result<usize, String> {
+    use std::fs;
+    
+    let mut moved_count = 0;
+    let mut errors = Vec::new();
+    
+    for file_entry in files {
+        let source_path = &file_entry.path;
+        let file_name = source_path.file_name()
+            .ok_or_else(|| format!("Invalid file name for: {:?}", source_path))?;
+        let destination_path = destination.join(file_name);
+        
+        // Check if destination already exists
+        if destination_path.exists() {
+            errors.push(format!("File already exists at destination: {:?}", destination_path));
+            continue;
+        }
+        
+        // Move file or directory
+        match fs::rename(source_path, &destination_path) {
+            Ok(_) => {
+                moved_count += 1;
+                info!("Moved: {:?} -> {:?}", source_path, destination_path);
+            },
+            Err(e) => {
+                errors.push(format!("Failed to move '{}': {}", file_entry.name, e));
+            }
+        }
+    }
+    
+    if !errors.is_empty() {
+        return Err(format!("Some files could not be moved: {}", errors.join("; ")));
+    }
+    
+    Ok(moved_count)
+}
+
+/// Duplicate selected files
+async fn duplicate_files(files: &[FileEntry]) -> Result<usize, String> {
+    use std::fs;
+    
+    let mut duplicated_count = 0;
+    let mut errors = Vec::new();
+    
+    for file_entry in files {
+        let source_path = &file_entry.path;
+        let parent_dir = source_path.parent()
+            .ok_or_else(|| format!("Cannot determine parent directory for: {:?}", source_path))?;
+        
+        // Generate a unique name for the duplicate
+        let duplicate_path = generate_duplicate_name(source_path)?;
+        
+        // Copy file or directory
+        let copy_result = if source_path.is_dir() {
+            copy_directory_recursive(source_path, &duplicate_path)
+        } else {
+            fs::copy(source_path, &duplicate_path).map(|_| ())
+        };
+        
+        match copy_result {
+            Ok(_) => {
+                duplicated_count += 1;
+                info!("Duplicated: {:?} -> {:?}", source_path, duplicate_path);
+            },
+            Err(e) => {
+                errors.push(format!("Failed to duplicate '{}': {}", file_entry.name, e));
+            }
+        }
+    }
+    
+    if !errors.is_empty() {
+        return Err(format!("Some files could not be duplicated: {}", errors.join("; ")));
+    }
+    
+    Ok(duplicated_count)
+}
+
+/// Generate a unique duplicate name
+fn generate_duplicate_name(original_path: &PathBuf) -> Result<PathBuf, String> {
+    let parent_dir = original_path.parent()
+        .ok_or_else(|| "Cannot determine parent directory".to_string())?;
+    
+    let file_name = original_path.file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| "Invalid file name".to_string())?;
+    
+    // Try different suffixes until we find a unique name
+    for i in 1..1000 {
+        let duplicate_name = if let Some(dot_pos) = file_name.rfind('.') {
+            let (name_part, ext_part) = file_name.split_at(dot_pos);
+            format!("{} copy {}{}", name_part, i, ext_part)
+        } else {
+            format!("{} copy {}", file_name, i)
+        };
+        
+        let duplicate_path = parent_dir.join(duplicate_name);
+        if !duplicate_path.exists() {
+            return Ok(duplicate_path);
+        }
+    }
+    
+    Err("Could not generate unique duplicate name".to_string())
+}
+
+/// Show about dialog with application information
+async fn show_about_dialog() -> Result<(), String> {
+    use std::process::Command;
+    
+    let about_message = format!(
+        "MediaOrganizer v{}\n\nA cross-platform media/file management application\nBuilt with Dioxus and Rust\n\n© 2025 MediaOrganizer Team",
+        env!("CARGO_PKG_VERSION")
+    );
+    
+    let result = if cfg!(target_os = "macos") {
+        Command::new("osascript")
+            .args(&["-e", &format!("display dialog \"{}\" with title \"About MediaOrganizer\" buttons {{\"OK\"}} default button \"OK\"", about_message)])
+            .spawn()
+    } else if cfg!(target_os = "windows") {
+        Command::new("powershell")
+            .args(&["-Command", &format!("Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('{}', 'About MediaOrganizer')", about_message)])
+            .spawn()
+    } else {
+        // Linux - try zenity, kdialog, or xmessage as fallbacks
+        if Command::new("zenity").arg("--version").output().is_ok() {
+            Command::new("zenity")
+                .args(&["--info", "--title=About MediaOrganizer", &format!("--text={}", about_message)])
+                .spawn()
+        } else if Command::new("kdialog").arg("--version").output().is_ok() {
+            Command::new("kdialog")
+                .args(&["--msgbox", &about_message, "--title", "About MediaOrganizer"])
+                .spawn()
+        } else {
+            Command::new("xmessage")
+                .args(&["-center", &format!("About MediaOrganizer\n\n{}", about_message)])
+                .spawn()
+        }
+    };
+    
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Failed to show about dialog: {}", e))
+    }
+}
+
+/// Check for application updates
+async fn check_for_updates() -> Result<(), String> {
+    use std::process::Command;
+    
+    // In a real implementation, this would check a remote server for updates
+    // For now, just show a placeholder message
+    let update_message = format!(
+        "MediaOrganizer v{}\n\nYou are running the latest version.\n\nUpdate checking functionality will be implemented in a future release.",
+        env!("CARGO_PKG_VERSION")
+    );
+    
+    let result = if cfg!(target_os = "macos") {
+        Command::new("osascript")
+            .args(&["-e", &format!("display dialog \"{}\" with title \"Check for Updates\" buttons {{\"OK\"}} default button \"OK\"", update_message)])
+            .spawn()
+    } else if cfg!(target_os = "windows") {
+        Command::new("powershell")
+            .args(&["-Command", &format!("Add-Type -AssemblyName PresentationFramework; [System.Windows.MessageBox]::Show('{}', 'Check for Updates')", update_message)])
+            .spawn()
+    } else {
+        // Linux - try zenity, kdialog, or xmessage as fallbacks
+        if Command::new("zenity").arg("--version").output().is_ok() {
+            Command::new("zenity")
+                .args(&["--info", "--title=Check for Updates", &format!("--text={}", update_message)])
+                .spawn()
+        } else if Command::new("kdialog").arg("--version").output().is_ok() {
+            Command::new("kdialog")
+                .args(&["--msgbox", &update_message, "--title", "Check for Updates"])
+                .spawn()
+        } else {
+            Command::new("xmessage")
+                .args(&["-center", &format!("Check for Updates\n\n{}", update_message)])
+                .spawn()
+        }
+    };
+    
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => Err(format!("Failed to show update dialog: {}", e))
+    }
+}
+
+/// Open help documentation (opens online help or local README)
+async fn open_help_documentation() -> Result<(), String> {
+    use std::process::Command;
+    
+    // Try to open GitHub repository help first, fallback to local README
+    let help_url = "https://github.com/your-username/MediaOrganizer#readme";
+    
+    let result = if cfg!(target_os = "macos") {
+        // macOS: Use 'open' command
+        Command::new("open")
+            .arg(help_url)
+            .spawn()
+    } else if cfg!(target_os = "windows") {
+        // Windows: Use 'start' command via cmd
+        Command::new("cmd")
+            .args(&["/C", "start", help_url])
+            .spawn()
+    } else {
+        // Linux: Use xdg-open
+        Command::new("xdg-open")
+            .arg(help_url)
+            .spawn()
+    };
+    
+    match result {
+        Ok(_) => Ok(()),
+        Err(e) => {
+            // Fallback: try to open local README file if web browser fails
+            match try_open_local_readme().await {
+                Ok(()) => Ok(()),
+                Err(local_err) => {
+                    Err(format!("Failed to open help documentation online ({}), and local README also failed ({})", e, local_err))
+                }
+            }
+        }
+    }
+}
+
+/// Try to open local README file as fallback
+async fn try_open_local_readme() -> Result<(), String> {
+    use std::process::Command;
+    use std::path::Path;
+    
+    // Look for common README file locations
+    let possible_readme_paths = [
+        "README.md",
+        "README.txt", 
+        "README.rst",
+        "../README.md",
+        "./docs/README.md"
+    ];
+    
+    for readme_path in possible_readme_paths.iter() {
+        if Path::new(readme_path).exists() {
+            let result = if cfg!(target_os = "macos") {
+                Command::new("open").arg(readme_path).spawn()
+            } else if cfg!(target_os = "windows") {
+                Command::new("cmd").args(&["/C", "start", "", readme_path]).spawn()
+            } else {
+                Command::new("xdg-open").arg(readme_path).spawn()
+            };
+            
+            match result {
+                Ok(_) => return Ok(()),
+                Err(_) => continue,
+            }
+        }
+    }
+    
+    Err("No local README file found".to_string())
+}
+
 /// Rename a file or folder
 async fn rename_file(current_path: &std::path::PathBuf, new_name: &str) -> Result<std::path::PathBuf, String> {
     use std::fs;
@@ -402,11 +800,29 @@ fn AppWithMenuHandlers() -> Element {
             // App menu items
             "about_app" => {
                 info!("Showing about dialog...");
-                // TODO: Implement about dialog
+                spawn(async move {
+                    if let Err(e) = show_about_dialog().await {
+                        info!("Error showing about dialog: {}", e);
+                    } else {
+                        info!("Successfully opened about dialog");
+                    }
+                });
             },
             "check_updates" => {
                 info!("Checking for updates...");
-                // TODO: Implement update check
+                spawn(async move {
+                    if let Err(e) = check_for_updates().await {
+                        info!("Error checking for updates: {}", e);
+                    } else {
+                        info!("Successfully checked for updates");
+                    }
+                });
+            },
+            "preferences" => {
+                info!("Opening preferences...");
+                let mut app_state_clone = app_state.clone();
+                app_state_clone.settings_dialog_visible.set(true);
+                info!("Preferences dialog opened via menu");
             },
             
             // File menu items
@@ -435,7 +851,13 @@ fn AppWithMenuHandlers() -> Element {
             },
             "new_window" => {
                 info!("Creating new window...");
-                // TODO: Implement new window creation
+                spawn(async move {
+                    if let Err(e) = create_new_window().await {
+                        info!("Error creating new window: {}", e);
+                    } else {
+                        info!("Successfully created new window");
+                    }
+                });
             },
             "new_folder" => {
                 info!("Creating new folder...");
@@ -467,7 +889,31 @@ fn AppWithMenuHandlers() -> Element {
             },
             "new_file" => {
                 info!("Creating new file...");
-                // TODO: Implement new file creation
+                let mut app_state_clone = app_state.clone();
+                
+                spawn(async move {
+                    let current_folder = {
+                        let nav_state = app_state_clone.navigation.read();
+                        Some(nav_state.current_path.clone())
+                    };
+                    
+                    if let Some(parent_path) = current_folder {
+                        match create_new_file_dialog(&parent_path).await {
+                            Ok(new_file_path) => {
+                                info!("Successfully created file: {:?}", new_file_path);
+                                // Refresh the file tree to show the new file
+                                if let Err(e) = app_state_clone.refresh_current_directory().await {
+                                    info!("Error refreshing directory after file creation: {}", e);
+                                }
+                            },
+                            Err(e) => {
+                                info!("Error creating new file: {}", e);
+                            }
+                        }
+                    } else {
+                        info!("No current folder selected - cannot create new file");
+                    }
+                });
             },
             "refresh" => {
                 info!("Refreshing file view...");
@@ -498,6 +944,50 @@ fn AppWithMenuHandlers() -> Element {
                     let current_path = app_state_clone.navigation.read().current_path.clone();
                     if let Err(e) = app_state_clone.navigate_to(current_path).await {
                         info!("Error refreshing directory after hidden files toggle: {}", e);
+                    }
+                });
+            },
+            "open" => {
+                info!("Opening selected file with system default...");
+                let app_state_clone = app_state.clone();
+                
+                spawn(async move {
+                    let selected_files = {
+                        let selection_state = app_state_clone.selection.read();
+                        let file_entries = app_state_clone.file_entries.read();
+                        
+                        // Filter file entries to get only the selected ones
+                        file_entries.iter()
+                            .filter(|entry| selection_state.selected_files.contains(&entry.path))
+                            .cloned()
+                            .collect::<Vec<_>>()
+                    };
+                    
+                    if selected_files.is_empty() {
+                        info!("No files selected for opening");
+                        return;
+                    }
+                    
+                    if selected_files.len() > 1 {
+                        info!("Multiple files selected - open only works with single file selection");
+                        return;
+                    }
+                    
+                    let file_path = &selected_files[0].path;
+                    
+                    // Only open files, not directories
+                    if !file_path.is_file() {
+                        info!("Cannot open directory with system default application: {:?}", file_path);
+                        return;
+                    }
+                    
+                    match open_with_system_default(file_path).await {
+                        Ok(_) => {
+                            info!("Successfully opened file with system default: {:?}", file_path);
+                        },
+                        Err(e) => {
+                            info!("Error opening file with system default: {}", e);
+                        }
                     }
                 });
             },
@@ -589,11 +1079,91 @@ fn AppWithMenuHandlers() -> Element {
             },
             "copy_to" => {
                 info!("Copying files to location...");
-                // TODO: Implement copy to dialog
+                let app_state_clone = app_state.clone();
+                
+                spawn(async move {
+                    let selected_files = {
+                        let selection_state = app_state_clone.selection.read();
+                        let file_entries = app_state_clone.file_entries.read();
+                        
+                        // Filter file entries to get only the selected ones
+                        file_entries.iter()
+                            .filter(|entry| selection_state.selected_files.contains(&entry.path))
+                            .cloned()
+                            .collect::<Vec<_>>()
+                    };
+                    
+                    if selected_files.is_empty() {
+                        info!("No files selected for copying");
+                        return;
+                    }
+                    
+                    // Show folder picker for destination
+                    match show_destination_folder_dialog("Select Copy Destination").await {
+                        Ok(Some(destination)) => {
+                            match copy_files_to_destination(&selected_files, &destination).await {
+                                Ok(copied_count) => {
+                                    info!("Successfully copied {} files to {:?}", copied_count, destination);
+                                },
+                                Err(e) => {
+                                    info!("Error copying files: {}", e);
+                                }
+                            }
+                        },
+                        Ok(None) => {
+                            info!("Copy operation cancelled by user");
+                        },
+                        Err(e) => {
+                            info!("Error showing destination dialog: {}", e);
+                        }
+                    }
+                });
             },
             "move_to" => {
                 info!("Moving files to location...");
-                // TODO: Implement move to dialog
+                let mut app_state_clone = app_state.clone();
+                
+                spawn(async move {
+                    let selected_files = {
+                        let selection_state = app_state_clone.selection.read();
+                        let file_entries = app_state_clone.file_entries.read();
+                        
+                        // Filter file entries to get only the selected ones
+                        file_entries.iter()
+                            .filter(|entry| selection_state.selected_files.contains(&entry.path))
+                            .cloned()
+                            .collect::<Vec<_>>()
+                    };
+                    
+                    if selected_files.is_empty() {
+                        info!("No files selected for moving");
+                        return;
+                    }
+                    
+                    // Show folder picker for destination
+                    match show_destination_folder_dialog("Select Move Destination").await {
+                        Ok(Some(destination)) => {
+                            match move_files_to_destination(&selected_files, &destination).await {
+                                Ok(moved_count) => {
+                                    info!("Successfully moved {} files to {:?}", moved_count, destination);
+                                    // Refresh the file tree to reflect the changes
+                                    if let Err(e) = app_state_clone.refresh_current_directory().await {
+                                        info!("Error refreshing directory after move: {}", e);
+                                    }
+                                },
+                                Err(e) => {
+                                    info!("Error moving files: {}", e);
+                                }
+                            }
+                        },
+                        Ok(None) => {
+                            info!("Move operation cancelled by user");
+                        },
+                        Err(e) => {
+                            info!("Error showing destination dialog: {}", e);
+                        }
+                    }
+                });
             },
             "delete" => {
                 info!("Deleting selected files...");
@@ -705,7 +1275,38 @@ fn AppWithMenuHandlers() -> Element {
             },
             "duplicate" => {
                 info!("Duplicating selected files...");
-                // TODO: Implement file duplication
+                let mut app_state_clone = app_state.clone();
+                
+                spawn(async move {
+                    let selected_files = {
+                        let selection_state = app_state_clone.selection.read();
+                        let file_entries = app_state_clone.file_entries.read();
+                        
+                        // Filter file entries to get only the selected ones
+                        file_entries.iter()
+                            .filter(|entry| selection_state.selected_files.contains(&entry.path))
+                            .cloned()
+                            .collect::<Vec<_>>()
+                    };
+                    
+                    if selected_files.is_empty() {
+                        info!("No files selected for duplication");
+                        return;
+                    }
+                    
+                    match duplicate_files(&selected_files).await {
+                        Ok(duplicated_count) => {
+                            info!("Successfully duplicated {} files", duplicated_count);
+                            // Refresh the file tree to show the duplicated files
+                            if let Err(e) = app_state_clone.refresh_current_directory().await {
+                                info!("Error refreshing directory after duplication: {}", e);
+                            }
+                        },
+                        Err(e) => {
+                            info!("Error duplicating files: {}", e);
+                        }
+                    }
+                });
             },
             "settings" => {
                 info!("Opening settings dialog...");
@@ -717,11 +1318,15 @@ fn AppWithMenuHandlers() -> Element {
             // View menu items
             "toggle_sidebar" => {
                 info!("Toggling sidebar...");
-                // TODO: Implement sidebar toggle
+                let mut app_state_clone = app_state.clone();
+                app_state_clone.toggle_sidebar_collapse();
+                info!("Sidebar toggle completed");
             },
             "toggle_panel" => {
                 info!("Toggling panel...");
-                // TODO: Implement panel toggle
+                let mut app_state_clone = app_state.clone();
+                app_state_clone.toggle_panel_visibility();
+                info!("Panel toggle completed");
             },
             "theme_light" => {
                 info!("Switching to light theme...");
@@ -766,7 +1371,13 @@ fn AppWithMenuHandlers() -> Element {
             },
             "help_documentation" => {
                 info!("Opening help documentation...");
-                // TODO: Implement help documentation
+                spawn(async move {
+                    if let Err(e) = open_help_documentation().await {
+                        info!("Error opening help documentation: {}", e);
+                    } else {
+                        info!("Successfully opened help documentation");
+                    }
+                });
             },
             
             _ => {

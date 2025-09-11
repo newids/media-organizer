@@ -22,9 +22,9 @@ Media Organizer
 ```
 
 **Current Status:**
-- ✅ **About Media Organizer** - Placeholder (TODO: Implement about dialog)
-- ✅ **Check for Updates** - Placeholder (TODO: Implement update check)
-- [ ] **Preference** - Open settings page
+- ✅ **About Media Organizer** - **IMPLEMENTED** - Shows application information dialog
+- ✅ **Check for Updates** - **IMPLEMENTED** - Shows update check dialog  
+- ✅ **Preferences** - **IMPLEMENTED** - Opens settings page
 - ✅ **Services, Hide, Show All, Quit** - System-managed items (working)
 
 ---
@@ -48,14 +48,14 @@ File
 
 **Current Status:**
 - ✅ **Open Folder...** - **IMPLEMENTED** - Opens native folder picker, updates file tree
-- [ ] **New Window** - Open a new window or new instance
-- [ ] **New Folder** - Make a new folder in the folder of 'file tree panel'
-- [ ] **New File** - Make a new file in the folder of 'file tree panel'
+- ✅ **New Window** - **IMPLEMENTED** - Open a new window or new instance
+- ✅ **New Folder** - **IMPLEMENTED** - Make a new folder in the folder of 'file tree panel'
+- ✅ **New File** - **IMPLEMENTED** - Make a new file in the folder of 'file tree panel'
 - ✅ **Refresh** - **IMPLEMENTED** - Refreshes current directory view  
 - ✅ **Show Hidden Files** - **IMPLEMENTED** - Toggles visibility of hidden files with persistence
-- [ ] **Open** - Open a selected file with a system default app in the 'file tree pannel', when olny a file selected
-- [ ] **Open With...** - Open a selected file in the 'file tree pannel', when olny a file selected 
-- [ ] **Show in Finder** - Open Finder(MacOS) or File Explorer(Windows) with a folder which is placed selected file or current folder
+- ✅ **Open** - **IMPLEMENTED** - Open a selected file with a system default app in the 'file tree panel', when only a file selected
+- ✅ **Open With...** - **IMPLEMENTED** - Open a selected file in the 'file tree panel', when only a file selected 
+- ✅ **Show in Finder** - **IMPLEMENTED** - Open Finder(MacOS) or File Explorer(Windows) with a folder which is placed selected file or current folder
 
 ---
 
@@ -85,11 +85,11 @@ Edit
 **Current Status:**
 - ✅ **Undo, Redo, Cut, Copy, Paste, Select All** - System-managed items (working)
 - ✅ **Clear Selection** - **IMPLEMENTED** - Clears all selected files in the file tree
-- ❌ **Copy to...** - Placeholder (TODO: Implement copy to dialog)
-- ❌ **Move to...** - Placeholder (TODO: Implement move to dialog)
-- ❌ **Delete** - Placeholder (TODO: Implement delete confirmation and action)
-- ❌ **Rename** - Placeholder (TODO: Implement inline rename functionality)
-- [ ] **Duplicate** - Duplicate file which is selected in 'file tree panell'
+- ✅ **Copy to...** - **IMPLEMENTED** - Copy selected files to chosen destination folder
+- ✅ **Move to...** - **IMPLEMENTED** - Move selected files to chosen destination folder  
+- ✅ **Delete** - **IMPLEMENTED** - Delete selected files with confirmation dialog
+- ✅ **Rename** - **IMPLEMENTED** - Rename selected file with input dialog
+- ✅ **Duplicate** - **IMPLEMENTED** - Duplicate file which is selected in 'file tree panel'
 - ✅ **Settings...** - **IMPLEMENTED** - Opens settings dialog with theme and font options
 
 ---
@@ -106,8 +106,8 @@ View
 ```
 
 **Current Status:**
-- ❌ **Toggle Sidebar** - Placeholder (TODO: Implement sidebar toggle)
-- ❌ **Toggle Panel** - Placeholder (TODO: Implement panel toggle)
+- ✅ **Toggle Sidebar** - **IMPLEMENTED** - Show or hide the sidebar file tree panel
+- ✅ **Toggle Panel** - **IMPLEMENTED** - Show or hide the bottom panel 
 - ✅ **Light Theme** - **IMPLEMENTED** - Switches to VSCode Light+ theme with persistence
 - ✅ **Dark Theme** - **IMPLEMENTED** - Switches to VSCode Dark+ theme with persistence
 - ✅ **Auto Theme** - **IMPLEMENTED** - Auto-detects system preference and applies appropriate theme
@@ -123,7 +123,7 @@ Help
 
 **Current Status:**
 - ✅ **Keyboard Shortcuts** - **IMPLEMENTED** - Opens comprehensive keyboard shortcuts cheat sheet
-- ❌ **Media Organizer Help** - Placeholder (TODO: Implement help documentation)
+- ✅ **Media Organizer Help** - **IMPLEMENTED** - Opens help documentation (online or local README)
 
 ---
 
@@ -239,29 +239,35 @@ Help
 
 ## Future Enhancement Areas
 
-### **Priority 1: Core File Operations**
-- [ ] **New Folder/File Creation** - Essential file management functionality
-- [ ] **Delete with Confirmation** - Safe file deletion with trash/permanent options
-- [ ] **Rename Inline** - Quick file/folder renaming
-- [ ] **Refresh Functionality** - Manual refresh of current directory
+### **Priority 1: User Experience Improvements**
+- [ ] **Enhanced Input Dialogs** - Replace timestamp-based naming with actual user input dialogs
+- [ ] **Application Picker for "Open With"** - Show available applications for file types
+- [ ] **Progress Indicators** - Show progress for long-running operations (copy/move)
+- [ ] **Confirmation Dialogs with Details** - Show file counts and sizes in operation confirmations
 
-### **Priority 2: File Management**
-- [ ] **Copy/Move to Dialogs** - Destination picker for file operations
-- [ ] **Show in Finder Integration** - Native file manager integration
-- [ ] **Open With Menu** - Application picker for file opening
-- [ ] **Duplicate Files** - Smart file duplication with naming
+### **Priority 2: Advanced File Operations**  
+- [ ] **Batch Operations** - Support for multiple simultaneous file operations
+- [ ] **Operation Queue** - Queue and manage multiple background operations
+- [ ] **Smart Conflict Resolution** - Better handling of duplicate file names during operations
+- [ ] **Network Location Support** - Support for remote file systems and network shares
 
-### **Priority 3: UI/UX Enhancements**
-- [ ] **Settings Dialog** - Comprehensive preferences interface
-- [ ] **Sidebar/Panel Toggles** - Layout customization
-- [ ] **Hidden Files Toggle** - Show/hide system files
-- [ ] **Clear Selection** - Deselect all items
+### **Priority 3: Platform Integration**
+- [ ] **Drag & Drop Support** - Native drag and drop between applications
+- [ ] **Contextual Menu Integration** - Right-click context menus matching system conventions
+- [ ] **Spotlight/Search Integration** - System search integration on macOS
+- [ ] **Windows Shell Extensions** - Context menu integration on Windows
 
-### **Priority 4: Help & Documentation**
-- [ ] **Keyboard Shortcuts Dialog** - Interactive shortcut reference
-- [ ] **Help Documentation** - In-app help system
-- [ ] **About Dialog** - Application information and credits
-- [ ] **Update Check System** - Automatic update notifications
+### **Priority 4: Enhanced Preferences**
+- [ ] **Keyboard Shortcut Customization** - User-configurable keyboard shortcuts
+- [ ] **File Association Management** - Manage which apps open which file types  
+- [ ] **Operation Behavior Settings** - Configure default behaviors for file operations
+- [ ] **Auto-Update Settings** - Configure automatic update checking preferences
+
+### **✅ Completed Features**
+- ✅ **Core File Operations** - New folder/file creation, delete, rename, refresh
+- ✅ **File Management** - Copy/move to dialogs, show in finder, open with, duplicate
+- ✅ **UI/UX Features** - Settings dialog, sidebar/panel toggles, hidden files, clear selection  
+- ✅ **Help & Documentation** - Keyboard shortcuts, help system, about dialog, update check
 
 ---
 
