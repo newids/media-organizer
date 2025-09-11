@@ -18,39 +18,23 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
         return rsx! { div {} };
     }
 
-    // Create local copy of settings for editing
-    let mut local_settings = use_signal(|| props.current_settings.read().clone());
-    
-    // Sync with current settings when dialog opens
-    use_effect(move || {
-        if props.visible {
-            local_settings.set(props.current_settings.read().clone());
-        }
-    });
-
+    // Work directly with the current settings signal - no local copy needed
     let on_theme_change = move |new_theme: Theme| {
-        let mut settings = local_settings.write();
-        settings.theme = new_theme;
-        // Apply changes immediately for preview
-        props.on_settings_change.call(settings.clone());
+        props.on_settings_change.call({
+            let mut settings = props.current_settings.read().clone();
+            settings.theme = new_theme;
+            settings
+        });
     };
 
-    let on_save = move |_| {
-        // Save current local settings
-        props.on_settings_change.call(local_settings.read().clone());
-        props.on_close.call(());
-    };
-
-    let on_cancel = move |_| {
-        // Revert to original settings
-        props.on_settings_change.call(props.current_settings.read().clone());
+    let on_close = move |_| {
         props.on_close.call(());
     };
 
     rsx! {
         div {
             class: "dialog-overlay",
-            onclick: move |_| on_cancel(()),
+            onclick: move |_| on_close(()),
             
             div {
                 class: "settings-dialog",
@@ -108,7 +92,7 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                             font-size: 16px;
                             border-radius: 4px;
                         ",
-                        onclick: move |_| on_cancel(()),
+                        onclick: move |_| on_close(()),
                         title: "Close settings",
                         "×"
                     }
@@ -167,9 +151,9 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                             div {
                                 style: "padding-left: 8px;",
                                 EnhancedThemeSelector {
-                                    current_theme: local_settings.read().theme.clone(),
+                                    current_theme: props.current_settings.read().theme.clone(),
                                     theme_manager_state: use_signal(|| crate::theme::ThemeManagerState {
-                                        current_theme: local_settings.read().theme.clone(),
+                                        current_theme: props.current_settings.read().theme.clone(),
                                         is_applying: false,
                                         manual_override_active: false,
                                         last_detected_system_theme: ThemeManager::detect_system_theme(),
@@ -213,7 +197,7 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                             }
                             
                             select {
-                                value: "{local_settings.read().font_family.as_str()}",
+                                value: "{props.current_settings.read().font_family.as_str()}",
                                 style: "
                                     width: 100%;
                                     background-color: var(--vscode-input-background);
@@ -230,23 +214,22 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                                     let font_family = FontFamily::from_str(&evt.value());
                                     tracing::info!("Font family changed to: {:?}", font_family);
                                     
-                                    let mut settings = local_settings.write();
-                                    settings.font_family = font_family.clone();
-                                    
-                                    // Update the custom CSS variables in settings
-                                    settings.custom_css_variables.insert("--vscode-font-family".to_string(), font_family.css_value().to_string());
-                                    
-                                    // Apply font family changes immediately by updating CSS variables
-                                    tracing::info!("Font family will be applied on next theme refresh");
-                                    
-                                    // Apply changes immediately for preview
-                                    props.on_settings_change.call(settings.clone());
+                                    props.on_settings_change.call({
+                                        let mut settings = props.current_settings.read().clone();
+                                        settings.font_family = font_family.clone();
+                                        
+                                        // Update the custom CSS variables in settings
+                                        settings.custom_css_variables.insert("--vscode-font-family".to_string(), font_family.css_value().to_string());
+                                        
+                                        tracing::info!("Font family applied immediately: {:?}", font_family);
+                                        settings
+                                    });
                                 },
                                 
                                 for font in FontFamily::get_all() {
                                     option {
                                         value: "{font.as_str()}",
-                                        selected: local_settings.read().font_family == font,
+                                        selected: props.current_settings.read().font_family == font,
                                         "{font.display_name()}"
                                     }
                                 }
@@ -286,7 +269,7 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                             }
                             
                             select {
-                                value: "{local_settings.read().font_size.as_str()}",
+                                value: "{props.current_settings.read().font_size.as_str()}",
                                 style: "
                                     width: 100%;
                                     background-color: var(--vscode-input-background);
@@ -303,24 +286,23 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                                     let font_size = FontSize::from_str(&evt.value());
                                     tracing::info!("Font size changed to: {:?}", font_size);
                                     
-                                    let mut settings = local_settings.write();
-                                    settings.font_size = font_size.clone();
-                                    
-                                    // Update the custom CSS variables in settings
-                                    settings.custom_css_variables.insert("--vscode-font-size-normal".to_string(), font_size.css_value().to_string());
-                                    settings.custom_css_variables.insert("--vscode-font-size".to_string(), font_size.css_value().to_string());
-                                    
-                                    // Apply font size changes immediately by updating CSS variables  
-                                    tracing::info!("Font size will be applied on next theme refresh");
-                                    
-                                    // Apply changes immediately for preview
-                                    props.on_settings_change.call(settings.clone());
+                                    props.on_settings_change.call({
+                                        let mut settings = props.current_settings.read().clone();
+                                        settings.font_size = font_size.clone();
+                                        
+                                        // Update the custom CSS variables in settings
+                                        settings.custom_css_variables.insert("--vscode-font-size-normal".to_string(), font_size.css_value().to_string());
+                                        settings.custom_css_variables.insert("--vscode-font-size".to_string(), font_size.css_value().to_string());
+                                        
+                                        tracing::info!("Font size applied immediately: {:?}", font_size);
+                                        settings
+                                    });
                                 },
                                 
                                 for size in FontSize::get_all() {
                                     option {
                                         value: "{size.as_str()}",
-                                        selected: local_settings.read().font_size == size,
+                                        selected: props.current_settings.read().font_size == size,
                                         "{size.display_name()}"
                                     }
                                 }
@@ -394,14 +376,18 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                             
                             input {
                                 r#type: "checkbox",
-                                checked: local_settings.read().remember_last_directory,
+                                checked: props.current_settings.read().remember_last_directory,
                                 style: "
                                     accent-color: var(--vscode-accent);
                                     transform: scale(1.2);
                                 ",
                                 onchange: move |evt| {
-                                    let mut settings = local_settings.write();
-                                    settings.remember_last_directory = evt.checked();
+                                    props.on_settings_change.call({
+                                        let mut settings = props.current_settings.read().clone();
+                                        settings.remember_last_directory = evt.checked();
+                                        tracing::info!("Remember last directory changed to: {}", evt.checked());
+                                        settings
+                                    });
                                 }
                             }
                         }
@@ -436,52 +422,9 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                                     font-size: 12px;
                                     line-height: 1.4;
                                 ",
-                                "Settings are automatically saved when changed. Use Ctrl+, to quickly open settings."
+                                "Settings are automatically applied when changed. Use Ctrl+, to quickly open settings."
                             }
                         }
-                    }
-                }
-                
-                // Dialog Actions
-                div {
-                    class: "dialog-actions",
-                    style: "
-                        display: flex;
-                        justify-content: flex-end;
-                        gap: 8px;
-                        padding: 16px 20px;
-                        border-top: 1px solid var(--vscode-border);
-                        background: var(--vscode-secondary-background);
-                    ",
-                    
-                    button {
-                        class: "button secondary",
-                        style: "
-                            background: transparent;
-                            color: var(--vscode-text-secondary);
-                            border: 1px solid var(--vscode-border);
-                            padding: 8px 16px;
-                            border-radius: 4px;
-                            cursor: pointer;
-                            font-size: 14px;
-                        ",
-                        onclick: move |_| on_cancel(()),
-                        "Cancel"
-                    }
-                    
-                    button {
-                        class: "button primary",
-                        style: "
-                            background: var(--vscode-accent);
-                            color: white;
-                            border: none;
-                            padding: 8px 16px;
-                            border-radius: 4px;
-                            cursor: pointer;
-                            font-size: 14px;
-                        ",
-                        onclick: move |_| on_save(()),
-                        "Save"
                     }
                 }
             }

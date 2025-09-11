@@ -13,7 +13,9 @@ use dioxus::prelude::*;
 use wasm_bindgen::prelude::*;
 
 #[cfg(not(feature = "web"))]
-use dioxus::prelude::{spawn, use_signal, Signal};
+use dioxus::prelude::{spawn, use_signal, Signal, use_effect, Element, rsx, component, Props};
+
+use std::collections::HashMap;
 
 /// Legacy theme management utilities for backwards compatibility
 /// For new development, use VsCodeThemeManager instead
@@ -41,6 +43,10 @@ impl ThemeManager {
             
             // Fallback to legacy theme application
             Self::apply_legacy_theme(theme);
+        } else {
+            // Successfully set theme, now apply the CSS variables
+            vscode_manager.apply_current_theme();
+            tracing::info!("Applied VSCode theme: {:?}", theme);
         }
     }
     
@@ -82,28 +88,53 @@ impl ThemeManager {
         
         #[cfg(not(feature = "web"))]
         {
-            // For desktop, we need to simulate the CSS media query behavior
-            // since we can't rely on browser media queries
+            // For desktop, apply basic theme variables using the custom CSS system
+            let mut theme_vars = std::collections::HashMap::new();
+            
             match theme {
                 Theme::Dark => {
                     tracing::debug!("Applied explicit dark theme (desktop)");
-                    // In a full desktop implementation, you'd set CSS variables here
+                    // Set basic dark theme variables
+                    theme_vars.insert("--vscode-editor-background".to_string(), "#1e1e1e".to_string());
+                    theme_vars.insert("--vscode-editor-foreground".to_string(), "#cccccc".to_string());
+                    theme_vars.insert("--vscode-panel-background".to_string(), "#1e1e1e".to_string());
+                    theme_vars.insert("--vscode-secondary-background".to_string(), "#2d2d30".to_string());
+                    theme_vars.insert("--vscode-text-primary".to_string(), "#cccccc".to_string());
+                    theme_vars.insert("--vscode-text-secondary".to_string(), "#999999".to_string());
                 }
                 Theme::Light => {
                     tracing::debug!("Applied explicit light theme (desktop)");
-                    // In a full desktop implementation, you'd set CSS variables here
+                    // Set basic light theme variables
+                    theme_vars.insert("--vscode-editor-background".to_string(), "#ffffff".to_string());
+                    theme_vars.insert("--vscode-editor-foreground".to_string(), "#333333".to_string());
+                    theme_vars.insert("--vscode-panel-background".to_string(), "#ffffff".to_string());
+                    theme_vars.insert("--vscode-secondary-background".to_string(), "#f8f8f8".to_string());
+                    theme_vars.insert("--vscode-text-primary".to_string(), "#333333".to_string());
+                    theme_vars.insert("--vscode-text-secondary".to_string(), "#666666".to_string());
                 }
                 Theme::HighContrast => {
                     tracing::debug!("Applied high contrast theme (desktop)");
-                    // In a full desktop implementation, you'd set high contrast CSS variables here
+                    // Set high contrast theme variables
+                    theme_vars.insert("--vscode-editor-background".to_string(), "#000000".to_string());
+                    theme_vars.insert("--vscode-editor-foreground".to_string(), "#ffffff".to_string());
+                    theme_vars.insert("--vscode-panel-background".to_string(), "#000000".to_string());
+                    theme_vars.insert("--vscode-secondary-background".to_string(), "#000000".to_string());
+                    theme_vars.insert("--vscode-text-primary".to_string(), "#ffffff".to_string());
+                    theme_vars.insert("--vscode-text-secondary".to_string(), "#ffffff".to_string());
                 }
                 Theme::Auto => {
                     let system_theme = Self::detect_system_theme();
                     tracing::info!("Auto theme active (desktop), detected system preference: {}", 
                                  if system_theme { "dark" } else { "light" });
-                    // In a full implementation, you'd apply the detected theme's CSS variables
+                    // Apply detected theme recursively
+                    let detected_theme = if system_theme { Theme::Dark } else { Theme::Light };
+                    Self::apply_legacy_theme(&detected_theme);
+                    return;
                 }
             }
+            
+            // Apply the theme variables
+            Self::apply_custom_css_variables(&theme_vars);
         }
     }
 
@@ -763,3 +794,95 @@ pub fn EnhancedThemeSelector(
         }
     }
 }
+
+/// Props for DynamicThemeStyles component
+#[derive(Props, Clone, PartialEq)]
+pub struct DynamicThemeStylesProps {
+    pub current_settings: Signal<crate::state::SettingsState>,
+}
+
+/// Dynamic theme styles component that injects CSS variables immediately
+#[component] 
+pub fn DynamicThemeStyles(props: DynamicThemeStylesProps) -> Element {
+    // Create a signal to hold theme-based CSS
+    let mut css_content = use_signal(|| String::new());
+    
+    // React to theme changes in settings
+    let current_theme = props.current_settings.read().theme.clone();
+    
+    use_effect(move || {
+        tracing::info!("DynamicThemeStyles: Theme changed to {:?}, generating CSS", current_theme);
+        
+        // Create VSCode theme manager and get variables for the current theme
+        let mut theme_manager = crate::theme::theme_manager::VsCodeThemeManager::new();
+        if let Ok(_) = theme_manager.set_theme_from_simple(&current_theme) {
+            // Get the theme variables directly from the manager
+            if let Some(variables) = theme_manager.get_current_theme_variables() {
+                tracing::info!("DynamicThemeStyles: Generated {} theme variables from current theme", variables.len());
+                
+                // Generate CSS content with maximum specificity to override existing :root declarations
+                let mut new_css = String::from("/* Dynamic Theme CSS - Generated by DynamicThemeStyles Component */\n");
+                
+                // Use the highest possible specificity to override hardcoded :root values
+                new_css.push_str("html.theme-override:root, html:root, body:root, #app, html, body {\n");
+                for (key, value) in &variables {
+                    new_css.push_str(&format!("    {}: {} !important;\n", key, value));
+                }
+                new_css.push_str("}\n\n");
+                
+                // Apply directly to the media-organizer-app class with maximum specificity
+                new_css.push_str(".media-organizer-app, .media-organizer-app *, body .media-organizer-app {\n");
+                for (key, value) in &variables {
+                    // Apply all color-related variables to the app
+                    if key.contains("background") || key.contains("foreground") || key.contains("color") || key.contains("border") {
+                        new_css.push_str(&format!("    {}: {} !important;\n", key, value));
+                    }
+                }
+                new_css.push_str("}\n\n");
+                
+                // Force the browser to recalculate styles by adding a unique class
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis();
+                new_css.push_str(&format!("body.theme-refresh-{} {{\n", timestamp));
+                new_css.push_str("    /* Force style recalculation */\n");
+                new_css.push_str("}\n");
+                
+                css_content.set(new_css.clone());
+                tracing::info!("DynamicThemeStyles: Successfully applied {} CSS variables for theme {:?}", variables.len(), current_theme);
+                tracing::debug!("Generated CSS:\n{}", new_css);
+                
+                // Log theme change completion
+                spawn({
+                    let current_theme = current_theme.clone();
+                    async move {
+                        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                        tracing::info!("Theme CSS applied for {:?} - UI should update", current_theme);
+                    }
+                });
+            } else {
+                tracing::warn!("DynamicThemeStyles: No theme variables available for theme {:?}", current_theme);
+            }
+        } else {
+            tracing::error!("DynamicThemeStyles: Failed to set theme {:?}", current_theme);
+        }
+    });
+    
+    rsx! {
+        // Inject theme CSS directly into the DOM using a style element
+        if !css_content().is_empty() {
+            style {
+                "data-theme-source": "dynamic-theme-styles",
+                "{css_content()}"
+            }
+        } else {
+            // Show when no CSS is available yet
+            style {
+                "data-theme-source": "dynamic-theme-styles-empty",
+                "/* No dynamic theme CSS loaded yet */"
+            }
+        }
+    }
+}
+

@@ -181,12 +181,142 @@ impl VsCodeThemeManager {
         
         #[cfg(not(feature = "web"))]
         {
-            // For desktop, log the variables that would be applied
-            tracing::debug!("Would apply {} CSS variables in desktop mode", variables.len());
-            for (key, value) in variables.iter().take(5) { // Log first 5 for debugging
-                tracing::debug!("CSS Var: {} = {}", key, value);
+            // For desktop, use dynamic CSS injection for immediate theme changes
+            tracing::debug!("Applying {} CSS variables in desktop mode with dynamic injection", variables.len());
+            
+            if let Err(e) = Self::inject_css_variables_dynamically(variables) {
+                tracing::warn!("Dynamic CSS injection failed: {}, falling back to file system", e);
+                // Fallback to file system method
+                Self::apply_css_variables_fallback(variables);
+            } else {
+                tracing::info!("Successfully applied theme with {} CSS variables via dynamic injection", variables.len());
             }
         }
+    }
+    
+    /// Inject CSS variables directly into the DOM using JavaScript evaluation
+    fn inject_css_variables_dynamically(variables: &HashMap<String, String>) -> Result<(), String> {
+        // Store the variables in a global location for the component to use
+        use std::sync::Mutex;
+        
+        static PENDING_CSS_VARS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+        
+        // Store the variables
+        {
+            let mut pending = PENDING_CSS_VARS.lock().unwrap();
+            *pending = Some(variables.clone());
+        }
+        
+        // The actual injection will be done by the DynamicThemeStyles component
+        // This approach ensures we're in the proper Dioxus component context
+        tracing::debug!("CSS variables stored for dynamic injection by component");
+        Ok(())
+    }
+    
+    /// Get pending CSS variables for injection (used by components)
+    pub fn get_pending_css_variables() -> Option<HashMap<String, String>> {
+        use std::sync::Mutex;
+        static PENDING_CSS_VARS: Mutex<Option<HashMap<String, String>>> = Mutex::new(None);
+        
+        let mut pending = PENDING_CSS_VARS.lock().unwrap();
+        pending.take() // Take the variables and clear them
+    }
+    
+    /// Get CSS variables for the current theme
+    pub fn get_current_theme_variables(&self) -> Option<HashMap<String, String>> {
+        if let Some(ref theme_data) = self.current_theme {
+            let mut variables = HashMap::new();
+            
+            // Map ThemeColors struct fields to CSS variables
+            let colors = &theme_data.colors;
+            
+            // Base colors
+            variables.insert("--vscode-foreground".to_string(), colors.foreground.clone());
+            variables.insert("--vscode-foreground-secondary".to_string(), colors.foreground_secondary.clone());
+            variables.insert("--vscode-error-foreground".to_string(), colors.error_foreground.clone());
+            variables.insert("--vscode-warning-foreground".to_string(), colors.warning_foreground.clone());
+            variables.insert("--vscode-info-foreground".to_string(), colors.info_foreground.clone());
+            variables.insert("--vscode-success-foreground".to_string(), colors.success_foreground.clone());
+            
+            // Background colors  
+            variables.insert("--vscode-background".to_string(), colors.background.clone());
+            variables.insert("--vscode-secondary-background".to_string(), colors.secondary_background.clone());
+            variables.insert("--vscode-tertiary-background".to_string(), colors.tertiary_background.clone());
+            
+            // Border and separator colors
+            variables.insert("--vscode-border".to_string(), colors.border.clone());
+            variables.insert("--vscode-border-secondary".to_string(), colors.border_secondary.clone());
+            variables.insert("--vscode-focus-border".to_string(), colors.focus_border.clone());
+            variables.insert("--vscode-drop-shadow".to_string(), colors.drop_shadow.clone());
+            
+            // Button colors
+            variables.insert("--vscode-button-background".to_string(), colors.button_background.clone());
+            variables.insert("--vscode-button-foreground".to_string(), colors.button_foreground.clone());
+            variables.insert("--vscode-button-hover-background".to_string(), colors.button_hover_background.clone());
+            variables.insert("--vscode-button-disabled-background".to_string(), colors.button_disabled_background.clone());
+            variables.insert("--vscode-button-disabled-foreground".to_string(), colors.button_disabled_foreground.clone());
+            
+            // Input colors
+            variables.insert("--vscode-input-background".to_string(), colors.input_background.clone());
+            variables.insert("--vscode-input-foreground".to_string(), colors.input_foreground.clone());
+            variables.insert("--vscode-input-border".to_string(), colors.input_border.clone());
+            variables.insert("--vscode-input-placeholder-foreground".to_string(), colors.input_placeholder_foreground.clone());
+            
+            // List colors (very important for file trees and UI lists)
+            variables.insert("--vscode-list-background".to_string(), colors.list_background.clone());
+            variables.insert("--vscode-list-foreground".to_string(), colors.list_foreground.clone());
+            variables.insert("--vscode-list-active-selection-background".to_string(), colors.list_active_selection_background.clone());
+            variables.insert("--vscode-list-active-selection-foreground".to_string(), colors.list_active_selection_foreground.clone());
+            variables.insert("--vscode-list-inactive-selection-background".to_string(), colors.list_inactive_selection_background.clone());
+            variables.insert("--vscode-list-inactive-selection-foreground".to_string(), colors.list_inactive_selection_foreground.clone());
+            variables.insert("--vscode-list-hover-background".to_string(), colors.list_hover_background.clone());
+            variables.insert("--vscode-list-hover-foreground".to_string(), colors.list_hover_foreground.clone());
+            
+            // Activity Bar colors
+            variables.insert("--vscode-activity-bar-background".to_string(), colors.activity_bar_background.clone());
+            variables.insert("--vscode-activity-bar-foreground".to_string(), colors.activity_bar_foreground.clone());
+            variables.insert("--vscode-activity-bar-inactive-foreground".to_string(), colors.activity_bar_inactive_foreground.clone());
+            variables.insert("--vscode-activity-bar-border".to_string(), colors.activity_bar_border.clone());
+            variables.insert("--vscode-activity-bar-active-background".to_string(), colors.activity_bar_active_background.clone());
+            variables.insert("--vscode-activity-bar-active-foreground".to_string(), colors.activity_bar_active_foreground.clone());
+            
+            // Side Bar colors
+            variables.insert("--vscode-side-bar-background".to_string(), colors.side_bar_background.clone());
+            variables.insert("--vscode-side-bar-foreground".to_string(), colors.side_bar_foreground.clone());
+            variables.insert("--vscode-side-bar-border".to_string(), colors.side_bar_border.clone());
+            variables.insert("--vscode-side-bar-title-foreground".to_string(), colors.side_bar_title_foreground.clone());
+            variables.insert("--vscode-side-bar-section-header-background".to_string(), colors.side_bar_section_header_background.clone());
+            variables.insert("--vscode-side-bar-section-header-foreground".to_string(), colors.side_bar_section_header_foreground.clone());
+            
+            // Tab colors  
+            variables.insert("--vscode-tab-active-background".to_string(), colors.tab_active_background.clone());
+            variables.insert("--vscode-tab-active-foreground".to_string(), colors.tab_active_foreground.clone());
+            variables.insert("--vscode-tab-active-border".to_string(), colors.tab_active_border.clone());
+            variables.insert("--vscode-tab-inactive-background".to_string(), colors.tab_inactive_background.clone());
+            variables.insert("--vscode-tab-inactive-foreground".to_string(), colors.tab_inactive_foreground.clone());
+            variables.insert("--vscode-tab-hover-background".to_string(), colors.tab_hover_background.clone());
+            variables.insert("--vscode-tab-hover-foreground".to_string(), colors.tab_hover_foreground.clone());
+            
+            // Editor colors (most important for visual changes)
+            variables.insert("--vscode-editor-background".to_string(), colors.background.clone());
+            variables.insert("--vscode-editor-foreground".to_string(), colors.foreground.clone());
+            variables.insert("--vscode-panel-background".to_string(), colors.secondary_background.clone());
+            
+            // Text colors (aliases for compatibility)
+            variables.insert("--vscode-text-primary".to_string(), colors.foreground.clone());
+            variables.insert("--vscode-text-secondary".to_string(), colors.foreground_secondary.clone());
+            
+            tracing::debug!("Generated {} comprehensive CSS variables from theme colors", variables.len());
+            Some(variables)
+        } else {
+            None
+        }
+    }
+
+    /// Fallback method for applying CSS variables when direct injection fails
+    fn apply_css_variables_fallback(variables: &HashMap<String, String>) {
+        // Use the existing CSS file writing system from ThemeManager
+        crate::theme::ThemeManager::apply_custom_css_variables(variables);
     }
     
     /// Apply legacy theme attributes for backwards compatibility

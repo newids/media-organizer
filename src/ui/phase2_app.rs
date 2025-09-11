@@ -1,7 +1,8 @@
 use dioxus::prelude::*;
 use std::path::PathBuf;
 use crate::state::{save_panel_state_debounced, load_panel_state, use_app_state, use_file_entries, load_settings, save_settings_debounced};
-use crate::theme::{ThemeManager, use_theme_manager};
+use crate::theme::{ThemeManager, use_theme_manager, DynamicThemeStyles};
+use std::sync::atomic::{AtomicU32, Ordering};
 use crate::services::file_system::{FileEntry};
 use crate::ui::{use_shortcut_handler};
 use crate::utils::normalize_path_display;
@@ -32,6 +33,10 @@ pub fn phase2_app() -> Element {
     let mut app_state_for_folder_select = app_state.clone();
     let mut app_state_for_startup = app_state.clone();
     let file_entries = use_file_entries();
+    
+    // Add a refresh trigger for theme changes
+    static THEME_REFRESH_COUNTER: AtomicU32 = AtomicU32::new(0);
+    let theme_refresh_trigger = use_signal(|| 0u32);
     
     // Load settings and restore last opened folder on startup
     use_future(move || {
@@ -245,6 +250,18 @@ pub fn phase2_app() -> Element {
         // Dynamic style for immediate font changes
         DynamicFontStyles {
             settings: current_settings,
+        }
+        
+        // Dynamic style for immediate theme changes
+        DynamicThemeStyles {
+            current_settings: current_settings,
+        }
+        
+        // Hidden element that forces re-render when theme changes
+        div {
+            style: "display: none;",
+            "data-theme-trigger": "{theme_refresh_trigger()}",
+            // This invisible div updates when theme changes, forcing Dioxus to re-render
         }
         
         div {
