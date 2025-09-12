@@ -2,10 +2,58 @@
 /* DYNAMIC FONT VARIABLES - START */
 :root {
   --vscode-font-family: 'SF Pro Display', -apple-system, sans-serif !important;
-  --vscode-font-size: 15px !important;
-  --vscode-font-size-normal: 15px !important;
+  --vscode-font-size-normal: 17px !important;
+  --vscode-font-size: 17px !important;
 }
 /* DYNAMIC FONT VARIABLES - END */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1035,11 +1083,13 @@ body {
   height: 100%;
   background-color: var(--vscode-secondary-background);
   border-right: 1px solid var(--vscode-border);
-  overflow: auto;
+  overflow: hidden; /* Changed from auto to hidden to prevent undefined margins */
   display: flex;
   flex-direction: column;
   transition: width var(--vscode-transition-normal);
   margin: 0;
+  padding: 0; /* Explicitly set padding to 0 */
+  box-sizing: border-box; /* Ensure border doesn't affect height calculation */
 }
 
 .file-tree-panel.dragging {
@@ -1049,13 +1099,17 @@ body {
 /* Content Viewer Panel (Right Panel) */
 .content-viewer-panel {
   grid-area: content-viewer;
+  flex: 1;
   height: 100%;
   background-color: var(--vscode-background);
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   width: 100%;
   min-width: 0; /* Allow shrinking below content width */
+  box-sizing: border-box; /* Ensure consistent height calculation */
+  margin: 0;
+  padding: 0; /* Match file-tree-panel padding */
 }
 
 /* File Tree Header */
@@ -1079,9 +1133,102 @@ body {
 /* File Tree Content */
 .file-tree-content {
   flex: 1;
-  padding: var(--vscode-spacing-xs) 0;
+  overflow-y: auto; /* Enable scrolling only when needed */
+  overflow-x: hidden;
+  padding: 0; /* Remove all padding to eliminate undefined margins */
+  margin: 0; /* Explicitly remove any margins */
   font-family: var(--vscode-font-mono);
   font-size: var(--vscode-font-size-normal);
+  min-height: 0; /* Allow shrinking */
+  height: 100%; /* Take full available height */
+  display: flex;
+  flex-direction: column;
+}
+
+/* File Tree Item Container - for internal spacing when few files */
+.file-tree-items-container {
+  flex: 1;
+  min-height: 100%;
+  padding: 0; /* No default padding */
+  margin: 0; /* No margin */
+}
+
+/* When file tree has few items, add internal padding for better spacing */
+.file-tree-items-container.few-files {
+  padding: var(--vscode-spacing-md) 0; /* Internal padding for small file lists */
+}
+
+/* When file tree is scrollable, no extra padding needed */
+.file-tree-items-container.scrollable {
+  padding: var(--vscode-spacing-xs) 0; /* Minimal padding for scrollable content */
+}
+
+/* Working File Tree - ensure it takes full height to match preview panel */
+.working-file-tree {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Prevent external margins */
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Working File Tree internal divs must take full height */
+.working-file-tree > div {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto; /* Enable scrolling within the content */
+  min-height: 0; /* Allow flex shrinking */
+}
+
+/* Ensure all file tree elements have the same height as preview panel */
+.working-file-tree div[role="list"],
+.working-file-tree > div:not([id="file-tree-instructions"]) {
+  flex: 1 !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+}
+
+/* Force remove border from file list with higher specificity */
+div[role="list"][style*="border"] {
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+/* Ensure file-tree-panel always matches preview panel height */
+.file-tree-panel {
+  height: 100% !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Force consistent height across all file list content areas */
+.file-list-content,
+.working-file-tree,
+.working-file-tree > div {
+  height: 100% !important;
+  min-height: 100% !important;
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
 }
 
 /* File Tree Items */
@@ -1092,12 +1239,13 @@ body {
   cursor: pointer;
   white-space: nowrap;
   user-select: none;
-  transition: background-color var(--vscode-transition-fast);
+  transition: background-color 0.1s ease; /* Consolidated transition property */
   border-left: 3px solid transparent;
+  margin: 0; /* Explicitly no margin */
 }
 
 .file-tree-item:hover {
-  background-color: var(--vscode-tertiary-background);
+  background-color: var(--vscode-list-hoverBackground, var(--vscode-tertiary-background));
 }
 
 .file-tree-item:focus {
@@ -1107,13 +1255,22 @@ body {
 }
 
 .file-tree-item.selected {
-  background-color: var(--vscode-accent-active);
-  color: var(--vscode-text-white);
+  background-color: var(--vscode-list-activeSelectionBackground, var(--vscode-accent-active));
+  color: var(--vscode-list-activeSelectionForeground, var(--vscode-text-white));
   border-left-color: var(--vscode-accent);
 }
 
 .file-tree-item.selected:hover {
-  background-color: var(--vscode-accent-hover);
+  background-color: var(--vscode-list-activeSelectionBackground, var(--vscode-accent-hover));
+}
+
+.file-tree-item.focused {
+  outline: 2px solid var(--vscode-focusBorder, var(--vscode-accent));
+  outline-offset: -2px;
+}
+
+.file-tree-item.focused.selected {
+  outline-color: var(--vscode-list-focusOutline, #ffffff);
 }
 
 .file-tree-item-icon {
@@ -1158,16 +1315,7 @@ body {
   transition: none;
 }
 
-/* Content Viewer Panel */
-.content-viewer-panel {
-  flex: 1;
-  height: 100%;
-  background-color: var(--vscode-background);
-  overflow: auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
+/* Duplicate content-viewer-panel definition removed - consolidated above */
 
 /* Content Area */
 .content-area {
@@ -1309,32 +1457,7 @@ body {
   }
 }
 
-/* File Tree Item Styling */
-.file-tree-item {
-  transition: background-color 0.1s ease;
-}
-
-.file-tree-item:hover {
-  background-color: var(--vscode-list-hoverBackground, #f0f0f0);
-}
-
-.file-tree-item.selected {
-  background-color: var(--vscode-list-activeSelectionBackground, #0078d4);
-  color: var(--vscode-list-activeSelectionForeground, white);
-}
-
-.file-tree-item.selected:hover {
-  background-color: var(--vscode-list-activeSelectionBackground, #106ebe);
-}
-
-.file-tree-item.focused {
-  outline: 2px solid var(--vscode-focusBorder, #007acc);
-  outline-offset: -2px;
-}
-
-.file-tree-item.focused.selected {
-  outline-color: var(--vscode-list-focusOutline, #ffffff);
-}
+/* Duplicate file-tree-item styles consolidated above */
 
 /* Virtual file tree container focus styles */
 .virtual-file-tree:focus {

@@ -544,7 +544,7 @@ pub fn phase2_app() -> Element {
                                                 div {
                                                     role: "list",
                                                     "aria-label": format!("Directory contents - {} items", children_count),
-                                                    style: "max-height: calc(100vh - 220px); overflow-y: auto; border: 1px solid var(--vscode-border, #464647); border-radius: 4px;",
+                                                    style: "max-height: calc(100vh - 220px); overflow-y: auto;",
                                                     {
                                                         children.into_iter().enumerate().map(|(index, entry)| {
                                                     let entry_clone = entry.clone();
