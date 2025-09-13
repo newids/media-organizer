@@ -1,5 +1,5 @@
 use serde::{Serialize, Deserialize};
-use crate::ui::icon_packs::{IconPack, FileIconComponent};
+use crate::ui::icon_packs::IconPack;
 use dioxus::prelude::*;
 use std::fs;
 use std::path::PathBuf;

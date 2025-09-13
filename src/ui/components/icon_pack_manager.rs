@@ -1,5 +1,5 @@
 use dioxus::prelude::*;
-use crate::ui::icon_manager::{use_icon_manager, IconSettings};
+use crate::ui::icon_manager::use_icon_manager;
 use crate::ui::icon_packs::IconPack;
 
 /// Icon Pack Manager page component

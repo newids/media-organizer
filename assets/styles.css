@@ -1,11 +1,17 @@
 /* MediaOrganizer - VS Code Style Theme */
 /* DYNAMIC FONT VARIABLES - START */
 :root {
-  --vscode-font-size: 17px !important;
   --vscode-font-size-normal: 17px !important;
+  --vscode-font-size: 17px !important;
   --vscode-font-family: 'SF Pro Display', -apple-system, sans-serif !important;
 }
 /* DYNAMIC FONT VARIABLES - END */
+
+
+
+
+
+
 
 
 
