@@ -6,6 +6,8 @@ use crate::state::{use_file_tree_state, use_app_state};
 use crate::utils::{normalize_path_display, path_to_element_id};
 use crate::ui::components::virtual_scroll::VirtualScrollCalculator;
 use crate::performance::rendering_optimizations::{VirtualScrollOptimizer, RenderingProfiler};
+use crate::ui::icon_packs::FileIconComponent;
+use crate::ui::icon_manager::use_icon_manager;
 use std::sync::{Arc, Mutex, OnceLock};
 
 /// Global virtual scroll optimizer for file tree
@@ -681,8 +683,14 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool, depth: Option<usi
                             }
                         }
                     } else {
-                        // Show different icons based on file extension
-                        {get_file_icon(&entry)}
+                        // Use enhanced VS Code icon pack
+                        FileIconComponent {
+                            file_name: entry.name.clone(),
+                            extension: entry.path.extension().and_then(|ext| ext.to_str()).map(|s| s.to_string()),
+                            is_directory: false,
+                            is_expanded: false,
+                            pack: Some(use_icon_manager().settings.read().current_pack)
+                        }
                     }
                 }
                 
@@ -758,65 +766,6 @@ pub fn WorkingFileTreeItem(entry: FileEntry, is_focused: bool, depth: Option<usi
     }
 }
 
-/// Helper function to get appropriate icon for file types
-fn get_file_icon(entry: &FileEntry) -> Element {
-    // Determine icon based on file extension
-    let extension = entry.path.extension()
-        .and_then(|ext| ext.to_str())
-        .unwrap_or("")
-        .to_lowercase();
-    
-    match extension.as_str() {
-        "rs" => rsx! {
-            Icon {
-                width: 14,
-                height: 14,
-                fill: "var(--vscode-icon-rust-color, #ce422b)",
-                icon: fa_solid_icons::FaFileCode,
-            }
-        },
-        "js" | "ts" | "jsx" | "tsx" => rsx! {
-            Icon {
-                width: 14,
-                height: 14,
-                fill: "var(--vscode-icon-javascript-color, #f7df1e)",
-                icon: fa_solid_icons::FaFileCode,
-            }
-        },
-        "json" | "xml" | "yaml" | "yml" | "toml" => rsx! {
-            Icon {
-                width: 14,
-                height: 14,
-                fill: "var(--vscode-icon-json-color, #519aba)",
-                icon: fa_solid_icons::FaFileLines,
-            }
-        },
-        "md" | "txt" | "rtf" => rsx! {
-            Icon {
-                width: 14,
-                height: 14,
-                fill: "var(--vscode-icon-text-color, #519aba)",
-                icon: fa_solid_icons::FaFileLines,
-            }
-        },
-        "jpg" | "jpeg" | "png" | "gif" | "bmp" | "svg" | "webp" => rsx! {
-            Icon {
-                width: 14,
-                height: 14,
-                fill: "var(--vscode-icon-image-color, #a074c4)",
-                icon: fa_solid_icons::FaFileImage,
-            }
-        },
-        _ => rsx! {
-            Icon {
-                width: 14,
-                height: 14,
-                fill: "var(--vscode-icon-file-color, #c5c5c5)",
-                icon: fa_solid_icons::FaFile,
-            }
-        },
-    }
-}
 
 /// Helper function to collect all visible entries in tree order for keyboard navigation
 fn collect_visible_entries(

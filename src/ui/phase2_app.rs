@@ -13,11 +13,21 @@ use crate::ui::components::{
     SettingsPanel, CommandPalette, ShortcutCheatSheet,
     EmptyFileTree, DynamicContentPanel, SettingsDialog
 };
-use crate::ui::icon_manager::IconManagerProvider;
+use crate::ui::icon_manager::{IconManagerProvider, use_icon_manager};
+use crate::ui::icon_packs::FileIconComponent;
 // use crate::ui::components::preview_panel::FileSystemEntry; // No longer needed - using DynamicContentPanel
 // use crate::ui::components::{VirtualFileTree};
 
 pub fn phase2_app() -> Element {
+    rsx! {
+        IconManagerProvider {
+            Phase2AppContent {}
+        }
+    }
+}
+
+#[component]
+fn Phase2AppContent() -> Element {
     // Initialize panel width from saved state or default
     let mut panel_width = use_signal(|| {
         let saved_state = load_panel_state();
@@ -26,7 +36,7 @@ pub fn phase2_app() -> Element {
     let mut is_dragging = use_signal(|| false);
     let mut drag_start_x = use_signal(|| 0.0f64);
     let mut drag_start_width = use_signal(|| 300.0f64);
-    
+
     // Get shared application state
     let mut app_state = use_app_state();
     let app_state_for_load = app_state.clone();
@@ -34,6 +44,10 @@ pub fn phase2_app() -> Element {
     let mut app_state_for_folder_select = app_state.clone();
     let mut app_state_for_startup = app_state.clone();
     let file_entries = use_file_entries();
+
+    // Get icon manager at component level
+    let icon_manager = use_icon_manager();
+    let current_icon_pack = icon_manager.settings.read().current_pack;
     
     // Add a refresh trigger for theme changes
     static THEME_REFRESH_COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -246,18 +260,17 @@ pub fn phase2_app() -> Element {
     };
 
     rsx! {
-        IconManagerProvider {
-            style { {include_str!("../../assets/styles.css")} }
-            
-            // Dynamic style for immediate font changes
-            DynamicFontStyles {
-                settings: current_settings,
-            }
-            
-            // Dynamic style for immediate theme changes
-            DynamicThemeStyles {
-                current_settings: current_settings,
-            }
+        style { {include_str!("../../assets/styles.css")} }
+
+        // Dynamic style for immediate font changes
+        DynamicFontStyles {
+            settings: current_settings,
+        }
+
+        // Dynamic style for immediate theme changes
+        DynamicThemeStyles {
+            current_settings: current_settings,
+        }
         
         // Hidden element that forces re-render when theme changes
         div {
@@ -828,10 +841,23 @@ pub fn phase2_app() -> Element {
                                                                 )}
                                                             }
                                                             
-                                                            span {
-                                                                style: "margin-right: 8px; pointer-events: none;",
+                                                            div {
+                                                                style: "
+                                                                    display: inline-flex;
+                                                                    align-items: center;
+                                                                    margin-right: 8px;
+                                                                    pointer-events: none;
+                                                                    width: 16px;
+                                                                    height: 16px;
+                                                                ",
                                                                 "aria-hidden": "true",
-                                                                if entry.is_directory { "📁" } else { "📄" }
+                                                                FileIconComponent {
+                                                                    file_name: entry.name.clone(),
+                                                                    extension: entry.path.extension().and_then(|ext| ext.to_str()).map(|s| s.to_string()),
+                                                                    is_directory: entry.is_directory,
+                                                                    is_expanded: false,
+                                                                    pack: Some(current_icon_pack)
+                                                                }
                                                             }
                                                             span { 
                                                                 style: "pointer-events: none;",
@@ -1145,7 +1171,6 @@ pub fn phase2_app() -> Element {
                 }
             }
         }
-        }  // Close IconManagerProvider
     }
 }
 

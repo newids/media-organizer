@@ -59,17 +59,86 @@ pub fn FileIconComponent(file_name: String, extension: Option<String>, is_direct
                     rsx! { Icon { width: 14, height: 14, fill: "#dcb67a", icon: fa_solid_icons::FaFolder } }
                 }
             } else {
-                // File icons based on extension
+                // VS Code-style file icons based on extension
                 if let Some(ext) = &extension {
                     match ext.to_lowercase().as_str() {
+                        // Programming Languages
                         "rs" => rsx! { Icon { width: 14, height: 14, fill: "#ce422b", icon: fa_solid_icons::FaCode } },
                         "js" | "mjs" => rsx! { Icon { width: 14, height: 14, fill: "#f7df1e", icon: fa_brands_icons::FaJs } },
-                        "ts" => rsx! { Icon { width: 14, height: 14, fill: "#3178c6", icon: fa_solid_icons::FaFileCode } },
+                        "ts" | "tsx" => rsx! { Icon { width: 14, height: 14, fill: "#3178c6", icon: fa_solid_icons::FaFileCode } },
+                        "jsx" => rsx! { Icon { width: 14, height: 14, fill: "#61dafb", icon: fa_brands_icons::FaReact } },
                         "py" => rsx! { Icon { width: 14, height: 14, fill: "#3776ab", icon: fa_brands_icons::FaPython } },
+                        "java" => rsx! { Icon { width: 14, height: 14, fill: "#ed8b00", icon: fa_brands_icons::FaJava } },
+                        "cpp" | "cc" | "cxx" => rsx! { Icon { width: 14, height: 14, fill: "#00599c", icon: fa_solid_icons::FaCode } },
+                        "c" => rsx! { Icon { width: 14, height: 14, fill: "#a8b9cc", icon: fa_solid_icons::FaCode } },
+                        "cs" => rsx! { Icon { width: 14, height: 14, fill: "#239120", icon: fa_solid_icons::FaCode } },
+                        "php" => rsx! { Icon { width: 14, height: 14, fill: "#777bb4", icon: fa_brands_icons::FaPhp } },
+                        "rb" => rsx! { Icon { width: 14, height: 14, fill: "#cc342d", icon: fa_solid_icons::FaGem } },
+                        "go" => rsx! { Icon { width: 14, height: 14, fill: "#00add8", icon: fa_solid_icons::FaCode } },
+                        "swift" => rsx! { Icon { width: 14, height: 14, fill: "#fa7343", icon: fa_brands_icons::FaSwift } },
+                        "kt" | "kts" => rsx! { Icon { width: 14, height: 14, fill: "#7f52ff", icon: fa_solid_icons::FaCode } },
+                        "dart" => rsx! { Icon { width: 14, height: 14, fill: "#0175c2", icon: fa_solid_icons::FaCode } },
+                        "scala" => rsx! { Icon { width: 14, height: 14, fill: "#dc322f", icon: fa_solid_icons::FaCode } },
+                        "sh" | "bash" | "zsh" => rsx! { Icon { width: 14, height: 14, fill: "#89e051", icon: fa_solid_icons::FaTerminal } },
+
+                        // Web Technologies
+                        "html" | "htm" => rsx! { Icon { width: 14, height: 14, fill: "#e34c26", icon: fa_brands_icons::FaHtml5 } },
+                        "css" => rsx! { Icon { width: 14, height: 14, fill: "#1572b6", icon: fa_brands_icons::FaCss3Alt } },
+                        "scss" | "sass" => rsx! { Icon { width: 14, height: 14, fill: "#cf649a", icon: fa_brands_icons::FaSass } },
+                        "less" => rsx! { Icon { width: 14, height: 14, fill: "#1d365d", icon: fa_solid_icons::FaPalette } },
+                        "vue" => rsx! { Icon { width: 14, height: 14, fill: "#4fc08d", icon: fa_brands_icons::FaVuejs } },
+                        "svelte" => rsx! { Icon { width: 14, height: 14, fill: "#ff3e00", icon: fa_solid_icons::FaCode } },
+
+                        // Config & Data
+                        "json" => rsx! { Icon { width: 14, height: 14, fill: "#ffd700", icon: fa_solid_icons::FaFileCode } },
+                        "xml" => rsx! { Icon { width: 14, height: 14, fill: "#ff6600", icon: fa_solid_icons::FaCode } },
+                        "yaml" | "yml" => rsx! { Icon { width: 14, height: 14, fill: "#cb171e", icon: fa_solid_icons::FaList } },
+                        "toml" => rsx! { Icon { width: 14, height: 14, fill: "#9c4221", icon: fa_solid_icons::FaGear } },
+                        "ini" | "cfg" => rsx! { Icon { width: 14, height: 14, fill: "#6d8086", icon: fa_solid_icons::FaGear } },
+                        "env" => rsx! { Icon { width: 14, height: 14, fill: "#ecd53f", icon: fa_solid_icons::FaKey } },
+
+                        // Documentation
+                        "md" => rsx! { Icon { width: 14, height: 14, fill: "#083fa1", icon: fa_brands_icons::FaMarkdown } },
+                        "txt" => rsx! { Icon { width: 14, height: 14, fill: "#c5c5c5", icon: fa_regular_icons::FaFileLines } },
+                        "doc" | "docx" => rsx! { Icon { width: 14, height: 14, fill: "#2b579a", icon: fa_solid_icons::FaFileWord } },
+                        "pdf" => rsx! { Icon { width: 14, height: 14, fill: "#ff0000", icon: fa_regular_icons::FaFilePdf } },
+
+                        // Images
+                        "png" | "jpg" | "jpeg" | "gif" | "bmp" | "webp" => rsx! { Icon { width: 14, height: 14, fill: "#4caf50", icon: fa_regular_icons::FaImage } },
+                        "svg" => rsx! { Icon { width: 14, height: 14, fill: "#ffb13b", icon: fa_solid_icons::FaVectorSquare } },
+                        "ico" => rsx! { Icon { width: 14, height: 14, fill: "#4caf50", icon: fa_regular_icons::FaImage } },
+
+                        // Audio & Video
+                        "mp3" | "wav" | "flac" | "ogg" | "m4a" => rsx! { Icon { width: 14, height: 14, fill: "#ff9800", icon: fa_solid_icons::FaVolumeHigh } },
+                        "mp4" | "avi" | "mkv" | "mov" | "webm" => rsx! { Icon { width: 14, height: 14, fill: "#e91e63", icon: fa_solid_icons::FaVideo } },
+
+                        // Archives
+                        "zip" | "rar" | "7z" | "tar" | "gz" | "bz2" => rsx! { Icon { width: 14, height: 14, fill: "#795548", icon: fa_regular_icons::FaFileZipper } },
+
+                        // Package managers & Build
+                        "lock" => rsx! { Icon { width: 14, height: 14, fill: "#f44336", icon: fa_solid_icons::FaLock } },
+                        "npmrc" => rsx! { Icon { width: 14, height: 14, fill: "#cb3837", icon: fa_brands_icons::FaNpm } },
+                        "gitignore" => rsx! { Icon { width: 14, height: 14, fill: "#f05032", icon: fa_brands_icons::FaGit } },
+                        "dockerfile" => rsx! { Icon { width: 14, height: 14, fill: "#2496ed", icon: fa_brands_icons::FaDocker } },
+
+                        // Default file icon
                         _ => rsx! { Icon { width: 14, height: 14, fill: "#c5c5c5", icon: fa_regular_icons::FaFile } }
                     }
                 } else {
-                    rsx! { Icon { width: 14, height: 14, fill: "#c5c5c5", icon: fa_regular_icons::FaFile } }
+                    // Handle special files without extensions
+                    match file_name.to_lowercase().as_str() {
+                        "cargo.toml" | "cargo.lock" => rsx! { Icon { width: 14, height: 14, fill: "#ce422b", icon: fa_solid_icons::FaCode } },
+                        "package.json" | "package-lock.json" => rsx! { Icon { width: 14, height: 14, fill: "#cb3837", icon: fa_brands_icons::FaNpm } },
+                        "tsconfig.json" => rsx! { Icon { width: 14, height: 14, fill: "#3178c6", icon: fa_solid_icons::FaFileCode } },
+                        "webpack.config.js" => rsx! { Icon { width: 14, height: 14, fill: "#8dd6f9", icon: fa_solid_icons::FaCube } },
+                        "dockerfile" => rsx! { Icon { width: 14, height: 14, fill: "#2496ed", icon: fa_brands_icons::FaDocker } },
+                        "makefile" => rsx! { Icon { width: 14, height: 14, fill: "#427819", icon: fa_solid_icons::FaGear } },
+                        "readme" | "readme.md" => rsx! { Icon { width: 14, height: 14, fill: "#083fa1", icon: fa_solid_icons::FaInfo } },
+                        "license" | "licence" => rsx! { Icon { width: 14, height: 14, fill: "#d4af37", icon: fa_solid_icons::FaScroll } },
+                        ".gitignore" | ".gitattributes" => rsx! { Icon { width: 14, height: 14, fill: "#f05032", icon: fa_brands_icons::FaGit } },
+                        ".env" | ".env.local" | ".env.example" => rsx! { Icon { width: 14, height: 14, fill: "#ecd53f", icon: fa_solid_icons::FaKey } },
+                        _ => rsx! { Icon { width: 14, height: 14, fill: "#c5c5c5", icon: fa_regular_icons::FaFile } }
+                    }
                 }
             }
         },
