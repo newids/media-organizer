@@ -174,118 +174,148 @@ fn create_vscode_pack() -> HashMap<IconType, IconConfig> {
     icons
 }
 
-// Material Design Icon Pack
+// Material Design Icon Pack - Using circles and bold shapes
 fn create_material_pack() -> HashMap<IconType, IconConfig> {
     let mut icons = HashMap::new();
-    
+
     icons.insert(IconType::File, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_regular_icons::FaFile } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaCircle } },
         color: "#616161",
     });
-    
+
     icons.insert(IconType::Folder, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaFolder } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaFolderOpen } },
         color: "#2196F3",
     });
-    
+
     icons.insert(IconType::FolderOpen, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_regular_icons::FaFolderOpen } },
-        color: "#2196F3",
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaFolderOpen } },
+        color: "#1976D2",
     });
-    
+
     icons.insert(IconType::JavaScript, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_brands_icons::FaJs } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaSquare } },
         color: "#FF9800",
     });
-    
+
     icons.insert(IconType::Python, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_brands_icons::FaPython } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaSquare } },
         color: "#4CAF50",
     });
-    
+
     icons.insert(IconType::Rust, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaCode } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaSquare } },
         color: "#FF5722",
     });
-    
+
     // Add more Material icons...
     icons
 }
 
-// Seti UI Icon Pack
+// Seti UI Icon Pack - Using diamond and triangle shapes
 fn create_seti_pack() -> HashMap<IconType, IconConfig> {
     let mut icons = HashMap::new();
-    
+
     icons.insert(IconType::File, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_regular_icons::FaFile } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaDiamond } },
         color: "#41535b",
     });
-    
+
     icons.insert(IconType::Folder, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaFolder } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaPlay } },
         color: "#8dc149",
     });
-    
+
+    icons.insert(IconType::FolderOpen, IconConfig {
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaPlay } },
+        color: "#a4d865",
+    });
+
     icons.insert(IconType::JavaScript, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_brands_icons::FaJs } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaDiamond } },
         color: "#cbcb41",
     });
-    
+
     icons.insert(IconType::Python, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_brands_icons::FaPython } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaDiamond } },
         color: "#3572a5",
     });
-    
+
+    icons.insert(IconType::Rust, IconConfig {
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaDiamond } },
+        color: "#8dc149",
+    });
+
     // Add more Seti icons...
     icons
 }
 
-// Atom Icon Pack
+// Atom Icon Pack - Using star shapes
 fn create_atom_pack() -> HashMap<IconType, IconConfig> {
     let mut icons = HashMap::new();
-    
+
     icons.insert(IconType::File, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_regular_icons::FaFile } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaStar } },
         color: "#abb2bf",
     });
-    
+
     icons.insert(IconType::Folder, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaFolder } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaHeart } },
         color: "#e06c75",
     });
-    
+
+    icons.insert(IconType::FolderOpen, IconConfig {
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaHeart } },
+        color: "#e06c75",
+    });
+
     icons.insert(IconType::JavaScript, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_brands_icons::FaJs } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaStar } },
         color: "#d19a66",
     });
-    
+
+    icons.insert(IconType::Python, IconConfig {
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaStar } },
+        color: "#98c379",
+    });
+
+    icons.insert(IconType::Rust, IconConfig {
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaStar } },
+        color: "#e06c75",
+    });
+
     // Add more Atom icons...
     icons
 }
 
-// Minimal Icon Pack
+// Minimal Icon Pack - Using simple dots
 fn create_minimal_pack() -> HashMap<IconType, IconConfig> {
     let mut icons = HashMap::new();
-    
-    // Everything uses same icon with subtle colors
+
+    // Everything uses simple dots with subtle colors
     icons.insert(IconType::File, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_regular_icons::FaFile } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaCircleDot } },
         color: "#888888",
     });
-    
+
     icons.insert(IconType::Folder, IconConfig {
-        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaFolder } },
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_regular_icons::FaCircleDot } },
         color: "#aaaaaa",
     });
-    
+
+    icons.insert(IconType::FolderOpen, IconConfig {
+        icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_regular_icons::FaCircleDot } },
+        color: "#aaaaaa",
+    });
+
     // All file types get the same minimal treatment
     for icon_type in [IconType::JavaScript, IconType::Python, IconType::Rust].iter() {
         icons.insert(*icon_type, IconConfig {
-            icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_regular_icons::FaFile } },
+            icon: || rsx! { Icon { width: 14, height: 14, fill: "currentColor", icon: fa_solid_icons::FaCircleDot } },
             color: "#888888",
         });
     }
-    
+
     icons
 }
 

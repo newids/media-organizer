@@ -97,7 +97,7 @@ impl IconManager {
     pub fn change_pack(&mut self, pack: IconPack) {
         let mut settings = self.settings.write();
         settings.current_pack = pack;
-        
+
         // Save settings
         if let Err(e) = settings.save() {
             tracing::warn!("Failed to save icon settings: {}", e);
