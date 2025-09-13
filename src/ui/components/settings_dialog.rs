@@ -1,6 +1,7 @@
 use dioxus::prelude::*;
 use crate::state::{SettingsState, Theme, FontFamily, FontSize};
 use crate::theme::{ThemeManager, EnhancedThemeSelector};
+use crate::ui::components::IconPackManager;
 
 /// Props for settings dialog
 #[derive(Props, Clone, PartialEq)]
@@ -317,6 +318,39 @@ pub fn SettingsDialog(props: SettingsDialogProps) -> Element {
                                 ",
                                 "Adjust the size of text displayed in the interface."
                             }
+                        }
+                    }
+                    
+                    // Icon Packs Section
+                    div {
+                        class: "settings-section",
+                        style: "
+                            margin-bottom: 24px;
+                            padding-bottom: 20px;
+                            border-bottom: 1px solid var(--vscode-border);
+                        ",
+                        
+                        h3 {
+                            style: "
+                                margin: 0 0 16px 0;
+                                font-size: 16px;
+                                font-weight: 600;
+                                color: var(--vscode-text-primary);
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                            ",
+                            span { style: "font-size: 14px;", "📦" }
+                            "Icon Packs"
+                        }
+                        
+                        div {
+                            style: "
+                                max-height: 300px;
+                                overflow-y: auto;
+                                margin-top: 8px;
+                            ",
+                            IconPackManager {}
                         }
                     }
                     

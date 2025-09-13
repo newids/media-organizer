@@ -3,7 +3,8 @@ use dioxus_free_icons::{Icon, icons::fa_solid_icons};
 use std::path::PathBuf;
 use crate::services::FileEntry;
 use crate::state::{use_file_tree_state, use_app_state};
-use crate::utils;
+use crate::ui::icon_packs::FileIconComponent;
+use crate::ui::icon_manager::use_icon_manager;
 
 /// File tree component for sidebar navigation
 #[component]
@@ -68,7 +69,9 @@ pub fn FileTreeNode(
     depth: u32,
     is_root: bool,
 ) -> Element {
-    let file_tree_state = use_file_tree_state();
+    let mut file_tree_state = use_file_tree_state();
+    let icon_manager = use_icon_manager();
+    let current_icon_pack = icon_manager.settings.read().current_pack.clone();
     let is_directory = entry.is_directory;
     let path = entry.path.clone();
     let name = if is_root {
@@ -94,13 +97,17 @@ pub fn FileTreeNode(
     
     // Calculate indentation
     let indent_px = depth * 12;
+    let header_background = if is_selected { "var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.3))" } else { "transparent" };
+    let header_color = if is_selected { "var(--vscode-list-activeSelectionForeground, #ffffff)" } else { "inherit" };
+    let aria_expanded = if is_directory { is_expanded.to_string() } else { "false".to_string() };
+    let expand_transform = if is_expanded { "rotate(90deg)" } else { "rotate(0deg)" };
     
     rsx! {
         div {
             class: "file-tree-node",
             role: "treeitem",
-            "aria-expanded": if is_directory { is_expanded.to_string() } else { "false".to_string() },
-            "aria-selected": is_selected.to_string(),
+            "aria-expanded": "{aria_expanded}",
+            "aria-selected": "{is_selected}",
             
             // Node header
             div {
@@ -111,43 +118,51 @@ pub fn FileTreeNode(
                     padding: 2px 8px 2px {indent_px + 8}px;
                     cursor: pointer;
                     white-space: nowrap;
-                    background: {if is_selected { \"var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.3))\" } else { \"transparent\" }};
-                    color: {if is_selected { \"var(--vscode-list-activeSelectionForeground, #ffffff)\" } else { \"inherit\" }};
+                    background: {header_background};
+                    color: {header_color};
                 ",
-                onclick: move |_| {
-                    file_tree_state.write().selected_path = Some(path.clone());
-                    
-                    // Generate preview (works for both files and directories)
-                    let app_state = use_app_state();
-                    let preview_path = path.clone();
-                    let is_dir = is_directory;
-                    spawn(async move {
-                        match app_state.handle_file_selection(preview_path.clone(), is_dir).await {
-                            Ok(maybe_preview) => {
-                                if maybe_preview.is_some() {
-                                    tracing::info!("Preview generated successfully for: {:?}", preview_path);
-                                } else {
-                                    tracing::info!("No preview generated for directory: {:?}", preview_path);
+                onclick: {
+                    let path_clone = path.clone();
+                    let mut file_tree_state_clone = file_tree_state.clone();
+                    move |_| {
+                        file_tree_state_clone.write().selected_path = Some(path_clone.clone());
+                        
+                        // Generate preview (works for both files and directories)
+                        let app_state = use_app_state();
+                        let preview_path = path_clone.clone();
+                        let is_dir = is_directory;
+                        spawn(async move {
+                            match app_state.handle_file_selection(preview_path.clone(), is_dir).await {
+                                Ok(maybe_preview) => {
+                                    if maybe_preview.is_some() {
+                                        tracing::info!("Preview generated successfully for: {:?}", preview_path);
+                                    } else {
+                                        tracing::info!("No preview generated for directory: {:?}", preview_path);
+                                    }
+                                }
+                                Err(e) => {
+                                    tracing::error!("Failed to handle file selection for {:?}: {}", preview_path, e);
                                 }
                             }
-                            Err(e) => {
-                                tracing::error!("Failed to handle file selection for {:?}: {}", preview_path, e);
-                            }
-                        }
-                    });
+                        });
+                    }
                 },
-                ondoubleclick: move |_| {
-                    if is_directory {
-                        let current_expanded = file_tree_state.read()
-                            .expanded_directories
-                            .get(&path)
-                            .copied()
-                            .unwrap_or(false);
-                        
-                        if current_expanded {
-                            file_tree_state.write().expanded_directories.insert(path.clone(), false);
-                        } else {
-                            file_tree_state.write().expanded_directories.insert(path.clone(), true);
+                ondoubleclick: {
+                    let path_clone = path.clone();
+                    let mut file_tree_state_clone = file_tree_state.clone();
+                    move |_| {
+                        if is_directory {
+                            let current_expanded = file_tree_state_clone.read()
+                                .expanded_directories
+                                .get(&path_clone)
+                                .copied()
+                                .unwrap_or(false);
+                            
+                            if current_expanded {
+                                file_tree_state_clone.write().expanded_directories.insert(path_clone.clone(), false);
+                            } else {
+                                file_tree_state_clone.write().expanded_directories.insert(path_clone.clone(), true);
+                            }
                         }
                     }
                 },
@@ -164,7 +179,7 @@ pub fn FileTreeNode(
                             justify-content: center;
                             margin-right: 4px;
                             cursor: pointer;
-                            transform: {if is_expanded { \"rotate(90deg)\" } else { \"rotate(0deg)\" }};
+                            transform: {expand_transform};
                             transition: transform 0.15s ease;
                         ",
                         
@@ -207,7 +222,13 @@ pub fn FileTreeNode(
                         opacity: 0.8;
                     ",
                     
-                    {get_file_icon(&entry)}
+                    FileIconComponent {
+                        file_name: entry.name.clone(),
+                        extension: entry.path.extension().and_then(|ext| ext.to_str()).map(|s| s.to_string()),
+                        is_directory: entry.is_directory,
+                        is_expanded: is_expanded,
+                        pack: Some(current_icon_pack)  // Use the current icon pack from settings
+                    }
                 }
                 
                 // File/folder name
@@ -219,7 +240,7 @@ pub fn FileTreeNode(
                         text-overflow: ellipsis;
                         font-size: 13px;
                     ",
-                    title: utils::normalize_path_display(path),
+                    title: path.display().to_string(),
                     "{name}"
                 }
             }
@@ -263,76 +284,7 @@ fn create_root_entry(path: PathBuf) -> FileEntry {
             writable: true,
             executable: true,
         },
+        preview_metadata: None,
     }
 }
 
-/// Helper function to get appropriate icon for file/directory
-fn get_file_icon(entry: &FileEntry) -> Element {
-    if entry.is_directory {
-        rsx! {
-            Icon {
-                width: 14,
-                height: 14,
-                fill: "var(--vscode-icon-folder-color, #dcb67a)",
-                icon: fa_solid_icons::FaFolder,
-            }
-        }
-    } else {
-        // Determine icon based on file extension
-        let extension = entry.path.extension()
-            .and_then(|ext| ext.to_str())
-            .unwrap_or("")
-            .to_lowercase();
-        
-        match extension.as_str() {
-            "rs" => rsx! {
-                Icon {
-                    width: 14,
-                    height: 14,
-                    fill: "var(--vscode-icon-rust-color, #ce422b)",
-                    icon: fa_solid_icons::FaFileCode,
-                }
-            },
-            "js" | "ts" | "jsx" | "tsx" => rsx! {
-                Icon {
-                    width: 14,
-                    height: 14,
-                    fill: "var(--vscode-icon-javascript-color, #f7df1e)",
-                    icon: fa_solid_icons::FaFileCode,
-                }
-            },
-            "json" | "xml" | "yaml" | "yml" | "toml" => rsx! {
-                Icon {
-                    width: 14,
-                    height: 14,
-                    fill: "var(--vscode-icon-json-color, #519aba)",
-                    icon: fa_solid_icons::FaFileLines,
-                }
-            },
-            "md" | "txt" | "rtf" => rsx! {
-                Icon {
-                    width: 14,
-                    height: 14,
-                    fill: "var(--vscode-icon-text-color, #519aba)",
-                    icon: fa_solid_icons::FaFileLines,
-                }
-            },
-            "jpg" | "jpeg" | "png" | "gif" | "bmp" | "svg" | "webp" => rsx! {
-                Icon {
-                    width: 14,
-                    height: 14,
-                    fill: "var(--vscode-icon-image-color, #a074c4)",
-                    icon: fa_solid_icons::FaFileImage,
-                }
-            },
-            _ => rsx! {
-                Icon {
-                    width: 14,
-                    height: 14,
-                    fill: "var(--vscode-icon-file-color, #c5c5c5)",
-                    icon: fa_solid_icons::FaFile,
-                }
-            },
-        }
-    }
-}

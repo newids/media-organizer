@@ -13,6 +13,7 @@ use crate::ui::components::{
     SettingsPanel, CommandPalette, ShortcutCheatSheet,
     EmptyFileTree, DynamicContentPanel, SettingsDialog
 };
+use crate::ui::icon_manager::IconManagerProvider;
 // use crate::ui::components::preview_panel::FileSystemEntry; // No longer needed - using DynamicContentPanel
 // use crate::ui::components::{VirtualFileTree};
 
@@ -245,17 +246,18 @@ pub fn phase2_app() -> Element {
     };
 
     rsx! {
-        style { {include_str!("../../assets/styles.css")} }
-        
-        // Dynamic style for immediate font changes
-        DynamicFontStyles {
-            settings: current_settings,
-        }
-        
-        // Dynamic style for immediate theme changes
-        DynamicThemeStyles {
-            current_settings: current_settings,
-        }
+        IconManagerProvider {
+            style { {include_str!("../../assets/styles.css")} }
+            
+            // Dynamic style for immediate font changes
+            DynamicFontStyles {
+                settings: current_settings,
+            }
+            
+            // Dynamic style for immediate theme changes
+            DynamicThemeStyles {
+                current_settings: current_settings,
+            }
         
         // Hidden element that forces re-render when theme changes
         div {
@@ -1143,6 +1145,7 @@ pub fn phase2_app() -> Element {
                 }
             }
         }
+        }  // Close IconManagerProvider
     }
 }
 

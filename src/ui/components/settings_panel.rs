@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 use crate::state::{SettingsState, Theme, ViewMode, FontFamily, FontSize, save_settings_debounced};
 use crate::theme::{ThemeManager, ThemeSelector, EnhancedThemeSelector};
 use crate::ui::shortcuts::ShortcutRegistry;
+use crate::ui::components::IconPackManager;
 use std::collections::HashMap;
 
 /// Settings panel component with tabbed interface for different settings categories
@@ -130,7 +131,7 @@ pub fn SettingsPanel(
                             overflow-y: auto;
                         ",
                         
-                        for tab in [SettingsTab::General, SettingsTab::Appearance, SettingsTab::Keyboard, SettingsTab::Advanced] {
+                        for tab in [SettingsTab::General, SettingsTab::Appearance, SettingsTab::IconPacks, SettingsTab::Keyboard, SettingsTab::Advanced] {
                             SettingsTabButton {
                                 tab: tab,
                                 is_active: tab == *active_tab.read(),
@@ -176,6 +177,9 @@ pub fn SettingsPanel(
                                     on_settings_change: on_settings_change_clone.clone(),
                                 }
                             },
+                            SettingsTab::IconPacks => rsx! {
+                                IconPackManager {}
+                            },
                             SettingsTab::Keyboard => rsx! {
                                 KeyboardSettingsTab {}
                             },
@@ -199,6 +203,7 @@ pub fn SettingsPanel(
 pub enum SettingsTab {
     General,
     Appearance,
+    IconPacks,
     Keyboard,
     Advanced,
 }
@@ -208,6 +213,7 @@ impl SettingsTab {
         match self {
             SettingsTab::General => "General",
             SettingsTab::Appearance => "Appearance",
+            SettingsTab::IconPacks => "Icon Packs",
             SettingsTab::Keyboard => "Keyboard",
             SettingsTab::Advanced => "Advanced",
         }
@@ -217,6 +223,7 @@ impl SettingsTab {
         match self {
             SettingsTab::General => "⚙️",
             SettingsTab::Appearance => "🎨",
+            SettingsTab::IconPacks => "📦",
             SettingsTab::Keyboard => "⌨️",
             SettingsTab::Advanced => "🔧",
         }
@@ -226,6 +233,7 @@ impl SettingsTab {
         match self {
             SettingsTab::General => "general",
             SettingsTab::Appearance => "appearance",
+            SettingsTab::IconPacks => "iconpacks",
             SettingsTab::Keyboard => "keyboard",
             SettingsTab::Advanced => "advanced",
         }
