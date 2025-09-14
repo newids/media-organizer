@@ -468,430 +468,119 @@ fn Phase2AppContent() -> Element {
                 "aria-label": "Main content",
                 style: "{main_content_style}",
                 
-                // Left Panel (File Tree) with Drop Zone
-                DropZone {
-                    drop_state: left_panel_drop_state,
-                    target_path: Some(app_state.get_current_path()),
-                    on_drop: move |data: (Vec<FileEntry>, DragOperation, PathBuf)| {
-                        let (files, operation, target) = data;
-                        tracing::info!("Files dropped in left panel: {} files with {:?} operation to {:?}", 
-                                     files.len(), operation, target);
-                        // TODO: Handle file drop operation
-                    },
-                    
-                    div {
-                        class: "{panel_class}",
-                        role: "navigation",
-                        "aria-label": "File explorer",
-                    
-                    // File tree header
-                    
-                    // Virtual file tree content
-                    div {
-                        class: "file-tree-content",
-                        role: "region",
-                        "aria-label": "File list",
-                        style: "height: calc(100vh - 120px); overflow: hidden;", // Reserve space for header and status bar
-                        
-                        // Show empty state if no folder is selected
-                        if !app_state.has_file_tree_root() {
-                            EmptyFileTree {
-                                on_folder_select: move |_| {
-                                    tracing::info!("Folder selection requested from empty state");
-                                    let mut app_state_for_folder_select = app_state_for_folder_select.clone();
-                                    // Open folder selection dialog
-                                    spawn(async move {
-                                        use rfd::AsyncFileDialog;
-                                        
-                                        if let Some(folder) = AsyncFileDialog::new()
-                                            .set_title("Select Folder to Open")
-                                            .pick_folder()
-                                            .await
-                                        {
-                                            let folder_path = folder.path().to_path_buf();
-                                            tracing::info!("User selected folder: {:?}", folder_path);
-                                            
-                                            // Use app state to handle folder change with persistence
-                                            match app_state_for_folder_select.handle_folder_change(folder_path.clone()).await {
-                                                Ok(()) => {
-                                                    tracing::info!("Successfully loaded folder with persistence: {:?}", folder_path);
-                                                }
-                                                Err(e) => {
-                                                    tracing::error!("Failed to load folder {:?}: {}", folder_path, e);
-                                                }
+                // Left Panel (File Tree) - Simple scrollable div
+                div {
+                    style: "
+                        grid-area: file-tree;
+                        background: var(--vscode-sidebar-background, #252526);
+                        border-right: 1px solid var(--vscode-panel-border, #2d2d30);
+                        overflow-y: auto;
+                        height: 100%;
+                        min-height: 0;
+                    ",
+
+                    // Show empty state if no folder is selected
+                    if !app_state.has_file_tree_root() {
+                        EmptyFileTree {
+                            on_folder_select: move |_| {
+                                tracing::info!("Folder selection requested from empty state");
+                                let mut app_state_for_folder_select = app_state_for_folder_select.clone();
+                                spawn(async move {
+                                    use rfd::AsyncFileDialog;
+
+                                    if let Some(folder) = AsyncFileDialog::new()
+                                        .set_title("Select Folder to Open")
+                                        .pick_folder()
+                                        .await
+                                    {
+                                        let folder_path = folder.path().to_path_buf();
+                                        tracing::info!("User selected folder: {:?}", folder_path);
+
+                                        match app_state_for_folder_select.handle_folder_change(folder_path.clone()).await {
+                                            Ok(()) => {
+                                                tracing::info!("Successfully loaded folder: {:?}", folder_path);
                                             }
-                                        } else {
-                                            tracing::info!("User cancelled folder selection");
+                                            Err(e) => {
+                                                tracing::error!("Failed to load folder {:?}: {}", folder_path, e);
+                                            }
                                         }
-                                    });
+                                    }
+                                });
+                            }
+                        }
+                    } else {
+                        // Show the loaded file tree
+                        if let Some(root_path) = app_state.get_file_tree_root() {
+                            // Show loading state
+                            if app_state.is_file_tree_directory_loading(&root_path) {
+                                div {
+                                    style: "padding: 20px; text-align: center; color: var(--vscode-text-secondary, #999999);",
+                                    "Loading directory contents..."
                                 }
                             }
-                        } else {
-                            // Show the loaded file tree
-                            if let Some(root_path) = app_state.get_file_tree_root() {
+                            // Show error state
+                            else if let Some(error) = app_state.get_file_tree_directory_error(&root_path) {
                                 div {
-                                    style: "",
-                                    
-                                    
-                                    // Show loading state
-                                    if app_state.is_file_tree_directory_loading(&root_path) {
-                                        div {
-                                            style: "padding: 20px; text-align: center; color: var(--vscode-text-secondary, #999999);",
-                                            "Loading directory contents..."
-                                        }
+                                    style: "padding: 20px; text-align: center; color: var(--vscode-error, #f44747);",
+                                    "Error loading directory:"
+                                    div {
+                                        style: "margin-top: 5px; font-size: 0.9em;",
+                                        {error}
                                     }
-                                    // Show error state
-                                    else if let Some(error) = app_state.get_file_tree_directory_error(&root_path) {
-                                        div {
-                                            style: "padding: 20px; text-align: center; color: var(--vscode-error, #f44747);",
-                                            "Error loading directory:"
+                                }
+                            }
+                            // Show file list
+                            else if let Some(children) = app_state.get_file_tree_children(&root_path) {
+                                {
+                                    children.into_iter().enumerate().map(|(index, entry)| {
+                                        let entry_clone = entry.clone();
+                                        let mut app_state_clone = app_state.clone();
+
+                                        rsx! {
                                             div {
-                                                style: "margin-top: 5px; font-size: 0.9em;",
-                                                {error}
-                                            }
-                                        }
-                                    }
-                                    // Show file list
-                                    else if let Some(children) = app_state.get_file_tree_children(&root_path) {
-                                        {
-                                            let children_count = children.len();
-                                            rsx! {
-                                                div {
-                                                    role: "list",
-                                                    "aria-label": format!("Directory contents - {} items", children_count),
-                                                    style: "max-height: calc(100vh - 220px); overflow-y: auto;",
-                                                    {
-                                                        children.into_iter().enumerate().map(|(index, entry)| {
-                                                    let entry_clone = entry.clone();
-                                                    let entry_clone_key = entry.clone();
-                                                    let entry_clone_menu = entry.clone();
-                                                    let entry_clone_drag = entry.clone();
-                                                    let mut drag_state_clone = drag_state.clone();
-                                                    let mut app_state_clone = app_state.clone();
-                                                    let mut app_state_clone_key = app_state.clone();
-                                                    
-                                                    rsx! {
-                                                        div {
-                                                            key: "entry-{index}-{entry.path.to_string_lossy()}",
-                                                            class: "file-tree-item",
-                                                            tabindex: 0,
-                                                            role: "listitem",
-                                                            "aria-label": format!("{} {}{}", if entry.is_directory { "Folder" } else { "File" }, entry.name, if entry.size > 0 { format!(", {} bytes", entry.size) } else { String::new() }),
-                                                            "aria-describedby": format!("file-details-{}", index),
-                                                            draggable: true,
-                                                            
-                                                            onclick: move |_| {
-                                                                tracing::info!("File clicked: {}", entry_clone.name);
-                                                                selected_item.set(Some(entry_clone.clone()));
-                                                                app_state_clone.set_file_tree_selection(Some(entry_clone.path.clone()));
-                                                                
-                                                                // Generate preview for clicked file
-                                                                let preview_path = entry_clone.path.clone();
-                                                                let is_dir = entry_clone.is_directory;
-                                                                let mut app_state_for_preview = app_state_clone.clone();
-                                                                spawn(async move {
-                                                                    // Enhanced error handling with retry mechanism
-                                                                    let mut retry_count = 0;
-                                                                    const MAX_RETRIES: u8 = 3;
-                                                                    
-                                                                    loop {
-                                                                        match app_state_for_preview.handle_file_selection(preview_path.clone(), is_dir).await {
-                                                                            Ok(maybe_preview) => {
-                                                                                // Update the preview_data signal with the returned preview
-                                                                                app_state_for_preview.preview_data.set(maybe_preview.clone());
-                                                                                
-                                                                                if maybe_preview.is_some() {
-                                                                                    tracing::info!("Preview generated successfully for: {:?}", preview_path);
-                                                                                } else {
-                                                                                    tracing::info!("No preview generated for directory: {:?}", preview_path);
-                                                                                }
-                                                                                break;
-                                                                            }
-                                                                            Err(e) => {
-                                                                                retry_count += 1;
-                                                                                
-                                                                                if retry_count >= MAX_RETRIES {
-                                                                                    tracing::error!("Failed to generate preview after {} attempts for {:?}: {}", MAX_RETRIES, preview_path, e);
-                                                                                    
-                                                                                    // Create error preview data for better user feedback
-                                                                                    let error_preview = crate::services::preview::PreviewData {
-                                                                                        file_path: preview_path.clone(),
-                                                                                        format: crate::services::preview::SupportedFormat::Text,
-                                                                                        thumbnail_path: None,
-                                                                                        metadata: crate::services::preview::FileMetadata {
-                                                                                            file_size: std::fs::metadata(&preview_path).map(|m| m.len()).unwrap_or(0),
-                                                                                            created: std::fs::metadata(&preview_path).ok().and_then(|m| m.created().ok()),
-                                                                                            modified: std::fs::metadata(&preview_path).ok().and_then(|m| m.modified().ok()),
-                                                                                            width: None, height: None, duration: None, bit_rate: None,
-                                                                                            sample_rate: None, codec: None, title: None, artist: None,
-                                                                                            album: None, year: None, page_count: None, color_space: None,
-                                                                                            compression: None, exif_data: None,
-                                                                                        },
-                                                                                        preview_content: crate::services::preview::PreviewContent::Unsupported {
-                                                                                            file_type: preview_path.extension()
-                                                                                                .and_then(|ext| ext.to_str())
-                                                                                                .unwrap_or("unknown").to_string(),
-                                                                                            reason: format!("Preview generation failed: {}", e),
-                                                                                            suggested_action: Some("Check file permissions or try refreshing".to_string()),
-                                                                                        },
-                                                                                        generated_at: std::time::SystemTime::now(),
-                                                                                    };
-                                                                                    
-                                                                                    app_state_for_preview.preview_data.set(Some(error_preview));
-                                                                                    break;
-                                                                                } else {
-                                                                                    tracing::warn!("Preview generation failed (attempt {}/{}), retrying: {:?}: {}", retry_count, MAX_RETRIES, preview_path, e);
-                                                                                    // Brief delay before retry to avoid overwhelming the system
-                                                                                    tokio::time::sleep(std::time::Duration::from_millis(100 * retry_count as u64)).await;
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                });
-                                                            },
-                                                            
-                                                            onkeydown: move |evt| {
-                                                                let key = evt.data.key();
-                                                                match key {
-                                                                    dioxus::events::Key::Enter => {
-                                                                        tracing::info!("File selected via keyboard: {}", entry_clone_key.name);
-                                                                        selected_item.set(Some(entry_clone_key.clone()));
-                                                                        
-                                                                        // Generate preview for keyboard-selected file
-                                                                        let preview_path = entry_clone_key.path.clone();
-                                                                        let is_dir = entry_clone_key.is_directory;
-                                                                        let mut app_state_for_kb_preview = app_state_clone_key.clone();
-                                                                        spawn(async move {
-                                                                            // Enhanced error handling with retry mechanism for keyboard selection
-                                                                            let mut retry_count = 0;
-                                                                            const MAX_RETRIES: u8 = 3;
-                                                                            
-                                                                            loop {
-                                                                                match app_state_for_kb_preview.handle_file_selection(preview_path.clone(), is_dir).await {
-                                                                                    Ok(maybe_preview) => {
-                                                                                        // Update the preview_data signal with the returned preview
-                                                                                        app_state_for_kb_preview.preview_data.set(maybe_preview.clone());
-                                                                                        
-                                                                                        if maybe_preview.is_some() {
-                                                                                            tracing::info!("Preview generated successfully for: {:?}", preview_path);
-                                                                                        } else {
-                                                                                            tracing::info!("No preview generated for directory: {:?}", preview_path);
-                                                                                        }
-                                                                                        break;
-                                                                                    }
-                                                                                    Err(e) => {
-                                                                                        retry_count += 1;
-                                                                                        
-                                                                                        if retry_count >= MAX_RETRIES {
-                                                                                            tracing::error!("Failed to generate preview after {} attempts for {:?}: {}", MAX_RETRIES, preview_path, e);
-                                                                                            
-                                                                                            // Create error preview data for better user feedback
-                                                                                            let error_preview = crate::services::preview::PreviewData {
-                                                                                                file_path: preview_path.clone(),
-                                                                                                format: crate::services::preview::SupportedFormat::Text,
-                                                                                                thumbnail_path: None,
-                                                                                                metadata: crate::services::preview::FileMetadata {
-                                                                                                    file_size: std::fs::metadata(&preview_path).map(|m| m.len()).unwrap_or(0),
-                                                                                                    created: std::fs::metadata(&preview_path).ok().and_then(|m| m.created().ok()),
-                                                                                                    modified: std::fs::metadata(&preview_path).ok().and_then(|m| m.modified().ok()),
-                                                                                                    width: None, height: None, duration: None, bit_rate: None,
-                                                                                                    sample_rate: None, codec: None, title: None, artist: None,
-                                                                                                    album: None, year: None, page_count: None, color_space: None,
-                                                                                                    compression: None, exif_data: None,
-                                                                                                },
-                                                                                                preview_content: crate::services::preview::PreviewContent::Unsupported {
-                                                                                                    file_type: preview_path.extension()
-                                                                                                        .and_then(|ext| ext.to_str())
-                                                                                                        .unwrap_or("unknown").to_string(),
-                                                                                                    reason: format!("Preview generation failed: {}", e),
-                                                                                                    suggested_action: Some("Check file permissions or try refreshing".to_string()),
-                                                                                                },
-                                                                                                generated_at: std::time::SystemTime::now(),
-                                                                                            };
-                                                                                            
-                                                                                            app_state_for_kb_preview.preview_data.set(Some(error_preview));
-                                                                                            break;
-                                                                                        } else {
-                                                                                            tracing::warn!("Preview generation failed (attempt {}/{}), retrying: {:?}: {}", retry_count, MAX_RETRIES, preview_path, e);
-                                                                                            // Brief delay before retry
-                                                                                            tokio::time::sleep(std::time::Duration::from_millis(100 * retry_count as u64)).await;
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            }
-                                                                        });
-                                                                        
-                                                                        evt.prevent_default();
-                                                                    },
-                                                                    _ => {
-                                                                        let key_str = key.to_string();
-                                                                        if key_str == " " || key_str == "Space" {
-                                                                            tracing::info!("File selected via keyboard: {}", entry_clone_key.name);
-                                                                            selected_item.set(Some(entry_clone_key.clone()));
-                                                                            
-                                                                            // Generate preview for space-selected file
-                                                                            let preview_path = entry_clone_key.path.clone();
-                                                                            let is_dir = entry_clone_key.is_directory;
-                                                                            let mut app_state_for_space_preview = app_state_clone_key.clone();
-                                                                            spawn(async move {
-                                                                                // Enhanced error handling with retry mechanism for space selection
-                                                                                let mut retry_count = 0;
-                                                                                const MAX_RETRIES: u8 = 3;
-                                                                                
-                                                                                loop {
-                                                                                    match app_state_for_space_preview.handle_file_selection(preview_path.clone(), is_dir).await {
-                                                                                        Ok(maybe_preview) => {
-                                                                                            // Update the preview_data signal with the returned preview
-                                                                                            app_state_for_space_preview.preview_data.set(maybe_preview.clone());
-                                                                                            
-                                                                                            if maybe_preview.is_some() {
-                                                                                                tracing::info!("Preview generated successfully for: {:?}", preview_path);
-                                                                                            } else {
-                                                                                                tracing::info!("No preview generated for directory: {:?}", preview_path);
-                                                                                            }
-                                                                                            break;
-                                                                                        }
-                                                                                        Err(e) => {
-                                                                                            retry_count += 1;
-                                                                                            
-                                                                                            if retry_count >= MAX_RETRIES {
-                                                                                                tracing::error!("Failed to generate preview after {} attempts for {:?}: {}", MAX_RETRIES, preview_path, e);
-                                                                                                
-                                                                                                // Create error preview data for better user feedback
-                                                                                                let error_preview = crate::services::preview::PreviewData {
-                                                                                                    file_path: preview_path.clone(),
-                                                                                                    format: crate::services::preview::SupportedFormat::Text,
-                                                                                                    thumbnail_path: None,
-                                                                                                    metadata: crate::services::preview::FileMetadata {
-                                                                                                        file_size: std::fs::metadata(&preview_path).map(|m| m.len()).unwrap_or(0),
-                                                                                                        created: std::fs::metadata(&preview_path).ok().and_then(|m| m.created().ok()),
-                                                                                                        modified: std::fs::metadata(&preview_path).ok().and_then(|m| m.modified().ok()),
-                                                                                                        width: None, height: None, duration: None, bit_rate: None,
-                                                                                                        sample_rate: None, codec: None, title: None, artist: None,
-                                                                                                        album: None, year: None, page_count: None, color_space: None,
-                                                                                                        compression: None, exif_data: None,
-                                                                                                    },
-                                                                                                    preview_content: crate::services::preview::PreviewContent::Unsupported {
-                                                                                                        file_type: preview_path.extension()
-                                                                                                            .and_then(|ext| ext.to_str())
-                                                                                                            .unwrap_or("unknown").to_string(),
-                                                                                                        reason: format!("Preview generation failed: {}", e),
-                                                                                                        suggested_action: Some("Check file permissions or try refreshing".to_string()),
-                                                                                                    },
-                                                                                                    generated_at: std::time::SystemTime::now(),
-                                                                                                };
-                                                                                                
-                                                                                                app_state_for_space_preview.preview_data.set(Some(error_preview));
-                                                                                                break;
-                                                                                            } else {
-                                                                                                tracing::warn!("Preview generation failed (attempt {}/{}), retrying: {:?}: {}", retry_count, MAX_RETRIES, preview_path, e);
-                                                                                                // Brief delay before retry
-                                                                                                tokio::time::sleep(std::time::Duration::from_millis(100 * retry_count as u64)).await;
-                                                                                            }
-                                                                                        }
-                                                                                    }
-                                                                                }
-                                                                            });
-                                                                            
-                                                                            evt.prevent_default();
-                                                                        }
-                                                                    }
-                                                                }
-                                                            },
-                                                            
-                                                            oncontextmenu: move |evt| {
-                                                                evt.prevent_default();
-                                                                let client_x = evt.data.client_coordinates().x as f64;
-                                                                let client_y = evt.data.client_coordinates().y as f64;
-                                                                
-                                                                context_menu_state.write().show_at(
-                                                                    client_x, client_y, Some(entry_clone_menu.clone())
-                                                                );
-                                                                
-                                                                tracing::info!("Context menu opened for: {}", entry_clone_menu.name);
-                                                            },
-                                                            
-                                                            ondragstart: move |evt| {
-                                                                let client_x = evt.data.client_coordinates().x as f64;
-                                                                let client_y = evt.data.client_coordinates().y as f64;
-                                                                
-                                                                let operation = DragOperation::from_modifiers(
-                                                                    evt.data.modifiers().ctrl(),
-                                                                    evt.data.modifiers().shift(),
-                                                                    evt.data.modifiers().alt()
-                                                                );
-                                                                
-                                                                drag_state_clone.write().start_drag(
-                                                                    vec![entry_clone_drag.clone()],
-                                                                    client_x,
-                                                                    client_y,
-                                                                    operation
-                                                                );
-                                                                // Removed redundant logging - already logged optimally in DragState::start_drag
-                                                            },
-                                                            
-                                                            // Hidden details for screen readers
-                                                            div {
-                                                                id: format!("file-details-{}", index),
-                                                                class: "sr-only",
-                                                                style: "position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden;",
-                                                                {format!("{} type: {}, last modified: recently", 
-                                                                    if entry.is_directory { "Directory" } else { "File" },
-                                                                    if entry.is_directory { "Folder" } else { "Document" }
-                                                                )}
-                                                            }
-                                                            
-                                                            div {
-                                                                style: "
-                                                                    display: inline-flex;
-                                                                    align-items: center;
-                                                                    margin-right: 8px;
-                                                                    pointer-events: none;
-                                                                    width: 16px;
-                                                                    height: 16px;
-                                                                ",
-                                                                "aria-hidden": "true",
-                                                                FileIconComponent {
-                                                                    file_name: entry.name.clone(),
-                                                                    extension: entry.path.extension().and_then(|ext| ext.to_str()).map(|s| s.to_string()),
-                                                                    is_directory: entry.is_directory,
-                                                                    is_expanded: false,
-                                                                    pack: Some(current_icon_pack)
-                                                                }
-                                                            }
-                                                            span { 
-                                                                style: "pointer-events: none;",
-                                                                {entry.name.clone()}
-                                                            }
-                                                            if entry.size > 0 {
-                                                                span {
-                                                                    style: "margin-left: 10px; color: var(--vscode-text-muted, #6a6a6a); font-size: 0.9em; pointer-events: none;",
-                                                                    "aria-hidden": "true",
-                                                                    "({entry.size} bytes)"
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                })
-                                            }
+                                                key: "entry-{index}-{entry.path.to_string_lossy()}",
+                                                style: "
+                                                    padding: 4px 8px;
+                                                    cursor: pointer;
+                                                    display: flex;
+                                                    align-items: center;
+                                                    color: var(--vscode-foreground, #cccccc);
+                                                ",
+
+                                                onclick: move |_| {
+                                                    tracing::info!("File clicked: {}", entry_clone.name);
+                                                    selected_item.set(Some(entry_clone.clone()));
+                                                    app_state_clone.set_file_tree_selection(Some(entry_clone.path.clone()));
+                                                },
+
+                                                FileIconComponent {
+                                                    file_name: entry.name.clone(),
+                                                    extension: entry.path.extension().and_then(|ext| ext.to_str()).map(|s| s.to_string()),
+                                                    is_directory: entry.is_directory,
+                                                    is_expanded: false,
+                                                    pack: Some(current_icon_pack)
+                                                }
+
+                                                span {
+                                                    style: "margin-left: 8px;",
+                                                    {entry.name.clone()}
                                                 }
                                             }
                                         }
-                                    } else {
-                                        div {
-                                            style: "padding: 20px; text-align: center; color: var(--vscode-text-secondary, #999999);",
-                                            "Directory is empty"
-                                        }
-                                    }
+                                    })
                                 }
                             } else {
                                 div {
                                     style: "padding: 20px; text-align: center; color: var(--vscode-text-secondary, #999999);",
-                                    "No folder selected"
+                                    "Directory is empty"
                                 }
                             }
+                        } else {
+                            div {
+                                style: "padding: 20px; text-align: center; color: var(--vscode-text-secondary, #999999);",
+                                "No folder selected"
+                            }
                         }
-                    }
                     }
                 }
                 

@@ -2,10 +2,50 @@
 /* DYNAMIC FONT VARIABLES - START */
 :root {
   --vscode-font-family: 'SF Pro Display', -apple-system, sans-serif !important;
-  --vscode-font-size: 17px !important;
   --vscode-font-size-normal: 17px !important;
+  --vscode-font-size: 17px !important;
 }
 /* DYNAMIC FONT VARIABLES - END */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1183,14 +1223,13 @@ body {
 /* File Tree Content */
 .file-tree-content {
   flex: 1;
-  overflow-y: auto; /* Enable scrolling only when needed */
+  overflow-y: auto; /* Enable vertical scrolling */
   overflow-x: hidden;
   padding: 0; /* Remove all padding to eliminate undefined margins */
   margin: 0; /* Explicitly remove any margins */
   font-family: var(--vscode-font-mono);
   font-size: var(--vscode-font-size-normal);
   min-height: 0; /* Allow shrinking */
-  height: 100%; /* Take full available height */
   display: flex;
   flex-direction: column;
 }
@@ -1260,25 +1299,45 @@ div[role="list"][style*="border"] {
 /* Ensure file-tree-panel always matches preview panel height */
 .file-tree-panel {
   height: 100% !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* Force consistent height across all file list content areas */
+.file-list-content,
+.working-file-tree {
+  height: 100% !important;
   min-height: 100% !important;
-  max-height: 100% !important;
+  flex: 1 !important;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
   box-sizing: border-box !important;
 }
 
-/* Force consistent height across all file list content areas */
-.file-list-content,
-.working-file-tree,
-.working-file-tree > div {
-  height: 100% !important;
-  min-height: 100% !important;
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow-y: auto !important;
-  box-sizing: border-box !important;
+/* Simple file tree - clean, minimal structure */
+.simple-file-tree {
+  background-color: var(--vscode-sidebar-background);
+  border-right: 1px solid var(--vscode-border);
+}
+
+.simple-file-tree .file-tree-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background-color 0.1s ease;
+}
+
+.simple-file-tree .file-tree-item:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.simple-file-tree .file-tree-item.selected {
+  background-color: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+  border-left-color: var(--vscode-accent);
 }
 
 /* File Tree Items */
