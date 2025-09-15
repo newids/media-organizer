@@ -45,6 +45,9 @@ fn Phase2AppContent() -> Element {
     let mut app_state_for_startup = app_state.clone();
     let file_entries = use_file_entries();
 
+    // Add a signal to track current directory for reactivity
+    let mut current_directory = use_signal(|| app_state.get_file_tree_root());
+
     // Get icon manager at component level
     let icon_manager = use_icon_manager();
     let current_icon_pack = icon_manager.settings.read().current_pack;
@@ -437,13 +440,17 @@ fn Phase2AppContent() -> Element {
                                         onclick: move |_| {
                                             let path_to_navigate = path_clone.clone();
                                             let mut app_state_nav = app_state_for_nav.clone();
-                                            
+                                            let mut current_dir_signal = current_directory.clone();
+                                            let path_for_signal = path_to_navigate.clone();
+
                                             tracing::info!("Navigating to path segment: {:?}", path_to_navigate);
-                                            
+
                                             spawn(async move {
                                                 match app_state_nav.handle_folder_change(path_to_navigate.clone()).await {
                                                     Ok(()) => {
                                                         tracing::info!("Successfully navigated to: {:?}", path_to_navigate);
+                                                        // Update the signal to trigger re-render
+                                                        current_dir_signal.set(Some(path_for_signal));
                                                     }
                                                     Err(e) => {
                                                         tracing::error!("Failed to navigate to {:?}: {}", path_to_navigate, e);
@@ -499,6 +506,8 @@ fn Phase2AppContent() -> Element {
                                         match app_state_for_folder_select.handle_folder_change(folder_path.clone()).await {
                                             Ok(()) => {
                                                 tracing::info!("Successfully loaded folder: {:?}", folder_path);
+                                                // Update the signal to trigger re-render
+                                                current_directory.set(Some(folder_path.clone()));
                                             }
                                             Err(e) => {
                                                 tracing::error!("Failed to load folder {:?}: {}", folder_path, e);
@@ -510,7 +519,8 @@ fn Phase2AppContent() -> Element {
                         }
                     } else {
                         // Show the loaded file tree
-                        if let Some(root_path) = app_state.get_file_tree_root() {
+                        // Use the signal value to ensure reactivity
+                        if let Some(root_path) = current_directory.read().clone().or_else(|| app_state.get_file_tree_root()) {
                             // Show loading state
                             if app_state.is_file_tree_directory_loading(&root_path) {
                                 div {
@@ -556,16 +566,20 @@ fn Phase2AppContent() -> Element {
                                                 ondoubleclick: {
                                                     let entry_for_dblclick = entry.clone();
                                                     let app_state_for_dblclick = app_state.clone();
+                                                    let mut current_dir_signal = current_directory.clone();
                                                     move |_| {
                                                         if entry_for_dblclick.is_directory {
                                                             tracing::info!("Double-clicked folder: {}", entry_for_dblclick.name);
                                                             let path_to_navigate = entry_for_dblclick.path.clone();
                                                             let mut app_state_async = app_state_for_dblclick.clone();
+                                                            let path_for_signal = path_to_navigate.clone();
 
                                                             spawn(async move {
                                                                 match app_state_async.handle_folder_change(path_to_navigate.clone()).await {
                                                                     Ok(()) => {
                                                                         tracing::info!("Successfully navigated to folder: {:?}", path_to_navigate);
+                                                                        // Update the signal to trigger re-render
+                                                                        current_dir_signal.set(Some(path_for_signal));
                                                                     }
                                                                     Err(e) => {
                                                                         tracing::error!("Failed to navigate to folder {:?}: {}", path_to_navigate, e);
