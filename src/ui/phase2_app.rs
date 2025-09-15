@@ -407,7 +407,7 @@ fn Phase2AppContent() -> Element {
                                     key: "path-segment-{index}",
                                     style: "display: flex; align-items: center;",
                                     
-                                    // Path separator (except for first segment)
+                                    // Path separator (skip between home icon and first segment)
                                     if index > 0 {
                                         span {
                                             style: "margin: 0 6px; color: var(--vscode-breadcrumb-foreground, #999999);",
@@ -551,6 +551,29 @@ fn Phase2AppContent() -> Element {
                                                     tracing::info!("File clicked: {}", entry_clone.name);
                                                     selected_item.set(Some(entry_clone.clone()));
                                                     app_state_clone.set_file_tree_selection(Some(entry_clone.path.clone()));
+                                                },
+
+                                                ondoubleclick: {
+                                                    let entry_for_dblclick = entry.clone();
+                                                    let app_state_for_dblclick = app_state.clone();
+                                                    move |_| {
+                                                        if entry_for_dblclick.is_directory {
+                                                            tracing::info!("Double-clicked folder: {}", entry_for_dblclick.name);
+                                                            let path_to_navigate = entry_for_dblclick.path.clone();
+                                                            let mut app_state_async = app_state_for_dblclick.clone();
+
+                                                            spawn(async move {
+                                                                match app_state_async.handle_folder_change(path_to_navigate.clone()).await {
+                                                                    Ok(()) => {
+                                                                        tracing::info!("Successfully navigated to folder: {:?}", path_to_navigate);
+                                                                    }
+                                                                    Err(e) => {
+                                                                        tracing::error!("Failed to navigate to folder {:?}: {}", path_to_navigate, e);
+                                                                    }
+                                                                }
+                                                            });
+                                                        }
+                                                    }
                                                 },
 
                                                 FileIconComponent {

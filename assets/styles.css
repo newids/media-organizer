@@ -1,11 +1,13 @@
 /* MediaOrganizer - VS Code Style Theme */
 /* DYNAMIC FONT VARIABLES - START */
 :root {
-  --vscode-font-family: 'SF Pro Display', -apple-system, sans-serif !important;
-  --vscode-font-size-normal: 17px !important;
   --vscode-font-size: 17px !important;
+  --vscode-font-size-normal: 17px !important;
+  --vscode-font-family: 'SF Pro Display', -apple-system, sans-serif !important;
 }
 /* DYNAMIC FONT VARIABLES - END */
+
+
 
 
 
@@ -1301,6 +1303,7 @@ div[role="list"][style*="border"] {
   height: 100% !important;
   overflow-y: auto !important;
   box-sizing: border-box !important;
+  user-select: none !important; /* Prevent text selection during drag */
 }
 
 /* Force consistent height across all file list content areas */
