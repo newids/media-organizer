@@ -18,6 +18,24 @@ use crate::ui::icon_packs::FileIconComponent;
 // use crate::ui::components::preview_panel::FileSystemEntry; // No longer needed - using DynamicContentPanel
 // use crate::ui::components::{VirtualFileTree};
 
+/// Format file size in human-readable format
+fn format_file_size(size: u64) -> String {
+    const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+    let mut size = size as f64;
+    let mut unit_index = 0;
+
+    while size >= 1024.0 && unit_index < UNITS.len() - 1 {
+        size /= 1024.0;
+        unit_index += 1;
+    }
+
+    if unit_index == 0 {
+        format!("{} {}", size as u64, UNITS[unit_index])
+    } else {
+        format!("{:.1} {}", size, UNITS[unit_index])
+    }
+}
+
 pub fn phase2_app() -> Element {
     rsx! {
         IconManagerProvider {
@@ -601,6 +619,15 @@ fn Phase2AppContent() -> Element {
                                                 span {
                                                     style: "margin-left: 8px;",
                                                     {entry.name.clone()}
+                                                }
+
+                                                // Display file size for files (not directories) if size > 0
+                                                if !entry.is_directory && entry.size > 0 {
+                                                    span {
+                                                        style: "margin-left: 10px; color: var(--vscode-text-secondary, #6a6a6a); font-size: 0.9em;",
+                                                        "aria-hidden": "true",
+                                                        {format_file_size(entry.size)}
+                                                    }
                                                 }
                                             }
                                         }
